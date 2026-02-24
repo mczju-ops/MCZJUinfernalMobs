@@ -114,7 +114,7 @@ public class PassiveMamaSkill implements Skill {
         }
 
         boolean baby = config.getBoolean("baby", true);
-        float noBabyScale = (float) config.getDouble("no-baby-scale", 0.5);
+        double noBabyScale = config.getDouble("no-baby-scale", 0.5);
 
         Location loc = parent.getLocation().clone();
         EntityType parentType = parent.getType();
@@ -152,11 +152,14 @@ public class PassiveMamaSkill implements Skill {
         }.runTask(ctx.getPlugin());
     }
 
-    /** 对无 baby 形态的实体尝试设置体型缩放（如 Paper 1.20.5+ setScale）。 */
-    private static void applyScale(LivingEntity entity, float scale) {
-        if (scale <= 0f || scale >= 1f) return;
+    /** 对无 baby 形态的实体用 GENERIC_SCALE 属性设置体型（1.20.5+）。用反射避免编译期依赖该枚举常量。 */
+    @SuppressWarnings("unchecked")
+    private static void applyScale(LivingEntity entity, double scale) {
+        if (scale <= 0.01 || scale > 10.0) return;
         try {
-            entity.getClass().getMethod("setScale", float.class).invoke(entity, scale);
+            Object scaleAttr = Enum.valueOf((Class<Enum>) Class.forName("org.bukkit.attribute.Attribute"), "GENERIC_SCALE");
+            Object inst = entity.getClass().getMethod("getAttribute", Class.forName("org.bukkit.attribute.Attribute")).invoke(entity, scaleAttr);
+            if (inst != null) inst.getClass().getMethod("setBaseValue", double.class).invoke(inst, scale);
         } catch (Throwable ignored) {}
     }
 

@@ -117,7 +117,12 @@ public class InfernalMobsPlugin extends JavaPlugin {
             api = rsp.getProvider();
             getLogger().info("已挂接 ItemCreator，炒鸡怪特殊掉落启用");
         } else if (lootConfig.isEnable()) {
-            getLogger().warning("未找到 ItemCreator（MCZJUItemCreator），loot.yml 特殊掉落不生效");
+            org.bukkit.plugin.Plugin ic = getServer().getPluginManager().getPlugin("MCZJUItemCreator");
+            if (ic != null && ic.isEnabled()) {
+                getLogger().warning("MCZJUItemCreator 已加载但未注册 ItemCreatorApi，loot 特殊掉落不生效。请在该插件的 onEnable 中调用 ServicesManager.register(ItemCreatorApi.class, 你的实现, plugin, ServicePriority.Normal)");
+            } else {
+                getLogger().warning("未找到插件 MCZJUItemCreator（或未启用），loot 特殊掉落不生效。请确保 plugin.yml 中 name 为 MCZJUItemCreator，且该插件在 onEnable 中注册 ItemCreatorApi");
+            }
         }
         lootService = new LootService(this, lootConfig, api);
     }

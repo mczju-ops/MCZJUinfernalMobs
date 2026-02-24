@@ -1,4 +1,4 @@
 # 炒鸡怪特殊掉落总开关
 # 各等级池子放在 loot/ 文件夹下：loot/1.yml、loot/2.yml、loot/3.yml … 每级一个文件，按权重抽
 enable: true
-replace-vanilla-drops: false
+replace-vanilla-drops: true

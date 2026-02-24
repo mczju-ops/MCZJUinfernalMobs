@@ -1,4 +1,5 @@
 com\infernalmobs\skill\Skill.class
+com\infernalmobs\util\MiniMessageHelper.class
 com\infernalmobs\service\RegionService.class
 com\infernalmobs\skill\impl\ActiveFireworkSkill.class
 com\infernalmobs\skill\impl\DualArcherSkill.class
