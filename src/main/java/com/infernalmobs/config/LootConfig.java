@@ -7,20 +7,22 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * loot.yml 解析：等级区间 + rewards 列表（id, amount, weight, commands），与 ItemCreator 配置风格一致。
+ * 掉落配置：根配置在 loot.yml，各等级池子在 loot/ 文件夹下，按等级拆分为 1.yml、2.yml、…，各自独立权重。
  */
 public class LootConfig {
 
     private final boolean enable;
     private final boolean replaceVanillaDrops;
-    private final List<LevelPoolEntry> levelPools;
+    private final File lootFolder;
+    private final java.util.Map<Integer, List<RewardEntry>> cache = new ConcurrentHashMap<>();
 
-    public LootConfig(boolean enable, boolean replaceVanillaDrops, List<LevelPoolEntry> levelPools) {
+    public LootConfig(boolean enable, boolean replaceVanillaDrops, File lootFolder) {
         this.enable = enable;
         this.replaceVanillaDrops = replaceVanillaDrops;
-        this.levelPools = levelPools != null ? new ArrayList<>(levelPools) : List.of();
+        this.lootFolder = lootFolder;
     }
 
     public boolean isEnable() {
@@ -31,24 +33,24 @@ public class LootConfig {
         return replaceVanillaDrops;
     }
 
-    /** 根据等级取该区间的 rewards 列表，未匹配则返回空列表。 */
+    /** 根据等级读取 loot/<level>.yml 的 rewards 列表，未找到文件则返回空列表。重载后会重新读文件。 */
     public List<RewardEntry> getRewardsForLevel(int level) {
-        for (LevelPoolEntry e : levelPools) {
-            if (level >= e.min && level <= e.max) return e.rewards;
-        }
-        return List.of();
+        return cache.computeIfAbsent(level, this::loadRewardsForLevel);
     }
 
-    public static final class LevelPoolEntry {
-        public final int min;
-        public final int max;
-        public final List<RewardEntry> rewards;
+    private List<RewardEntry> loadRewardsForLevel(int level) {
+        if (lootFolder == null || !lootFolder.isDirectory()) return List.of();
+        File f = new File(lootFolder, level + ".yml");
+        if (!f.isFile() || !f.exists()) return List.of();
+        YamlConfiguration yml = YamlConfiguration.loadConfiguration(f);
+        List<RewardEntry> out = new ArrayList<>();
+        parseRewards(yml.getList("rewards"), out);
+        return out;
+    }
 
-        public LevelPoolEntry(int min, int max, List<RewardEntry> rewards) {
-            this.min = min;
-            this.max = max;
-            this.rewards = rewards != null ? new ArrayList<>(rewards) : List.of();
-        }
+    /** 重载时清缓存，下次按等级取会重新读文件。 */
+    public void clearCache() {
+        cache.clear();
     }
 
     public static final class RewardEntry {
@@ -65,41 +67,26 @@ public class LootConfig {
         }
     }
 
-    public static LootConfig load(File file) {
-        if (file == null || !file.exists()) {
-            return new LootConfig(false, false, List.of());
+    /**
+     * 从插件数据目录加载：loot.yml 提供 enable、replace-vanilla-drops，loot/ 目录下 1.yml、2.yml… 为各等级池子。
+     */
+    public static LootConfig load(File dataFolder) {
+        if (dataFolder == null || !dataFolder.exists()) {
+            return new LootConfig(false, false, null);
         }
-        YamlConfiguration yml = YamlConfiguration.loadConfiguration(file);
-        boolean enable = yml.getBoolean("enable", false);
-        boolean replaceVanillaDrops = yml.getBoolean("replace-vanilla-drops", false);
-        List<LevelPoolEntry> levelPools = new ArrayList<>();
-        List<?> raw = yml.getList("level-pools");
-        if (raw != null) {
-            for (Object o : raw) {
-                LevelPoolEntry entry = parseLevelPoolEntry(o);
-                if (entry != null) levelPools.add(entry);
-            }
+        File rootFile = new File(dataFolder, "loot.yml");
+        boolean enable = false;
+        boolean replaceVanillaDrops = false;
+        if (rootFile.isFile()) {
+            YamlConfiguration yml = YamlConfiguration.loadConfiguration(rootFile);
+            enable = yml.getBoolean("enable", false);
+            replaceVanillaDrops = yml.getBoolean("replace-vanilla-drops", false);
         }
-        return new LootConfig(enable, replaceVanillaDrops, levelPools);
-    }
-
-    private static LevelPoolEntry parseLevelPoolEntry(Object o) {
-        int min = 1, max = 1;
-        List<RewardEntry> rewards = new ArrayList<>();
-        if (o instanceof ConfigurationSection sec) {
-            min = sec.getInt("min", 1);
-            max = sec.getInt("max", 1);
-            parseRewards(sec.getList("rewards"), rewards);
-            return new LevelPoolEntry(min, max, rewards);
+        File lootFolder = new File(dataFolder, "loot");
+        if (!lootFolder.exists() || !lootFolder.isDirectory()) {
+            lootFolder = null;
         }
-        if (o instanceof java.util.Map<?, ?> map) {
-            min = getIntFromMap(map, "min", 1);
-            max = getIntFromMap(map, "max", 1);
-            Object r = map.get("rewards");
-            if (r instanceof List<?> list) parseRewards(list, rewards);
-            return new LevelPoolEntry(min, max, rewards);
-        }
-        return null;
+        return new LootConfig(enable, replaceVanillaDrops, lootFolder);
     }
 
     private static void parseRewards(List<?> raw, List<RewardEntry> out) {

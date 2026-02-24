@@ -1,0 +1,11 @@
+# 等级 1 的掉落池，按 weight 权重抽取一条
+rewards:
+  - id: diamond
+    amount: 1
+    weight: 10
+    commands: []
+  - id: iron_ingot
+    amount: 5
+    weight: 50
+    commands:
+      - say {player} got iron!
