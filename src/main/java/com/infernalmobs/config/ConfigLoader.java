@@ -117,7 +117,7 @@ public class ConfigLoader {
         ConfigurationSection sec = config.getConfigurationSection("death-messages");
         if (sec == null) {
             return new DeathMessageConfig(false, "&finfernal", "拳头",
-                    Map.of(1, "&f初级"), List.of(), Map.of());
+                    Map.of(1, "&f初级"), List.of(), Map.of(), false, List.of());
         }
         boolean enable = sec.getBoolean("enable", true);
         String namePrefix = sec.getString("name-prefix", "&finfernal");
@@ -140,8 +140,11 @@ public class ConfigLoader {
         if (messages.isEmpty()) messages = List.of("&e<player> &f杀死了 &r<mob>&f!");
 
         Map<String, String> mobNames = loadMobNames();
+        boolean slainByEnable = sec.getBoolean("slain-by.enable", true);
+        List<String> slainByMessages = sec.getStringList("slain-by.messages");
+        if (slainByMessages.isEmpty()) slainByMessages = List.of("<gray><player></gray> was slain by <mob>");
         return new DeathMessageConfig(enable, namePrefix, defaultWeapon,
-                levelPrefixes, messages, mobNames);
+                levelPrefixes, messages, mobNames, slainByEnable, slainByMessages);
     }
 
     /** 从插件数据目录的 mob_name.yml 加载实体类型 → 中文显示名。 */

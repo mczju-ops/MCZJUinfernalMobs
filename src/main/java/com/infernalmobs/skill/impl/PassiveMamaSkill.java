@@ -6,6 +6,7 @@ import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Ageable;
 import org.bukkit.entity.EntityType;
@@ -134,15 +135,17 @@ public class PassiveMamaSkill implements Skill {
                 debugLog(ctx, "延迟任务执行: 开始生成 " + effCount + " 只 " + parentType + " 于 " + loc);
                 for (int i = 0; i < effCount; i++) {
                     LivingEntity child = (LivingEntity) loc.getWorld().spawnEntity(loc, parentType);
+                    boolean needScale = false;
                     if (baby) {
                         if (child instanceof Ageable ageable) {
                             ageable.setBaby();
                         } else {
-                            applyScale(child, noBabyScale);
+                            needScale = true;
                         }
                     }
                     int childLevel = effMin + ThreadLocalRandom.current().nextInt(effMax - effMin + 1);
                     factory.mechanizeWithLevel(child, loc, childLevel);
+                    if (needScale) applyScale(ctx, child, noBabyScale);
                 }
                 try {
                     loc.getWorld().playSound(loc, org.bukkit.Sound.ENTITY_ZOMBIE_INFECT, 0.8f, 0.8f);
@@ -152,15 +155,15 @@ public class PassiveMamaSkill implements Skill {
         }.runTask(ctx.getPlugin());
     }
 
-    /** 对无 baby 形态的实体用 GENERIC_SCALE 属性设置体型（1.20.5+）。用反射避免编译期依赖该枚举常量。 */
-    @SuppressWarnings("unchecked")
-    private static void applyScale(LivingEntity entity, double scale) {
+    /** 和 /attribute <实体> minecraft:generic.scale base set <值> 等价；API 里常量名为 Attribute.SCALE。 */
+    private static void applyScale(SkillContext ctx, LivingEntity entity, double scale) {
         if (scale <= 0.01 || scale > 10.0) return;
-        try {
-            Object scaleAttr = Enum.valueOf((Class<Enum>) Class.forName("org.bukkit.attribute.Attribute"), "GENERIC_SCALE");
-            Object inst = entity.getClass().getMethod("getAttribute", Class.forName("org.bukkit.attribute.Attribute")).invoke(entity, scaleAttr);
-            if (inst != null) inst.getClass().getMethod("setBaseValue", double.class).invoke(inst, scale);
-        } catch (Throwable ignored) {}
+        var attr = entity.getAttribute(Attribute.SCALE);
+        if (attr != null) {
+            attr.setBaseValue(scale);
+        } else {
+            debugLog(ctx, "applyScale: 实体无 SCALE 属性，实体=" + entity.getType());
+        }
     }
 
     private Set<EntityType> parseAllowedTypes(SkillConfig config) {

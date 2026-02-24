@@ -14,7 +14,9 @@ public record DeathMessageConfig(
         String defaultWeapon,
         Map<Integer, String> levelPrefixes,
         List<String> messages,
-        Map<String, String> mobNames
+        Map<String, String> mobNames,
+        boolean slainByEnable,
+        List<String> slainByMessages
 ) {
     public String getLevelPrefix(int level) {
         String s = levelPrefixes.get(level);

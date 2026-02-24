@@ -44,6 +44,7 @@ com\infernalmobs\controller\listener\CreeperExplodeListener.class
 com\infernalmobs\service\AffixRollService.class
 com\infernalmobs\config\RegionConfig.class
 com\infernalmobs\skill\impl\PassiveLifestealSkill.class
+com\infernalmobs\service\CombatService$2.class
 com\infernalmobs\model\MobState.class
 com\infernalmobs\config\SkillConfig.class
 com\infernalmobs\skill\impl\Stat1upSkill.class

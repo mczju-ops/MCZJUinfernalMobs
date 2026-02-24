@@ -51,6 +51,22 @@ public class DeathMessageService {
         }
     }
 
+    /** 玩家被炒鸡怪击杀时世界广播，模板用 <player> <mob>，mob 悬停显示词条。 */
+    public void broadcastSlainByIfEnabled(Player victim, LivingEntity killerMob, MobState mobState) {
+        DeathMessageConfig dm = config.getDeathMessageConfig();
+        if (dm == null || !dm.slainByEnable()) return;
+
+        Component mobComponent = buildMobComponentWithHover(killerMob, mobState, dm);
+        String template = pickRandom(dm.slainByMessages());
+        Component message = MiniMessageHelper.deserialize(template,
+                Placeholder.unparsed("player", victim.getName()),
+                Placeholder.component("mob", mobComponent));
+
+        for (Player p : victim.getWorld().getPlayers()) {
+            p.sendMessage(message);
+        }
+    }
+
     private Component buildMobComponentWithHover(LivingEntity entity, MobState mobState, DeathMessageConfig dm) {
         int level = mobState.getProfile().getLevel();
         String levelPrefix = dm.getLevelPrefix(level);

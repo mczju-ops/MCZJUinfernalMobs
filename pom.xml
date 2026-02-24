@@ -24,6 +24,7 @@
     </repositories>
 
     <dependencies>
+        <!-- 1.20.5+ 含 Attribute.GENERIC_SCALE，mama 技能体型缩放需此版本 -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>

@@ -200,7 +200,7 @@ public class CombatService {
     private volatile long currentTick = 0;
 
     /**
-     * 启动 tick 任务（用于 ACTIVE 技能 CD 计数等）。
+     * 启动 tick 任务（用于 ACTIVE 技能 CD 计数等），以及可选的定期不活跃清理任务。
      */
     public void startTickTask() {
         new BukkitRunnable() {
@@ -211,6 +211,7 @@ public class CombatService {
                     LivingEntity entity = findEntity(e.getKey());
                     if (entity == null || !entity.isValid()) {
                         mobStates.remove(e.getKey());
+                        lastActiveTick.remove(e.getKey());
                         continue;
                     }
                     tickRangeSkills(entity, e.getValue());
@@ -219,6 +220,40 @@ public class CombatService {
                 }
             }
         }.runTaskTimer(plugin, 20L, 1L);
+
+        var reg = config.getMobRegistryConfig();
+        if (reg != null && reg.cleanupEnabled() && cleanupTask == null) {
+            long intervalTicks = Math.max(20, reg.cleanupIntervalSeconds() * 20L);
+            cleanupTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    runCleanupCycle(reg.inactiveRadius(), reg.inactiveSeconds());
+                }
+            };
+            cleanupTask.runTaskTimer(plugin, intervalTicks, intervalTicks);
+        }
+    }
+
+    /** 清理周期：移除无效实体；无玩家附近则更新 lastActiveTick，超过 inactiveSeconds 无玩家则清除。 */
+    private void runCleanupCycle(double inactiveRadius, int inactiveSeconds) {
+        long inactiveTicks = inactiveSeconds * 20L;
+        for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
+            LivingEntity entity = findEntity(uuid);
+            if (entity == null || !entity.isValid()) {
+                unregisterMob(uuid);
+                continue;
+            }
+            Player nearby = findNearestPlayer(entity, inactiveRadius);
+            if (nearby != null) {
+                lastActiveTick.put(uuid, currentTick);
+                continue;
+            }
+            long last = lastActiveTick.getOrDefault(uuid, currentTick);
+            if (currentTick - last >= inactiveTicks) {
+                entity.remove();
+                unregisterMob(uuid);
+            }
+        }
     }
 
     /** 关服时调用：取消清理任务，并根据配置决定是否清除所有炒鸡怪 */

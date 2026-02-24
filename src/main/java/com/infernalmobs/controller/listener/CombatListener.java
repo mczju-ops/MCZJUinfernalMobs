@@ -16,6 +16,7 @@ import org.bukkit.entity.Projectile;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 
 /**
@@ -82,6 +83,25 @@ public class CombatListener implements Listener {
             }
         }
         combatService.unregisterMob(event.getEntity().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        if (victim.getLastDamageCause() instanceof EntityDamageByEntityEvent damageEvent) {
+            LivingEntity damager = null;
+            if (damageEvent.getDamager() instanceof LivingEntity le) {
+                damager = le;
+            } else if (damageEvent.getDamager() instanceof Projectile proj && proj.getShooter() instanceof LivingEntity shooter) {
+                damager = shooter;
+            }
+            if (damager != null) {
+                MobState state = combatService.getMobState(damager.getUniqueId());
+                if (state != null) {
+                    deathMessageService.broadcastSlainByIfEnabled(victim, damager, state);
+                }
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
