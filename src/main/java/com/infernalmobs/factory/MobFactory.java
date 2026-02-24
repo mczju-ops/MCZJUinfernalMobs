@@ -1,0 +1,151 @@
+package com.infernalmobs.factory;
+
+import com.infernalmobs.affix.Affix;
+import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.DeathMessageConfig;
+import com.infernalmobs.config.PresetConfig;
+import com.infernalmobs.config.RegionConfig;
+import com.infernalmobs.model.MobProfile;
+import com.infernalmobs.model.MobState;
+import com.infernalmobs.service.AffixRollService;
+import com.infernalmobs.service.CombatService;
+import com.infernalmobs.service.MobLevelService;
+import com.infernalmobs.service.RegionService;
+import com.infernalmobs.service.SkillService;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
+
+import java.util.List;
+
+/**
+ * 炒鸡怪工厂。根据生成位置匹配区域，计算等级、抽取词条或使用预设，装配技能。
+ */
+public class MobFactory {
+
+    private final ConfigLoader configLoader;
+    private final MobLevelService levelService;
+    private final AffixRollService affixRollService;
+    private final SkillService skillService;
+    private final CombatService combatService;
+    private final RegionService regionService;
+
+    public MobFactory(ConfigLoader configLoader,
+                      MobLevelService levelService,
+                      AffixRollService affixRollService,
+                      SkillService skillService,
+                      CombatService combatService,
+                      RegionService regionService) {
+        this.configLoader = configLoader;
+        this.levelService = levelService;
+        this.affixRollService = affixRollService;
+        this.skillService = skillService;
+        this.combatService = combatService;
+        this.regionService = regionService;
+    }
+
+    /**
+     * 对已生成的怪物进行炒鸡怪改造。
+     */
+    public void mechanize(LivingEntity entity, Location spawnLocation) {
+        RegionConfig region = regionService.getRegionAt(spawnLocation);
+        PresetConfig preset = null;
+        if (region != null) {
+            String worldName = spawnLocation.getWorld() != null ? spawnLocation.getWorld().getName() : "";
+            preset = regionService.rollPreset(region.getId(), worldName);
+        }
+
+        int level;
+        List<Affix> affixes;
+
+        if (preset != null) {
+            level = preset.getLevel();
+            affixes = affixRollService.fromPreset(preset);
+        } else {
+            level = levelService.computeLevel(spawnLocation, region);
+            int affixCount = affixRollService.computeAffixCount(level, region);
+            affixes = affixRollService.rollAffixes(level, affixCount, region);
+        }
+
+        MobProfile profile = new MobProfile(level, affixes);
+        MobState mobState = new MobState(entity.getUniqueId(), profile);
+
+        skillService.equip(entity, mobState, affixes, this);
+        combatService.applyStats(entity, mobState);
+        setMobDisplayName(entity, mobState);
+        combatService.registerMob(entity.getUniqueId(), mobState);
+    }
+
+    /**
+     * 使用固定等级炒鸡怪化实体（用于召唤物等）。
+     */
+    public void mechanizeWithLevel(LivingEntity entity, Location spawnLocation, int fixedLevel) {
+        RegionConfig region = regionService.getRegionAt(spawnLocation);
+        int affixCount = affixRollService.computeAffixCount(fixedLevel, region);
+        List<Affix> affixes = affixRollService.rollAffixes(fixedLevel, affixCount, region);
+
+        MobProfile profile = new MobProfile(fixedLevel, affixes);
+        MobState mobState = new MobState(entity.getUniqueId(), profile);
+
+        skillService.equip(entity, mobState, affixes, this);
+        combatService.applyStats(entity, mobState);
+        setMobDisplayName(entity, mobState);
+        combatService.registerMob(entity.getUniqueId(), mobState);
+    }
+
+    /**
+     * 使用固定技能 ID 列表炒鸡怪化实体（用于 ghost 等召唤物）。
+     */
+    public void mechanizeWithAffixes(LivingEntity entity, Location spawnLocation, int level, List<String> skillIds) {
+        List<Affix> affixes = affixRollService.buildAffixesFromIds(skillIds);
+        if (affixes.isEmpty()) return;
+
+        MobProfile profile = new MobProfile(level, affixes);
+        MobState mobState = new MobState(entity.getUniqueId(), profile);
+
+        skillService.equip(entity, mobState, affixes, this);
+        combatService.applyStats(entity, mobState);
+        setMobDisplayName(entity, mobState);
+        combatService.registerMob(entity.getUniqueId(), mobState);
+    }
+
+    /**
+     * 形态转换：用新类型替换旧实体，保留等级、词条与当前生命值。
+     */
+    public void morphEntity(LivingEntity oldEntity, MobState oldState, EntityType targetType, double health) {
+        if (oldEntity == null || !oldEntity.isValid() || oldState == null) return;
+        Location loc = oldEntity.getLocation();
+        List<Affix> affixes = oldState.getProfile().getAffixes();
+
+        combatService.unregisterMob(oldEntity.getUniqueId());
+        oldEntity.remove();
+
+        LivingEntity newEntity = (LivingEntity) loc.getWorld().spawnEntity(loc, targetType);
+        MobState newState = new MobState(newEntity.getUniqueId(), oldState.getProfile());
+
+        skillService.equip(newEntity, newState, affixes, this);
+        combatService.applyStats(newEntity, newState);
+        setMobDisplayName(newEntity, newState);
+
+        double maxHp = newEntity.getMaxHealth();
+        // 直接沿用变形前的绝对生命值，避免因为新生物血量上限不同而“回血”或“掉血”
+        newEntity.setHealth(Math.min(maxHp, Math.max(0.1, health)));
+        combatService.registerMob(newEntity.getUniqueId(), newState);
+    }
+
+    /**
+     * 设置怪物头顶显示名，格式：Lv 5 中级 Creeper
+     */
+    private void setMobDisplayName(LivingEntity entity, MobState mobState) {
+        DeathMessageConfig dm = configLoader.getDeathMessageConfig();
+        if (dm == null) return;
+
+        int level = mobState.getProfile().getLevel();
+        String levelPrefix = dm.getLevelPrefix(level);
+        String mobName = dm.getMobDisplayName(entity.getType());
+        String raw = "&fLv " + level + " " + levelPrefix + " " + mobName;
+        entity.setCustomName(ChatColor.translateAlternateColorCodes('&', raw));
+        entity.setCustomNameVisible(true);
+    }
+}

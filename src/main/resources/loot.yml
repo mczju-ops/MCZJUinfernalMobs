@@ -1,0 +1,36 @@
+# 炒鸡怪特殊掉落，格式与 ItemCreator 的 rewards 一致
+# 按等级区间匹配，每个区间内用 rewards 的 weight 做权重抽取，再调用 ItemCreatorApi.createItem(id, amount) 发放
+enable: true
+replace-vanilla-drops: false
+
+level-pools:
+  - min: 1
+    max: 10
+    rewards:
+      - id: diamond
+        amount: 1
+        weight: 10
+        commands: []
+      - id: iron_ingot
+        amount: 5
+        weight: 50
+        commands:
+          - say {player} got iron!
+  - min: 11
+    max: 30
+    rewards:
+      - id: emerald
+        amount: 2
+        weight: 20
+        commands: []
+      - id: diamond
+        amount: 3
+        weight: 15
+        commands: []
+  - min: 31
+    max: 100
+    rewards:
+      - id: netherite_ingot
+        amount: 1
+        weight: 5
+        commands: []

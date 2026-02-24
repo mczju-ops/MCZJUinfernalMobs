@@ -1,0 +1,430 @@
+# ===========================================
+# InfernalMobs - 炒鸡怪插件配置
+# ===========================================
+
+# 启用炒鸡怪刷怪的世界名称列表（无区域配置时的全局开关）
+enabled-worlds:
+  - world
+  - world_nether
+  - world_the_end
+
+# 全局默认（无区域匹配时使用）
+defaults:
+  level:
+    base: 1
+    scale: 100
+    max: 100
+    # 无区域匹配时：在此范围内随机，覆盖距离公式（世界名要与 regions 里一致）
+    fallback-min: 1
+    fallback-max: 15
+  affix:
+    count-formula: "level"  # "level" = n级n条词条, "tier" = 旧公式 min + level/tier-threshold
+    min: 1
+    max: 15              # n级n条时需 >= 等级上限，否则高等级会被截断（例如原 6 则 10 级只有 6 条）
+    tier-threshold: 15
+
+# 技能池权重（全局默认，区域可覆盖）
+skill-weights:
+  poisonous: 12
+  armoured: 8
+  blinding: 10
+  withering: 8
+  quicksand: 10
+  bullwark: 6
+  1up: 4
+  cloaked: 5
+  ender: 6
+  ghastly: 5
+  lifesteal: 8
+  sprint: 10
+  sapper: 8
+  webber: 6
+  molten: 8
+  archer: 6
+  necromancer: 5
+  firework: 4
+  ghost: 4
+  confusing: 8
+  thief: 6
+  tosser: 5
+  storm: 5
+  vengeance: 6
+  weakness: 8
+  berserk: 6
+  mama: 4
+  gravity: 5
+  mounted: 4
+  morph: 5
+  refrigerate: 6
+
+# ===========================================
+# 炒鸡怪注册表：索引与定期清理
+# ===========================================
+mob-registry:
+  cleanup-enabled: true           # 定期清理不活跃的炒鸡怪
+  cleanup-interval-seconds: 120   # 每 N 秒检查一次
+  inactive-radius: 64             # 判定活跃：此范围内有玩家
+  inactive-seconds: 300           # 超过 N 秒无玩家 nearby 则清除
+  kill-on-shutdown: false         # 关服时是否清除所有炒鸡怪
+
+# ===========================================
+# 击杀播报
+# ===========================================
+death-messages:
+  enable: true
+  name-prefix: "&fInfernal" 
+  default-weapon: "拳头"
+  level-prefixes:
+    "1": "&f初级"
+    "2": "&f初级"
+    "3": "&f初级"
+    "4": "&f中级"
+    "5": "&f中级"
+    "6": "&f中级"
+    "7": "&f高级"
+    "8": "&f高级"
+    "9": "&f高级"
+    "10": "&f炒鸡"
+    "11": "&9&l炒鸡&f"
+    "12": "&5&l炒鸡&f"
+    "13": "&6&l炒鸡&f"
+    "14": "&c&l炒鸡&f"
+    "15": "&4&k&lINFERNAL&f"
+  messages:
+    - "&e<player> &f杀死了 &r<mob>&f!"
+    - "&e<mob> &f死于 &e<player> &f之手!"
+    - "&e<player> &f干掉了一只 &r<mob>&f!"
+    - "&e<player> &f把一只 &r<mob> &f撕成了两半!"
+    - "&e<player> &f结束了 &r<mob> &f罪恶的一生"
+    - "&e<player> &f用 &r<weapon> &f消灭了 &r<mob>&f!"
+    - "&e<player> &f用 &r<weapon> &f埋葬了作恶多端的 &r<mob>&f!"
+    - "&r<mob> &f的生命被 &e<player> &f用 &r<weapon> &f终结!"
+    - "&e<player> &f向 &r<mob> &f展现了何为残酷!"
+    - "&r<mob> &f凄惨地死于 &e<player> &f的怒火!"
+
+
+# ===========================================
+# 区域配置：世界 + 两角点(x,y,z)框成的立方体
+# 怪物在区域内刷出时，使用该区域的等级范围与技能池
+# ===========================================
+regions:
+  # 出生点附近低等级区
+  spawn_zone:
+    world: world
+    min: { x: -200, y: 0, z: -200 }
+    max: { x: 200, y: 256, z: 200 }
+    priority: 10
+    level-min: 1
+    level-max: 10
+    skill-pool:
+      poisonous: 30
+      armoured: 25
+      blinding: 20
+      withering: 15
+      quicksand: 10
+
+  # 下界堡垒高等级区
+  nether_fortress:
+    world: world_nether
+    min: { x: -2000, y: 50, z: -2000 }
+    max: { x: 2000, y: 120, z: 2000 }
+    priority: 5
+    level-min: 20
+    level-max: 50
+    skill-pool:
+      poisonous: 30
+      armoured: 25
+      ghastly: 20
+      archer: 15
+      firework: 10
+      molten: 8
+
+# ===========================================
+# 预设怪物：固定技能组合，仅在指定区域有概率刷新
+# ===========================================
+presets:
+  infernal_archer:
+    display: "&cInfernal Archer"
+    level: 25
+    skills:
+      - { id: archer, level: 5 }
+      - { id: ghastly, level: 3 }
+      - { id: armoured, level: 2 }
+    spawn:
+      regions: [nether_fortress]
+      weight: 0.05
+
+  explosive_zombie:
+    display: "&4Explosive Zombie"
+    level: 15
+    skills:
+      - { id: ghastly, level: 3 }
+      - { id: molten, level: 2 }
+    spawn:
+      regions: [spawn_zone, nether_fortress]
+      weight: 0.03
+
+# ===========================================
+# 技能参数 (所有技能参数集中在此，便于调整)
+# ===========================================
+skills:
+  poisonous:
+    type: PASSIVE
+    display: "&2Poison"
+    duration-ticks: 200  # 10s
+    amplifier: 1         # 中毒II
+
+  blinding:
+    type: PASSIVE
+    display: "&8Blinding"
+    duration-ticks: 60   # 3s
+    amplifier: 0
+
+  withering:
+    type: PASSIVE
+    display: "&5Wither"
+    duration-ticks: 180  # 9s
+    amplifier: 1         # 凋零II
+
+  quicksand:
+    type: PASSIVE
+    display: "&eQuicksand"
+    duration-ticks: 180  # 9s
+    amplifier: 1         # 缓慢II
+
+  # ----- 被动/诞生时 (STAT) -----
+  armoured:
+    type: STAT
+    display: "&bArmoured"
+    armor-tier: 3        # 0=皮革 1=金 2=铁 3=钻石 4=下界合金；Lv11+ 时钻石可自动升为合金
+    resistance-duration-ticks: -1  # -1 = 无限时长
+    resistance-amplifier: 1  # 抗性II 不可穿盔甲时
+
+  bullwark:
+    type: STAT
+    display: "&6Bulwark"
+    duration-ticks: -1   
+    amplifier: 2  # 抗性III
+
+  1up:
+    type: STAT
+    display: "&a1up"
+    hp-threshold: 8
+    sound: "BLOCK_BREWING_STAND_BREW"
+
+  cloaked:
+    type: STAT
+    display: "&7Cloaked"
+    duration-ticks: -1   
+
+  ender:
+    type: DUAL
+    display: "&5Ender"
+    cooldown-ticks: 60
+    chance: 0.5
+    distance: 2
+
+  ghastly:
+    type: RANGE
+    display: "&cGhastly"
+    range: 12
+    chance: 0.03
+    cooldown-ticks: 80
+    damage: 8
+    velocity: 1.2
+    fire-ticks: 60
+
+  lifesteal:
+    type: PASSIVE
+    display: "&cLifesteal"
+    duration-ticks: 80   # 4s
+    heal-per-second: 1
+
+  sprint:
+    type: STAT
+    display: "&eSprint"
+    range: 16
+    amplifier: 1   # Speed II
+
+  sapper:
+    type: PASSIVE
+    display: "&6Sapper"
+    duration-ticks: 500  # 25s
+    amplifier: 1         # 饥饿II
+
+  webber:
+    type: DUAL
+    display: "&8Webber"
+    cooldown-ticks: 20
+    chance: 0.5
+    sound: "BLOCK_COBWEB_PLACE"  # 蜘蛛网放置音效
+
+  molten:
+    type: PASSIVE
+    display: "&4Molten"
+    fire-ticks: 60  # 3s 燃烧
+
+  archer:
+    type: DUAL
+    display: "&aArcher"
+    cooldown-ticks: 40
+    chance: 0.5
+    arrow-count: 3
+    speed: 3.0
+    spread: 0.1
+    spread-config: 6
+    sound: "ENTITY_ARROW_SHOOT"
+
+  necromancer:
+    type: RANGE
+    display: "&5Necromancer"
+    range: 14
+    chance: 0.025
+    cooldown-ticks: 100
+    velocity: 1.0
+
+  firework:
+    type: DUAL
+    display: "&6Firework"
+    cooldown-ticks: 20
+    chance: 0.5      # 触发概率，1.0 为必触发
+    power: 1
+    launch-speed: 1
+    trail: true
+    flicker: false
+
+  ghost:
+    type: DEATH
+    display: "&7Ghost"
+    summon-level: 4   
+    health: 40
+    float-speed: 0.3
+
+  confusing:
+    type: PASSIVE
+    display: "&dConfusing"
+    duration-ticks: 80   # 4s
+    amplifier: 2        # 反胃III
+
+
+  thief:
+    type: DUAL
+    display: "&6Thief"
+    cooldown-ticks: 80
+    chance: 0.5
+    sound: "entity.wind_charge.throw"
+
+  tosser:
+    type: RANGE
+    display: "&eTosser"
+    range: 6
+    chance: 0.03
+    cooldown-ticks: 100
+    force: 4       # 拉向怪物的力度
+    upward: 0.2      # 竖直分量
+    sound: "entity.breeze.jump"
+
+  storm:
+    type: DUAL
+    display: "&9Storm"
+    cooldown-ticks: 0    # 参考原版：每次受击/攻击都 roll，无冷却
+    chance: 0.22         # 约 2/9，与原版一致
+    damage: 5
+
+  vengeance:
+    type: PASSIVE
+    display: "&cVengeance"
+    chance: 0.5
+    damage: 10
+    sound: "entity.breeze.deflect"
+
+  weakness:
+    type: DUAL
+    display: "&7Weakness"
+    cooldown-ticks: 80
+    duration-ticks: 500  # 25s
+    amplifier: 1         # 虚弱II
+
+  berserk:
+    type: ACTIVE
+    display: "&4Berserk"
+    cooldown-ticks: 60
+    self-damage: 1
+    bonus-damage: 5
+    sound: "ENTITY_PHANTOM_BITE"
+
+  mama:
+    type: PASSIVE
+    display: "&dMama"
+    chance: 0.15
+    cooldown-ticks: 40   # 2 秒内最多触发一次
+    count: 4
+    baby: true
+    level-min: 1         # 子怪等级区间
+    level-max: 10
+    # 仅以下类型的怪物可触发 mama（参考原版；留空则不限制类型）
+    allowed-types:
+      - COW
+      - MOOSHROOM
+      - SHEEP
+      - PIG
+      - CHICKEN
+      - WOLF
+      - ZOMBIE
+      - PIGLIN
+      - HORSE
+      - VILLAGER
+      - OCELOT
+      - SKELETON
+      - CREEPER
+      - SPIDER
+      - CAVE_SPIDER
+      - WITCH
+      - ENDERMAN
+
+  gravity:
+    type: RANGE
+    display: "&bGravity"
+    range: 8
+    chance: 0.02
+    cooldown-ticks: 100
+    duration-ticks: 100   # 漂浮 5s
+    amplifier: 0
+    sound: "ENTITY_SHULKER_SHOOT"
+
+  mounted:
+    type: STAT
+    display: "&6Mounted"
+    # 坐骑类型：列表则随机一种。不写马则不会骑马，只骑下面这些
+    # 可选：SPIDER, WOLF, PIG, STRIDER, SKELETON_HORSE, ZOMBIE_HORSE, HORSE, INFERNAL 等
+    mount-types:
+      - INFERNAL
+    level-min: 1
+    level-max: 10
+
+  morph:
+    type: DUAL
+    display: "&5Morph"
+    cooldown-ticks: 120
+    chance: 0.15
+    sound: "block.ender_chest.open"   # 触发成功播放，变调
+    sound-volume: 0.6
+    sound-pitch: 0.7                 # 变调（小于 1 偏低，大于 1 偏高）
+    morph-types:
+      - ZOMBIE
+      - SKELETON
+      - CREEPER
+      - SPIDER
+      - CAVE_SPIDER
+      - WITCH
+      - HUSK
+      - STRAY
+      - DROWNED
+      - ENDERMAN
+
+  refrigerate:
+    type: DUAL
+    display: "&bRefrigerate"
+    cooldown-ticks: 80
+    chance: 0.25
+    freeze-ticks: 100   # 5s 冰冻
