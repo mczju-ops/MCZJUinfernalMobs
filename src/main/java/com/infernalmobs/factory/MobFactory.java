@@ -5,6 +5,7 @@ import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.DeathMessageConfig;
 import com.infernalmobs.config.PresetConfig;
 import com.infernalmobs.config.RegionConfig;
+import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobProfile;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.AffixRollService;
@@ -12,12 +13,16 @@ import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.MobLevelService;
 import com.infernalmobs.service.RegionService;
 import com.infernalmobs.service.SkillService;
-import org.bukkit.ChatColor;
+import com.infernalmobs.util.MiniMessageHelper;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 炒鸡怪工厂。根据生成位置匹配区域，计算等级、抽取词条或使用预设，装配技能。
@@ -134,8 +139,10 @@ public class MobFactory {
         combatService.registerMob(newEntity.getUniqueId(), newState);
     }
 
+    private static final String NAME_TEMPLATE = "<white>Lv <level> <level_prefix> <mob_name></white>";
+
     /**
-     * 设置怪物头顶显示名，格式：Lv 5 中级 Creeper
+     * 设置怪物头顶显示名（MiniMessage），悬停显示词条列表。
      */
     private void setMobDisplayName(LivingEntity entity, MobState mobState) {
         DeathMessageConfig dm = configLoader.getDeathMessageConfig();
@@ -144,8 +151,27 @@ public class MobFactory {
         int level = mobState.getProfile().getLevel();
         String levelPrefix = dm.getLevelPrefix(level);
         String mobName = dm.getMobDisplayName(entity.getType());
-        String raw = "&fLv " + level + " " + levelPrefix + " " + mobName;
-        entity.setCustomName(ChatColor.translateAlternateColorCodes('&', raw));
+        Component nameComponent = MiniMessageHelper.deserialize(NAME_TEMPLATE,
+                Placeholder.unparsed("level", String.valueOf(level)),
+                Placeholder.parsed("level_prefix", levelPrefix),
+                Placeholder.unparsed("mob_name", mobName));
+
+        List<Component> affixLines = mobState.getProfile().getAffixes().stream()
+                .map(a -> {
+                    SkillConfig sc = configLoader.getSkillConfig(a.getSkillId());
+                    String display = sc != null ? sc.getDisplay() : a.getSkillId();
+                    return MiniMessageHelper.fromLegacy(display);
+                })
+                .collect(Collectors.toList());
+        if (!affixLines.isEmpty()) {
+            Component hoverLine = Component.text("词条：");
+            for (int i = 0; i < affixLines.size(); i++) {
+                if (i > 0) hoverLine = hoverLine.append(Component.text(", "));
+                hoverLine = hoverLine.append(affixLines.get(i));
+            }
+            nameComponent = nameComponent.hoverEvent(HoverEvent.showText(hoverLine));
+        }
+        entity.customName(nameComponent);
         entity.setCustomNameVisible(true);
     }
 }

@@ -11,6 +11,7 @@ import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Zombie;
+import com.infernalmobs.util.MiniMessageHelper;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
@@ -69,7 +70,7 @@ public class DeathGhostSkill implements Skill {
         ItemStack skull = new ItemStack(evil ? Material.WITHER_SKELETON_SKULL : Material.SKELETON_SKULL, 1);
         ItemMeta skullMeta = skull.getItemMeta();
         if (skullMeta != null) {
-            skullMeta.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', "&fGhost Head"));
+            skullMeta.displayName(MiniMessageHelper.deserialize("<white>Ghost Head"));
             skull.setItemMeta(skullMeta);
         }
 

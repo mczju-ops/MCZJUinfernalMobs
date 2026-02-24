@@ -72,35 +72,37 @@ mob-registry:
 # ===========================================
 death-messages:
   enable: true
-  name-prefix: "&fInfernal" 
+  name-prefix: "<white>Infernal"
   default-weapon: "拳头"
+  # MiniMessage 格式，用于头顶名与播报中的等级前缀
   level-prefixes:
-    "1": "&f初级"
-    "2": "&f初级"
-    "3": "&f初级"
-    "4": "&f中级"
-    "5": "&f中级"
-    "6": "&f中级"
-    "7": "&f高级"
-    "8": "&f高级"
-    "9": "&f高级"
-    "10": "&f炒鸡"
-    "11": "&9&l炒鸡&f"
-    "12": "&5&l炒鸡&f"
-    "13": "&6&l炒鸡&f"
-    "14": "&c&l炒鸡&f"
-    "15": "&4&k&lINFERNAL&f"
+    "1": "<white>初级"
+    "2": "<white>初级"
+    "3": "<white>初级"
+    "4": "<white>中级"
+    "5": "<white>中级"
+    "6": "<white>中级"
+    "7": "<white>高级"
+    "8": "<white>高级"
+    "9": "<white>高级"
+    "10": "<white>炒鸡"
+    "11": "<blue><bold>炒鸡</bold></blue><white>"
+    "12": "<dark_purple><bold>炒鸡</bold></dark_purple><white>"
+    "13": "<gold><bold>炒鸡</bold></gold><white>"
+    "14": "<red><bold>炒鸡</bold></red><white>"
+    "15": "<dark_red><obfuscated><bold>INFERNAL</bold></obfuscated></dark_red><white>"
+  # MiniMessage 模板，占位符：<player> <weapon> <mob>（mob 悬停显示词条）
   messages:
-    - "&e<player> &f杀死了 &r<mob>&f!"
-    - "&e<mob> &f死于 &e<player> &f之手!"
-    - "&e<player> &f干掉了一只 &r<mob>&f!"
-    - "&e<player> &f把一只 &r<mob> &f撕成了两半!"
-    - "&e<player> &f结束了 &r<mob> &f罪恶的一生"
-    - "&e<player> &f用 &r<weapon> &f消灭了 &r<mob>&f!"
-    - "&e<player> &f用 &r<weapon> &f埋葬了作恶多端的 &r<mob>&f!"
-    - "&r<mob> &f的生命被 &e<player> &f用 &r<weapon> &f终结!"
-    - "&e<player> &f向 &r<mob> &f展现了何为残酷!"
-    - "&r<mob> &f凄惨地死于 &e<player> &f的怒火!"
+    - "<yellow><player></yellow> <white>杀死了 </white><mob> <white>!</white>"
+    - "<mob> <white>死于 </white><yellow><player></yellow> <white>之手!</white>"
+    - "<yellow><player></yellow> <white>干掉了一只 </white><mob><white>!</white>"
+    - "<yellow><player></yellow> <white>把一只 </white><mob> <white>撕成了两半!</white>"
+    - "<yellow><player></yellow> <white>结束了 </white><mob> <white>罪恶的一生</white>"
+    - "<yellow><player></yellow> <white>用 </white><weapon> <white>消灭了 </white><mob><white>!</white>"
+    - "<yellow><player></yellow> <white>用 </white><weapon> <white>埋葬了作恶多端的 </white><mob><white>!</white>"
+    - "<mob> <white>的生命被 </white><yellow><player></yellow> <white>用 </white><weapon> <white>终结!</white>"
+    - "<yellow><player></yellow> <white>向 </white><mob> <white>展现了何为残酷!</white>"
+    - "<mob> <white>凄惨地死于 </white><yellow><player></yellow> <white>的怒火!</white>"
 
 
 # ===========================================
@@ -358,10 +360,18 @@ skills:
     display: "&dMama"
     chance: 0.15
     cooldown-ticks: 40   # 2 秒内最多触发一次
-    count: 4
-    baby: true
-    level-min: 1         # 子怪等级区间
-    level-max: 10
+    count-by-tier: true  # true=按档位数量：初级1只/中级2只/高级3只/炒鸡4只；false=用下面 count
+    count: 4             # 仅当 count-by-tier 为 false 时生效
+    baby: true           # 有幼体的设幼体；无幼体的用 no-baby-scale 缩小体型
+    no-baby-scale: 0.5   # 无 baby 形态的怪生成时体型缩放（需服务端支持如 Paper 1.20.5+）
+    # 子怪等级：不写 tier-level-ranges 时按档位默认 初级1-3/中级2-5/高级3-7/炒鸡4-10；也可用 level-min/level-max 统一区间
+    # tier-level-ranges:
+    #   1: { min: 1, max: 3 }
+    #   2: { min: 2, max: 5 }
+    #   3: { min: 3, max: 7 }
+    #   4: { min: 4, max: 10 }
+    level-min: -1
+    level-max: -1
     # 仅以下类型的怪物可触发 mama（参考原版；留空则不限制类型）
     allowed-types:
       - COW

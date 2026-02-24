@@ -4,7 +4,9 @@ import com.infernalmobs.InfernalMobsPlugin;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.service.CombatService;
-import org.bukkit.ChatColor;
+import com.infernalmobs.util.MiniMessageHelper;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -24,6 +26,14 @@ import java.util.stream.Collectors;
  * /im stats
  */
 public class InfernalMobCommand implements CommandExecutor, TabCompleter {
+
+    private static void send(CommandSender sender, String miniMessage) {
+        sender.sendMessage(MiniMessageHelper.miniMessage().deserialize(miniMessage));
+    }
+
+    private static void send(CommandSender sender, String template, TagResolver... resolvers) {
+        sender.sendMessage(MiniMessageHelper.deserialize(template, resolvers));
+    }
 
     private static final Set<EntityType> SPAWNABLE_TYPES = Set.of(
             EntityType.ZOMBIE, EntityType.SKELETON, EntityType.CREEPER, EntityType.SPIDER,
@@ -65,42 +75,42 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private boolean handleDebug(CommandSender sender, String[] args) {
         if (args.length < 2) {
             boolean on = configLoader.isDebug();
-            sender.sendMessage(ChatColor.GOLD + "[炒鸡怪] " + ChatColor.WHITE + "调试模式: " + (on ? ChatColor.GREEN + "开" : ChatColor.RED + "关"));
+            send(sender, "<gold>[炒鸡怪]</gold> <white>调试模式: </white><state>", Placeholder.parsed("state", on ? "<green>开" : "<red>关"));
             return true;
         }
         String v = args[1].toLowerCase();
         if ("on".equals(v) || "true".equals(v) || "1".equals(v)) {
             configLoader.setDebug(true);
-            sender.sendMessage(ChatColor.GREEN + "已开启调试模式，控制台将输出技能关键节点日志");
+            send(sender, "<green>已开启调试模式，控制台将输出技能关键节点日志");
             return true;
         }
         if ("off".equals(v) || "false".equals(v) || "0".equals(v)) {
             configLoader.setDebug(false);
-            sender.sendMessage(ChatColor.YELLOW + "已关闭调试模式");
+            send(sender, "<yellow>已关闭调试模式");
             return true;
         }
-        sender.sendMessage(ChatColor.RED + "用法: /im debug [on|off]");
+        send(sender, "<red>用法: /im debug [on|off]");
         return true;
     }
 
     private boolean handleSpawn(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + "该指令仅玩家可执行");
+            send(sender, "<red>该指令仅玩家可执行");
             return true;
         }
         if (args.length < 2) {
-            sender.sendMessage(ChatColor.RED + "用法: /im spawn <实体类型> [等级] [技能1,技能2,...]");
+            send(sender, "<red>用法: /im spawn <实体类型> [等级] [技能1,技能2,...]");
             return true;
         }
         EntityType type;
         try {
             type = EntityType.valueOf(args[1].toUpperCase().replace(" ", "_"));
         } catch (IllegalArgumentException e) {
-            sender.sendMessage(ChatColor.RED + "未知实体类型: " + args[1]);
+            send(sender, "<red>未知实体类型: <type>", Placeholder.unparsed("type", args[1]));
             return true;
         }
         if (!SPAWNABLE_TYPES.contains(type) || !type.isSpawnable() || !type.isAlive()) {
-            sender.sendMessage(ChatColor.RED + "无法生成该类型的炒鸡怪: " + type.name());
+            send(sender, "<red>无法生成该类型的炒鸡怪: <type>", Placeholder.unparsed("type", type.name()));
             return true;
         }
         int level = 5;
@@ -117,13 +127,13 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         }
         List<String> invalid = validateSkillIds(skillIds);
         if (!invalid.isEmpty()) {
-            sender.sendMessage(ChatColor.RED + "未知技能: " + String.join(", ", invalid));
+            send(sender, "<red>未知技能: <skills>", Placeholder.unparsed("skills", String.join(", ", invalid)));
             return true;
         }
         Location loc = getSpawnLocation(player);
         World world = loc.getWorld();
         if (world == null) {
-            sender.sendMessage(ChatColor.RED + "无法获取世界");
+            send(sender, "<red>无法获取世界");
             return true;
         }
         LivingEntity entity = (LivingEntity) world.spawnEntity(loc, type);
@@ -133,7 +143,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             mobFactory.mechanizeWithAffixes(entity, loc, level, skillIds);
         }
         String skillsStr = skillIds.isEmpty() ? "" : " [" + String.join(", ", skillIds) + "]";
-        sender.sendMessage(ChatColor.GREEN + "已生成炒鸡怪: " + type.name() + " Lv" + level + skillsStr);
+        send(sender, "<green>已生成炒鸡怪: <type> Lv<level><skills>", Placeholder.unparsed("type", type.name()), Placeholder.unparsed("level", String.valueOf(level)), Placeholder.unparsed("skills", skillsStr));
         return true;
     }
 
@@ -174,32 +184,32 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleStats(CommandSender sender) {
         int count = combatService.getTrackedCount();
-        sender.sendMessage(ChatColor.GOLD + "[炒鸡怪] " + ChatColor.WHITE + "当前追踪数: " + count);
+        send(sender, "<gold>[炒鸡怪]</gold> <white>当前追踪数: </white><count>", Placeholder.unparsed("count", String.valueOf(count)));
         return true;
     }
 
     private boolean handleReload(CommandSender sender) {
         if (!sender.hasPermission("infernalmobs.reload") && sender instanceof Player) {
-            sender.sendMessage(ChatColor.RED + "你没有权限执行该指令");
+            send(sender, "<red>你没有权限执行该指令");
             return true;
         }
         try {
             configLoader.reload();
             if (plugin != null) plugin.reloadLootConfig();
-            sender.sendMessage(ChatColor.GREEN + "[炒鸡怪] 已重新加载 config.yml 与 loot.yml（技能参数、权重、区域、等级掉落池）");
+            send(sender, "<green>[炒鸡怪] 已重新加载 config.yml 与 loot.yml（技能参数、权重、区域、等级掉落池）");
         } catch (Exception e) {
-            sender.sendMessage(ChatColor.RED + "[炒鸡怪] 重载失败: " + e.getMessage());
+            send(sender, "<red>[炒鸡怪] 重载失败: <err>", Placeholder.unparsed("err", e.getMessage()));
         }
         return true;
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage(ChatColor.GOLD + "=== InfernalMobs 炒鸡怪指令 ===");
-        sender.sendMessage(ChatColor.YELLOW + "/im spawn <实体类型> [等级] [技能1,技能2,...]" + ChatColor.GRAY + " - 在面前生成炒鸡怪");
-        sender.sendMessage(ChatColor.GRAY + "  例: /im spawn zombie 5  或  /im spawn creeper 10 poisonous,armoured,ender");
-        sender.sendMessage(ChatColor.YELLOW + "/im stats" + ChatColor.GRAY + " - 查看当前追踪的炒鸡怪数量");
-        sender.sendMessage(ChatColor.YELLOW + "/im debug [on|off]" + ChatColor.GRAY + " - 调试模式开关，控制台输出技能日志");
-        sender.sendMessage(ChatColor.YELLOW + "/im reload" + ChatColor.GRAY + " - 从 config.yml 重新加载技能参数等配置");
+        send(sender, "<gold>=== InfernalMobs 炒鸡怪指令 ===</gold>");
+        send(sender, "<yellow>/im spawn <实体类型> [等级] [技能1,技能2,...]</yellow> <gray>- 在面前生成炒鸡怪</gray>");
+        send(sender, "<gray>  例: /im spawn zombie 5  或  /im spawn creeper 10 poisonous,armoured,ender</gray>");
+        send(sender, "<yellow>/im stats</yellow> <gray>- 查看当前追踪的炒鸡怪数量</gray>");
+        send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试模式开关，控制台输出技能日志</gray>");
+        send(sender, "<yellow>/im reload</yellow> <gray>- 从 config.yml 重新加载技能参数等配置</gray>");
     }
 
     @Override

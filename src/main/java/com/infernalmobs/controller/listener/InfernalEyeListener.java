@@ -1,10 +1,13 @@
 package com.infernalmobs.controller.listener;
 
 import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.util.Keys;
-import org.bukkit.ChatColor;
+import com.infernalmobs.util.MiniMessageHelper;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.World;
@@ -20,9 +23,6 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * 全知之眼：右键射线判定瞄准实体，若为炒鸡怪则显示其技能。
  * 通过 PDC infernal_item 或 mi_id=infernal_eye 识别物品（兼容 ItemCreator magicItemId）。
@@ -31,6 +31,7 @@ public class InfernalEyeListener implements Listener {
 
     private static final String INFERNAL_EYE_ID = "infernal_eye";
     private static final double RAY_DISTANCE = 20;
+    private static final String EYE_LINE_TEMPLATE = "<gold>Lv<level> <type></gold> <white>| </white><skills>";
 
     private final ConfigLoader configLoader;
     private final CombatService combatService;
@@ -59,27 +60,31 @@ public class InfernalEyeListener implements Listener {
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_EYE_DEATH, 1f, 1f);
         LivingEntity target = raycastTarget(player);
         if (target == null) {
-            player.sendMessage(ChatColor.GRAY + "未瞄准任何生物");
+            player.sendMessage(MiniMessageHelper.deserialize("<gray>未瞄准任何生物"));
             return;
         }
 
         MobState mobState = combatService.getMobState(target.getUniqueId());
         if (mobState == null) {
-            player.sendMessage(ChatColor.GRAY + target.getType().name() + " 不是炒鸡怪");
+            player.sendMessage(MiniMessageHelper.deserialize("<gray><type> 不是炒鸡怪", Placeholder.unparsed("type", target.getType().name())));
             return;
         }
 
         int level = mobState.getProfile().getLevel();
         var affixes = mobState.getProfile().getAffixes();
-        List<String> skillDisplays = new ArrayList<>();
-        for (var affix : affixes) {
-            var sc = configLoader.getSkillConfig(affix.getSkillId());
-            String display = sc != null ? ChatColor.translateAlternateColorCodes('&', sc.getDisplay()) : affix.getSkillId();
-            skillDisplays.add(display);
+        Component skillsComponent = Component.empty();
+        for (int i = 0; i < affixes.size(); i++) {
+            if (i > 0) skillsComponent = skillsComponent.append(Component.text(", "));
+            var affix = affixes.get(i);
+            SkillConfig sc = configLoader.getSkillConfig(affix.getSkillId());
+            String display = sc != null ? sc.getDisplay() : affix.getSkillId();
+            skillsComponent = skillsComponent.append(MiniMessageHelper.fromLegacy(display));
         }
-        String skillsStr = String.join(ChatColor.WHITE + ", ", skillDisplays);
-        player.sendMessage(ChatColor.GOLD + "Lv" + level + " " + target.getType().name()
-                + ChatColor.WHITE + " | " + skillsStr);
+        Component line = MiniMessageHelper.deserialize(EYE_LINE_TEMPLATE,
+                Placeholder.unparsed("level", String.valueOf(level)),
+                Placeholder.unparsed("type", target.getType().name()),
+                Placeholder.component("skills", skillsComponent));
+        player.sendMessage(line);
     }
 
     private LivingEntity raycastTarget(Player player) {
