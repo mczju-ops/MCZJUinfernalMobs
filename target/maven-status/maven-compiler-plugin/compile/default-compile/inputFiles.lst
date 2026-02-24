@@ -22,6 +22,7 @@ D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\StatCloakedSkill.
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\ActiveFireworkSkill.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveWitheringSkill.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\controller\listener\MobSpawnListener.java
+D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\LootConfig.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\RangeTosserSkill.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\DeathMessageConfig.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\registry\SkillRegistry.java
@@ -51,6 +52,7 @@ D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\command\InfernalMobCommand.j
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\SkillConfig.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\RangeGravitySkill.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveConfusingSkill.java
+D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\LootService.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveSapperSkill.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveVengeanceSkill.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\controller\listener\InfernalEyeListener.java
@@ -59,3 +61,4 @@ D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassivePoisonousS
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\controller\listener\CreeperExplodeListener.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\RegionService.java
 D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualArcherSkill.java
+D:\MCZJUinfernalMobs\src\main\java\com\infernalmobs\external\ItemCreatorApi.java

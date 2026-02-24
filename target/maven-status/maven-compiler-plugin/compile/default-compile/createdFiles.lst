@@ -4,11 +4,13 @@ com\infernalmobs\skill\impl\ActiveFireworkSkill.class
 com\infernalmobs\skill\impl\DualArcherSkill.class
 com\infernalmobs\InfernalMobsPlugin.class
 com\infernalmobs\skill\impl\DeathGhostSkill.class
+com\infernalmobs\config\LootConfig.class
 com\infernalmobs\skill\SkillType.class
 com\infernalmobs\service\DeathMessageService.class
 com\infernalmobs\service\MobLevelService.class
 com\infernalmobs\config\ConfigLoader.class
 com\infernalmobs\config\PresetConfig$SkillEntry.class
+com\infernalmobs\service\LootService.class
 com\infernalmobs\skill\impl\DualThiefSkill.class
 com\infernalmobs\skill\impl\DualStormSkill.class
 com\infernalmobs\skill\impl\StatMountedSkill.class
@@ -32,6 +34,7 @@ com\infernalmobs\config\MobRegistryConfig.class
 com\infernalmobs\skill\impl\RangeGravitySkill.class
 com\infernalmobs\registry\SkillRegistry.class
 com\infernalmobs\model\MobProfile.class
+com\infernalmobs\config\LootConfig$RewardEntry.class
 com\infernalmobs\skill\impl\DualRefrigerateSkill.class
 com\infernalmobs\particle\ParticleEffect.class
 com\infernalmobs\particle\ParticleSource.class
@@ -49,6 +52,7 @@ com\infernalmobs\skill\SkillContext.class
 com\infernalmobs\particle\ParticleEffect$Builder.class
 com\infernalmobs\affix\Affix.class
 com\infernalmobs\model\StatMap.class
+com\infernalmobs\external\ItemCreatorApi.class
 com\infernalmobs\skill\impl\StatBullwarkSkill.class
 com\infernalmobs\skill\impl\PassiveMamaSkill$1.class
 com\infernalmobs\skill\impl\PassiveQuicksandSkill.class

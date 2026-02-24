@@ -2,8 +2,10 @@ package com.infernalmobs.config;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
 import java.util.*;
 
 /**
@@ -41,6 +43,9 @@ public class ConfigLoader {
         plugin.saveDefaultConfig();
         plugin.reloadConfig();
         config = plugin.getConfig();
+
+        File mobNameFile = new File(plugin.getDataFolder(), "mob_name.yml");
+        if (!mobNameFile.exists()) plugin.saveResource("mob_name.yml", false);
 
         debug = config.getBoolean("debug", false);
         enabledWorlds = config.getStringList("enabled-worlds");
@@ -134,17 +139,22 @@ public class ConfigLoader {
         List<String> messages = sec.getStringList("messages");
         if (messages.isEmpty()) messages = List.of("&e<player> &f杀死了 &r<mob>&f!");
 
-        Map<String, String> mobNames = new HashMap<>();
-        if (sec.contains("mob-names")) {
-            ConfigurationSection mn = sec.getConfigurationSection("mob-names");
-            if (mn != null) {
-                for (String key : mn.getKeys(false)) {
-                    mobNames.put(key, mn.getString(key, key));
-                }
-            }
-        }
+        Map<String, String> mobNames = loadMobNames();
         return new DeathMessageConfig(enable, namePrefix, defaultWeapon,
                 levelPrefixes, messages, mobNames);
+    }
+
+    /** 从插件数据目录的 mob_name.yml 加载实体类型 → 中文显示名。 */
+    private Map<String, String> loadMobNames() {
+        Map<String, String> out = new HashMap<>();
+        File f = new File(plugin.getDataFolder(), "mob_name.yml");
+        if (!f.isFile()) return out;
+        YamlConfiguration yml = YamlConfiguration.loadConfiguration(f);
+        for (String key : yml.getKeys(false)) {
+            String val = yml.getString(key);
+            if (val != null && !val.isEmpty()) out.put(key, val);
+        }
+        return out;
     }
 
     private List<RegionConfig> loadRegions() {
