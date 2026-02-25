@@ -36,6 +36,9 @@ public class PassiveMamaSkill implements Skill {
         return 4;
     }
 
+    /** Warden、凋灵等不触发 mama，避免失衡。 */
+    private static final Set<EntityType> DISALLOWED_FOR_MAMA = Set.of(EntityType.WARDEN, EntityType.WITHER);
+
     private static void debugLog(SkillContext ctx, String msg) {
         if (ctx.getPlugin() instanceof com.infernalmobs.InfernalMobsPlugin p && p.getConfigLoader().isDebug()) {
             p.getLogger().info("[InfernalMobs:debug:mama] " + msg);
@@ -64,6 +67,10 @@ public class PassiveMamaSkill implements Skill {
         debugLog(ctx, "onTrigger 进入 entity=" + (parent != null ? parent.getType() + "@" + parent.getUniqueId() : "null"));
         if (parent == null || !parent.isValid()) {
             debugLog(ctx, "跳过: parent 无效");
+            return;
+        }
+        if (DISALLOWED_FOR_MAMA.contains(parent.getType())) {
+            debugLog(ctx, "跳过: " + parent.getType() + " 不支持 mama");
             return;
         }
 

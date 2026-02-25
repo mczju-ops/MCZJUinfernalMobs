@@ -7,7 +7,7 @@ import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
 import com.infernalmobs.controller.listener.InfernalEyeListener;
 import com.infernalmobs.controller.listener.MobSpawnListener;
-import com.infernalmobs.external.ItemCreatorApi;
+import io.mczju.mczjuitemcreator.api.ItemCreatorApi;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.service.AffixRollService;
 import com.infernalmobs.service.CombatService;

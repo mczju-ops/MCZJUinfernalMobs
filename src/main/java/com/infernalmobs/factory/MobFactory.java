@@ -202,28 +202,26 @@ public class MobFactory {
         combatService.registerMob(newEntity.getUniqueId(), newState);
     }
 
-    private static final String NAME_TEMPLATE = "<white>Lv <level> <level_prefix> <mob_name></white>";
-
     /**
-     * 设置怪物头顶显示名（MiniMessage），悬停显示词条列表。
+     * 设置怪物头顶显示名：[LvN]前缀+名，按档位着色，悬停显示词条。
      */
     private void setMobDisplayName(LivingEntity entity, MobState mobState) {
         DeathMessageConfig dm = configLoader.getDeathMessageConfig();
         if (dm == null) return;
 
         int level = mobState.getProfile().getLevel();
-        String levelPrefix = dm.getLevelPrefix(level);
+        String prefix = dm.getLevelPrefix(level);
         String mobName = dm.getMobDisplayName(entity.getType());
-        Component nameComponent = MiniMessageHelper.deserialize(NAME_TEMPLATE,
-                Placeholder.unparsed("level", String.valueOf(level)),
-                Placeholder.parsed("level_prefix", levelPrefix),
-                Placeholder.unparsed("mob_name", mobName));
+        String color = dm.getLevelTierColor(level);
+        String tagName = color.replaceAll("[<>]", "");
+        String template = color + "[Lv" + level + "]" + prefix + mobName + "</" + tagName + ">";
+        Component nameComponent = MiniMessageHelper.deserialize(template);
 
         List<Component> affixLines = mobState.getProfile().getAffixes().stream()
                 .map(a -> {
                     SkillConfig sc = configLoader.getSkillConfig(a.getSkillId());
-                    String display = sc != null ? sc.getDisplay() : a.getSkillId();
-                    return MiniMessageHelper.fromLegacy(display);
+                    String display = configLoader.getSkillDisplay(a.getSkillId(), sc);
+                    return MiniMessageHelper.parseSkillDisplay(display);
                 })
                 .collect(Collectors.toList());
         if (!affixLines.isEmpty()) {

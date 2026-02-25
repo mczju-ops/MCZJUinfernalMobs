@@ -98,6 +98,7 @@ public class CombatListener implements Listener {
             if (damager != null) {
                 MobState state = combatService.getMobState(damager.getUniqueId());
                 if (state != null) {
+                    event.setDeathMessage(null);  // 隐藏原版死亡消息，使用炒鸡怪播报
                     deathMessageService.broadcastSlainByIfEnabled(victim, damager, state);
                 }
             }

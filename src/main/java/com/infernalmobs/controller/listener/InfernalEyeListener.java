@@ -77,8 +77,8 @@ public class InfernalEyeListener implements Listener {
             if (i > 0) skillsComponent = skillsComponent.append(Component.text(", "));
             var affix = affixes.get(i);
             SkillConfig sc = configLoader.getSkillConfig(affix.getSkillId());
-            String display = sc != null ? sc.getDisplay() : affix.getSkillId();
-            skillsComponent = skillsComponent.append(MiniMessageHelper.fromLegacy(display));
+            String display = configLoader.getSkillDisplay(affix.getSkillId(), sc);
+            skillsComponent = skillsComponent.append(MiniMessageHelper.parseSkillDisplay(display));
         }
         Component line = MiniMessageHelper.deserialize(EYE_LINE_TEMPLATE,
                 Placeholder.unparsed("level", String.valueOf(level)),

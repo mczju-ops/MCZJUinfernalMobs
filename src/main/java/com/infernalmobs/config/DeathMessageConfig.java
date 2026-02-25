@@ -2,27 +2,49 @@ package com.infernalmobs.config;
 
 import org.bukkit.entity.EntityType;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 击杀播报配置。
+ * 击杀播报配置。怪物名格式 [LvN]前缀+名，按等级档位着色。
  */
 public record DeathMessageConfig(
         boolean enable,
         String namePrefix,
         String defaultWeapon,
         Map<Integer, String> levelPrefixes,
+        Map<Integer, String> levelTierColors,
         List<String> messages,
         Map<String, String> mobNames,
         boolean slainByEnable,
-        List<String> slainByMessages
+        List<String> slainByMessages,
+        boolean slainByWithWeaponEnable,
+        String slainByWithWeaponWhen,
+        List<String> slainByWithWeaponMessages
 ) {
+    /** 等级前缀：初级(1-3)/中级(4-6)/高级(7-9)/炒鸡(10+)，纯文本无颜色。 */
     public String getLevelPrefix(int level) {
-        String s = levelPrefixes.get(level);
-        if (s != null) return s;
-        int cap = levelPrefixes.keySet().stream().mapToInt(Integer::intValue).max().orElse(15);
-        return level > cap ? levelPrefixes.get(cap) : levelPrefixes.getOrDefault(1, "&f初级");
+        if (level <= 3) return "初级";
+        if (level <= 6) return "中级";
+        if (level <= 9) return "高级";
+        return "炒鸡";
+    }
+
+    /** 等级档位颜色：初级白/中级蓝/高级紫/炒鸡10-12金/13-15红。MiniMessage 标签如 &lt;white&gt;。 */
+    public String getLevelTierColor(int level) {
+        if (levelTierColors != null && !levelTierColors.isEmpty()) {
+            return levelTierColors.entrySet().stream()
+                    .filter(e -> level >= e.getKey())
+                    .max(Comparator.comparingInt(Map.Entry::getKey))
+                    .map(Map.Entry::getValue)
+                    .orElse("<white>");
+        }
+        if (level <= 3) return "<white>";
+        if (level <= 6) return "<blue>";
+        if (level <= 9) return "<light_purple>";
+        if (level <= 12) return "<gold>";
+        return "<red>";
     }
 
     public String getMobDisplayName(EntityType type) {

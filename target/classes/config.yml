@@ -74,44 +74,38 @@ death-messages:
   enable: true
   name-prefix: "<white>Infernal"
   default-weapon: "拳头"
-  # MiniMessage 格式，用于头顶名与播报中的等级前缀
-  level-prefixes:
-    "1": "<white>初级"
-    "2": "<white>初级"
-    "3": "<white>初级"
-    "4": "<white>中级"
-    "5": "<white>中级"
-    "6": "<white>中级"
-    "7": "<white>高级"
-    "8": "<white>高级"
-    "9": "<white>高级"
-    "10": "<white>炒鸡"
-    "11": "<blue><bold>炒鸡</bold></blue><white>"
-    "12": "<dark_purple><bold>炒鸡</bold></dark_purple><white>"
-    "13": "<gold><bold>炒鸡</bold></gold><white>"
-    "14": "<red><bold>炒鸡</bold></red><white>"
-    "15": "<dark_red><obfuscated><bold>INFERNAL</bold></obfuscated></dark_red><white>"
-  # MiniMessage 模板，占位符：<player> <weapon> <mob>（mob 悬停显示词条）
+  # 怪物名 [LvN]前缀+名 的等级档位颜色：key=等级阈值，value=MiniMessage 颜色
+  # 初级1-3白/中级4-6蓝/高级7-9紫/炒鸡10-12金/13-15红
+  level-tier-colors:
+    "1": "<white>"
+    "4": "<blue>"
+    "7": "<light_purple>"
+    "10": "<gold>"
+    "13": "<red>"
+  # MiniMessage 模板，占位符：<player> <weapon> <mob>（无空格，MC 原版风格）
   messages:
-    - "<yellow><player></yellow> <white>杀死了 </white><mob> <white>!</white>"
-    - "<mob> <white>死于 </white><yellow><player></yellow> <white>之手!</white>"
-    - "<yellow><player></yellow> <white>干掉了一只 </white><mob><white>!</white>"
-    - "<yellow><player></yellow> <white>把一只 </white><mob> <white>撕成了两半!</white>"
-    - "<yellow><player></yellow> <white>结束了 </white><mob> <white>罪恶的一生</white>"
-    - "<yellow><player></yellow> <white>用 </white><weapon> <white>消灭了 </white><mob><white>!</white>"
-    - "<yellow><player></yellow> <white>用 </white><weapon> <white>埋葬了作恶多端的 </white><mob><white>!</white>"
-    - "<mob> <white>的生命被 </white><yellow><player></yellow> <white>用 </white><weapon> <white>终结!</white>"
-    - "<yellow><player></yellow> <white>向 </white><mob> <white>展现了何为残酷!</white>"
-    - "<mob> <white>凄惨地死于 </white><yellow><player></yellow> <white>的怒火!</white>"
+    - "<yellow><player></yellow><white>杀死了</white><mob><white>!</white>"
+    - "<mob><white>死于</white><yellow><player></yellow><white>之手!</white>"
+    - "<yellow><player></yellow><white>用</white><weapon><white>消灭了</white><mob><white>!</white>"
+    - "<yellow><player></yellow><white>用</white><weapon><white>埋葬了</white><mob><white>!</white>"
+    - "<mob><white>被</white><yellow><player></yellow><white>用</white><weapon><white>终结!</white>"
+    - "<yellow><player></yellow><white>向</white><mob><white>展现了残酷!</white>"
+    - "<mob><white>凄惨地死于</white><yellow><player></yellow><white>之手!</white>"
 
   # 玩家被炒鸡怪击杀时的播报（<player>=死者 <mob>=炒鸡怪名，悬停显示词条）
   slain-by:
     enable: true
     messages:
-      - "<gray><player></gray> 惜败于 <mob>!"
-      - "<gray><player></gray> 被 <mob> <white>的一套连招击杀了</white>"
-      - "<mob> <white>残忍地击杀了 </white><gray><player></gray>"
-      - "<gray><player></gray> <white>死于 </white><mob> <white>之手!</white>"
+      - "<gray><player></gray><white>惜败于</white><mob><white>!</white>"
+      - "<gray><player></gray><white>被</white><mob><white>击杀!</white>"
+      - "<mob><white>残忍地击杀了</white><gray><player></gray>"
+    # 怪物手持特殊武器时额外播报（可选）
+    with-weapon:
+      enable: true
+      when: "enchanted"  # enchanted=有附魔 custom_name=有自定义名 non_air=任意非空
+      messages:
+        - "<gray><player></gray><white>被</white><mob><white>用</white><weapon><white>杀死了!</white>"
+        - "<mob><white>用</white><weapon><white>终结了</white><gray><player></gray><white>!</white>"
 
 # ===========================================
 # 区域配置：世界 + 两角点(x,y,z)框成的立方体
@@ -243,6 +237,7 @@ skills:
     damage: 8
     velocity: 1.2
     fire-ticks: 60
+    explosion-power: 1   # ExplosionPower，击中时爆炸威力，0=不爆炸
 
   lifesteal:
     type: PASSIVE

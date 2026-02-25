@@ -2,9 +2,10 @@ package com.infernalmobs.service;
 
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;
-import com.infernalmobs.external.ItemCreatorApi;
+import io.mczju.mczjuitemcreator.api.ItemCreatorApi;
 import com.infernalmobs.model.MobState;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -50,12 +51,15 @@ public class LootService {
         RewardEntry chosen = pickByWeight(rewards);
         if (chosen == null) return;
 
+        ItemStack toDrop = null;
         Optional<ItemStack> opt = itemCreatorApi.createItem(chosen.id, chosen.amount);
-        if (opt != null && opt.isPresent()) {
-            ItemStack item = opt.get();
-            if (!item.getType().isAir()) {
-                entity.getWorld().dropItemNaturally(entity.getLocation(), item.clone());
-            }
+        if (opt != null && opt.isPresent() && !opt.get().getType().isAir()) {
+            toDrop = opt.get().clone();
+        } else {
+            toDrop = createVanillaItem(chosen.id, chosen.amount);
+        }
+        if (toDrop != null && !toDrop.getType().isAir()) {
+            entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop);
         }
 
         Player killer = entity.getKiller();
@@ -65,6 +69,19 @@ public class LootService {
             String run = cmd.replace("{player}", playerName);
             Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
         }
+    }
+
+    /** ItemCreator 无此 id 时，尝试按原版 Material 名创建（如 iron_ingot、diamond）。 */
+    private static ItemStack createVanillaItem(String id, int amount) {
+        if (id == null || id.isEmpty() || amount < 1) return null;
+        String upper = id.toUpperCase().replace(" ", "_");
+        try {
+            Material mat = Material.valueOf(upper);
+            if (mat.isItem() && !mat.isAir()) {
+                return new ItemStack(mat, amount);
+            }
+        } catch (IllegalArgumentException ignored) {}
+        return null;
     }
 
     private static RewardEntry pickByWeight(List<RewardEntry> rewards) {

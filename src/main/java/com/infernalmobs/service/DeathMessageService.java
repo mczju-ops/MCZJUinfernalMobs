@@ -10,6 +10,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -19,11 +20,9 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * 击杀播报服务。MiniMessage 模板 + Placeholder，世界广播；怪物名悬停显示词条列表。
+ * 击杀播报服务。MiniMessage 模板 + Placeholder，世界广播；怪物名 [LvN]前缀+名 紧凑有框框有颜色。
  */
 public class DeathMessageService {
-
-    private static final String MOB_LINE_TEMPLATE = "<white>Lv <level> <level_prefix> <mob_name></white>";
 
     private final ConfigLoader config;
     private final Random random = new Random();
@@ -37,13 +36,13 @@ public class DeathMessageService {
         if (dm == null || !dm.enable() || killer == null) return;
 
         String playerName = killer.getName();
-        String weapon = getWeaponDisplay(killer, dm.defaultWeapon());
+        Component weaponComponent = getWeaponComponent(killer, dm.defaultWeapon());
         Component mobComponent = buildMobComponentWithHover(entity, mobState, dm);
 
         String template = pickRandom(dm.messages());
         Component message = MiniMessageHelper.deserialize(template,
                 Placeholder.unparsed("player", playerName),
-                Placeholder.unparsed("weapon", weapon),
+                Placeholder.component("weapon", weaponComponent),
                 Placeholder.component("mob", mobComponent));
 
         for (Player p : entity.getWorld().getPlayers()) {
@@ -51,36 +50,70 @@ public class DeathMessageService {
         }
     }
 
-    /** 玩家被炒鸡怪击杀时世界广播，模板用 <player> <mob>，mob 悬停显示词条。 */
+    /** 玩家被炒鸡怪击杀时世界广播。若怪物手持特殊武器且开启，播报带武器的模板。 */
     public void broadcastSlainByIfEnabled(Player victim, LivingEntity killerMob, MobState mobState) {
         DeathMessageConfig dm = config.getDeathMessageConfig();
         if (dm == null || !dm.slainByEnable()) return;
 
         Component mobComponent = buildMobComponentWithHover(killerMob, mobState, dm);
         String template = pickRandom(dm.slainByMessages());
+        Component weaponComponent = null;
+
+        if (dm.slainByWithWeaponEnable() && killerMob instanceof Mob mob && !dm.slainByWithWeaponMessages().isEmpty()) {
+            ItemStack hand = mob.getEquipment() != null ? mob.getEquipment().getItemInMainHand() : null;
+            if (hand != null && !hand.getType().isAir() && isSpecialWeapon(hand, dm.slainByWithWeaponWhen())) {
+                template = pickRandom(dm.slainByWithWeaponMessages());
+                weaponComponent = getMobWeaponComponent(hand, dm.defaultWeapon());
+            }
+        }
+        if (weaponComponent == null) {
+            Component message = MiniMessageHelper.deserialize(template,
+                    Placeholder.unparsed("player", victim.getName()),
+                    Placeholder.component("mob", mobComponent));
+            for (Player p : victim.getWorld().getPlayers()) p.sendMessage(message);
+            return;
+        }
         Component message = MiniMessageHelper.deserialize(template,
                 Placeholder.unparsed("player", victim.getName()),
-                Placeholder.component("mob", mobComponent));
+                Placeholder.component("mob", mobComponent),
+                Placeholder.component("weapon", weaponComponent));
+        for (Player p : victim.getWorld().getPlayers()) p.sendMessage(message);
+    }
 
-        for (Player p : victim.getWorld().getPlayers()) {
-            p.sendMessage(message);
-        }
+    private boolean isSpecialWeapon(ItemStack item, String when) {
+        if (when == null) when = "enchanted";
+        return switch (when.toLowerCase()) {
+            case "custom_name" -> {
+                ItemMeta m = item.getItemMeta();
+                yield m != null && m.hasDisplayName();
+            }
+            case "non_air" -> !item.getType().isAir();
+            case "enchanted" -> item.getEnchantments() != null && !item.getEnchantments().isEmpty();
+            default -> item.getEnchantments() != null && !item.getEnchantments().isEmpty();
+        };
+    }
+
+    private Component getMobWeaponComponent(ItemStack hand, String defaultWeapon) {
+        if (hand == null || hand.getType().isAir()) return MiniMessageHelper.deserialize("<white>" + defaultWeapon + "</white>");
+        Component name = hand.displayName();
+        if (name != null && !PlainTextComponentSerializer.plainText().serialize(name).isEmpty()) return name;
+        return MiniMessageHelper.deserialize("<white>" + formatMaterial(hand.getType().name()) + "</white>");
     }
 
     private Component buildMobComponentWithHover(LivingEntity entity, MobState mobState, DeathMessageConfig dm) {
         int level = mobState.getProfile().getLevel();
-        String levelPrefix = dm.getLevelPrefix(level);
+        String prefix = dm.getLevelPrefix(level);
         String mobName = dm.getMobDisplayName(entity.getType());
-        Component textComponent = MiniMessageHelper.deserialize(MOB_LINE_TEMPLATE,
-                Placeholder.unparsed("level", String.valueOf(level)),
-                Placeholder.parsed("level_prefix", levelPrefix),
-                Placeholder.unparsed("mob_name", mobName));
+        String color = dm.getLevelTierColor(level);
+        String tagName = color.replaceAll("[<>]", "");
+        String template = color + "[Lv" + level + "]" + prefix + mobName + "</" + tagName + ">";
+        Component textComponent = MiniMessageHelper.deserialize(template);
 
         List<Component> affixComps = new ArrayList<>();
         mobState.getProfile().getAffixes().forEach(affix -> {
             SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            String display = sc != null ? sc.getDisplay() : affix.getSkillId();
-            affixComps.add(MiniMessageHelper.fromLegacy(display));
+            String display = config.getSkillDisplay(affix.getSkillId(), sc);
+            affixComps.add(MiniMessageHelper.parseSkillDisplay(display));
         });
         if (affixComps.isEmpty()) return textComponent;
 
@@ -92,15 +125,14 @@ public class DeathMessageService {
         return textComponent.hoverEvent(HoverEvent.showText(hoverContent));
     }
 
-    private String getWeaponDisplay(Player killer, String defaultWeapon) {
+    private Component getWeaponComponent(Player killer, String defaultWeapon) {
         ItemStack hand = killer.getInventory().getItemInMainHand();
-        if (hand.getType().isAir()) return defaultWeapon;
-        ItemMeta meta = hand.getItemMeta();
-        if (meta != null && meta.hasDisplayName()) {
-            Component name = meta.displayName();
-            return name != null ? PlainTextComponentSerializer.plainText().serialize(name) : defaultWeapon;
+        if (hand.getType().isAir()) return MiniMessageHelper.deserialize("<white>" + defaultWeapon + "</white>");
+        Component name = hand.displayName();
+        if (name != null && !PlainTextComponentSerializer.plainText().serialize(name).isEmpty()) {
+            return name;
         }
-        return formatMaterial(hand.getType().name());
+        return MiniMessageHelper.deserialize("<white>" + formatMaterial(hand.getType().name()) + "</white>");
     }
 
     private String formatMaterial(String key) {

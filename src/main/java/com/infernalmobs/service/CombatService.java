@@ -165,23 +165,19 @@ public class CombatService {
     }
 
     /**
-     * 处理火球命中时的自定义伤害。（使用 ProjectileHitEvent，Bukkit 1.21 无 FireballHitEvent）
+     * 处理火球命中：命中实体/方块都允许爆炸，仅对直接命中的实体补火。擦肩而过不点燃由火球 setFireTicks(0) 保证。
      */
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!event.getEntity().hasMetadata("infernalmobs_damage")) return;
-        List<MetadataValue> meta = event.getEntity().getMetadata("infernalmobs_damage");
-        if (meta.isEmpty()) return;
-        double damage = meta.get(0).asDouble();
         int fireTicks = 0;
         if (event.getEntity().hasMetadata("infernalmobs_fire_ticks")) {
             List<MetadataValue> fireMeta = event.getEntity().getMetadata("infernalmobs_fire_ticks");
             if (!fireMeta.isEmpty()) fireTicks = fireMeta.get(0).asInt();
         }
         if (event.getHitEntity() instanceof LivingEntity hit) {
-            hit.damage(damage, event.getEntity());
             if (fireTicks > 0) hit.setFireTicks(Math.max(hit.getFireTicks(), fireTicks));
         }
-        event.setCancelled(true);
+        // 不 cancel，命中实体或方块都按 ExplosionPower 爆炸
     }
 
     /**

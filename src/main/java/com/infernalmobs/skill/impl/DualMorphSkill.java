@@ -11,11 +11,15 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 变形：受击/攻击时概率变成另一种生物。
  */
 public class DualMorphSkill implements Skill {
+
+    /** Warden、凋灵等不触发变形，避免失衡。 */
+    private static final Set<EntityType> DISALLOWED_FOR_MORPH = Set.of(EntityType.WARDEN, EntityType.WITHER);
 
     private static final EntityType[] MORPH_TYPES = {
             EntityType.ZOMBIE, EntityType.SKELETON, EntityType.CREEPER,
@@ -44,6 +48,7 @@ public class DualMorphSkill implements Skill {
     public void onTrigger(SkillContext ctx, SkillConfig config) {
         LivingEntity entity = ctx.getEntity();
         if (entity == null || !entity.isValid()) return;
+        if (DISALLOWED_FOR_MORPH.contains(entity.getType())) return;
 
         double chance = config.getDouble("chance", 0.15);
         if (Math.random() >= chance) return;

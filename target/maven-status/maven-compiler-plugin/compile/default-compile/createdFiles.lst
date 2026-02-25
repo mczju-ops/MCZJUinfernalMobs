@@ -54,7 +54,6 @@ com\infernalmobs\skill\SkillContext.class
 com\infernalmobs\particle\ParticleEffect$Builder.class
 com\infernalmobs\affix\Affix.class
 com\infernalmobs\model\StatMap.class
-com\infernalmobs\external\ItemCreatorApi.class
 com\infernalmobs\skill\impl\StatBullwarkSkill.class
 com\infernalmobs\skill\impl\PassiveMamaSkill$1.class
 com\infernalmobs\skill\impl\PassiveQuicksandSkill.class

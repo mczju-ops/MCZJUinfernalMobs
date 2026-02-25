@@ -13,6 +13,13 @@ public final class MiniMessageHelper {
 
     private MiniMessageHelper() {}
 
+    /** 解析技能显示名：支持 MiniMessage（如 <green>剧毒</green>）或 Legacy（& 码），返回 Component。 */
+    public static Component parseSkillDisplay(String raw) {
+        if (raw == null || raw.isEmpty()) return Component.empty();
+        if (raw.contains("<") && raw.contains(">")) return MM.deserialize(raw);
+        return fromLegacy(raw);
+    }
+
     /** 将 & 颜色/格式码转为 MiniMessage 标签，再解析为 Component（用于仍带 & 的配置如技能 display）。 */
     public static Component fromLegacy(String legacy) {
         if (legacy == null || legacy.isEmpty()) return Component.empty();

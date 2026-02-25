@@ -32,6 +32,7 @@ public class ConfigLoader {
     private Map<String, PresetConfig> presets;
     private DeathMessageConfig deathMessageConfig;
     private MobRegistryConfig mobRegistryConfig;
+    private Map<String, String> skillNames;
     private boolean debug;
 
     public ConfigLoader(JavaPlugin plugin) {
@@ -46,6 +47,8 @@ public class ConfigLoader {
 
         File mobNameFile = new File(plugin.getDataFolder(), "mob_name.yml");
         if (!mobNameFile.exists()) plugin.saveResource("mob_name.yml", false);
+        File skillNameFile = new File(plugin.getDataFolder(), "skill_name.yml");
+        if (!skillNameFile.exists()) plugin.saveResource("skill_name.yml", false);
 
         debug = config.getBoolean("debug", false);
         enabledWorlds = config.getStringList("enabled-worlds");
@@ -92,6 +95,7 @@ public class ConfigLoader {
         presets = loadPresets();
         deathMessageConfig = loadDeathMessageConfig();
         mobRegistryConfig = loadMobRegistryConfig();
+        skillNames = loadSkillNames();
     }
 
     /** 从配置文件重新读取技能参数等，等同于 load()，语义上表示“重载”。 */
@@ -117,7 +121,7 @@ public class ConfigLoader {
         ConfigurationSection sec = config.getConfigurationSection("death-messages");
         if (sec == null) {
             return new DeathMessageConfig(false, "&finfernal", "拳头",
-                    Map.of(1, "&f初级"), List.of(), Map.of(), false, List.of());
+                    Map.of(), Map.of(), List.of(), Map.of(), false, List.of(), false, "enchanted", List.of());
         }
         boolean enable = sec.getBoolean("enable", true);
         String namePrefix = sec.getString("name-prefix", "&finfernal");
@@ -136,6 +140,18 @@ public class ConfigLoader {
         }
         if (levelPrefixes.isEmpty()) levelPrefixes.put(1, "&f初级");
 
+        Map<Integer, String> levelTierColors = new HashMap<>();
+        if (sec.contains("level-tier-colors")) {
+            ConfigurationSection ltc = sec.getConfigurationSection("level-tier-colors");
+            if (ltc != null) {
+                for (String key : ltc.getKeys(false)) {
+                    try {
+                        levelTierColors.put(Integer.parseInt(key), ltc.getString(key, "<white>"));
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+
         List<String> messages = sec.getStringList("messages");
         if (messages.isEmpty()) messages = List.of("&e<player> &f杀死了 &r<mob>&f!");
 
@@ -143,8 +159,34 @@ public class ConfigLoader {
         boolean slainByEnable = sec.getBoolean("slain-by.enable", true);
         List<String> slainByMessages = sec.getStringList("slain-by.messages");
         if (slainByMessages.isEmpty()) slainByMessages = List.of("<gray><player></gray> was slain by <mob>");
+        ConfigurationSection sb = sec.getConfigurationSection("slain-by");
+        boolean slainByWithWeaponEnable = sb != null && sb.getBoolean("with-weapon.enable", true);
+        String slainByWithWeaponWhen = sb != null ? sb.getString("with-weapon.when", "enchanted") : "enchanted";
+        List<String> slainByWithWeaponMessages = sb != null && sb.contains("with-weapon.messages")
+                ? sb.getStringList("with-weapon.messages") : List.of();
         return new DeathMessageConfig(enable, namePrefix, defaultWeapon,
-                levelPrefixes, messages, mobNames, slainByEnable, slainByMessages);
+                levelPrefixes, levelTierColors, messages, mobNames, slainByEnable, slainByMessages,
+                slainByWithWeaponEnable, slainByWithWeaponWhen, slainByWithWeaponMessages);
+    }
+
+    /** 从 skill_name.yml 加载技能 id → MiniMessage 显示名，未配置则返回 null 表示用 config 或 id。 */
+    private Map<String, String> loadSkillNames() {
+        Map<String, String> out = new HashMap<>();
+        File f = new File(plugin.getDataFolder(), "skill_name.yml");
+        if (!f.isFile()) return out;
+        YamlConfiguration yml = YamlConfiguration.loadConfiguration(f);
+        for (String key : yml.getKeys(false)) {
+            String val = yml.getString(key);
+            if (val != null && !val.isEmpty()) out.put(key, val);
+        }
+        return out;
+    }
+
+    /** 获取技能显示名：优先 skill_name.yml，否则 config display，否则 id。 */
+    public String getSkillDisplay(String skillId, SkillConfig skillConfig) {
+        if (skillNames != null && skillNames.containsKey(skillId)) return skillNames.get(skillId);
+        if (skillConfig != null) return skillConfig.getDisplay();
+        return skillId != null ? skillId : "";
     }
 
     /** 从插件数据目录的 mob_name.yml 加载实体类型 → 中文显示名。 */
