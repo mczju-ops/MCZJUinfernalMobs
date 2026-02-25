@@ -21,13 +21,17 @@ public record DeathMessageConfig(
         List<String> slainByMessages,
         boolean slainByWithWeaponEnable,
         String slainByWithWeaponWhen,
-        List<String> slainByWithWeaponMessages
+        List<String> slainByWithWeaponMessages,
+        String playerColorNormal,
+        String playerColorOp,
+        int globalBroadcastLevelThreshold
 ) {
-    /** 等级前缀：初级(1-3)/中级(4-6)/高级(7-9)/炒鸡(10+)，纯文本无颜色。 */
+    /** 等级前缀：初级(1-3)/中级(4-6)/高级(7-9)/炒鸡(10+)。Lv15 的炒鸡用 &lt;obfuscated&gt; 乱码效果。 */
     public String getLevelPrefix(int level) {
         if (level <= 3) return "初级";
         if (level <= 6) return "中级";
         if (level <= 9) return "高级";
+        if (level >= 15) return "<obfuscated>炒鸡</obfuscated>";
         return "炒鸡";
     }
 
@@ -42,7 +46,7 @@ public record DeathMessageConfig(
         }
         if (level <= 3) return "<white>";
         if (level <= 6) return "<blue>";
-        if (level <= 9) return "<light_purple>";
+        if (level <= 9) return "<dark_purple>";
         if (level <= 12) return "<gold>";
         return "<red>";
     }

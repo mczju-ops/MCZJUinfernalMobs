@@ -121,7 +121,8 @@ public class ConfigLoader {
         ConfigurationSection sec = config.getConfigurationSection("death-messages");
         if (sec == null) {
             return new DeathMessageConfig(false, "&finfernal", "拳头",
-                    Map.of(), Map.of(), List.of(), Map.of(), false, List.of(), false, "enchanted", List.of());
+                    Map.of(), Map.of(), List.of(), Map.of(), false, List.of(), false, "enchanted", List.of(),
+                    "<green>", "<dark_red>", 11);
         }
         boolean enable = sec.getBoolean("enable", true);
         String namePrefix = sec.getString("name-prefix", "&finfernal");
@@ -164,9 +165,13 @@ public class ConfigLoader {
         String slainByWithWeaponWhen = sb != null ? sb.getString("with-weapon.when", "enchanted") : "enchanted";
         List<String> slainByWithWeaponMessages = sb != null && sb.contains("with-weapon.messages")
                 ? sb.getStringList("with-weapon.messages") : List.of();
+        String playerColorNormal = sec.getString("player-color-normal", "<green>");
+        String playerColorOp = sec.getString("player-color-op", "<dark_red>");
+        int globalBroadcastLevelThreshold = sec.getInt("global-broadcast-level-threshold", 11);
         return new DeathMessageConfig(enable, namePrefix, defaultWeapon,
                 levelPrefixes, levelTierColors, messages, mobNames, slainByEnable, slainByMessages,
-                slainByWithWeaponEnable, slainByWithWeaponWhen, slainByWithWeaponMessages);
+                slainByWithWeaponEnable, slainByWithWeaponWhen, slainByWithWeaponMessages,
+                playerColorNormal, playerColorOp, globalBroadcastLevelThreshold);
     }
 
     /** 从 skill_name.yml 加载技能 id → MiniMessage 显示名，未配置则返回 null 表示用 config 或 id。 */

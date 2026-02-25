@@ -7,8 +7,11 @@ import com.infernalmobs.model.MobState;
 import com.infernalmobs.util.MiniMessageHelper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
@@ -16,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 
@@ -35,17 +39,18 @@ public class DeathMessageService {
         DeathMessageConfig dm = config.getDeathMessageConfig();
         if (dm == null || !dm.enable() || killer == null) return;
 
-        String playerName = killer.getName();
+        int level = mobState.getProfile().getLevel();
+        Component playerComponent = getColoredPlayerComponent(killer, dm);
         Component weaponComponent = getWeaponComponent(killer, dm.defaultWeapon());
         Component mobComponent = buildMobComponentWithHover(entity, mobState, dm);
 
         String template = pickRandom(dm.messages());
         Component message = MiniMessageHelper.deserialize(template,
-                Placeholder.unparsed("player", playerName),
+                Placeholder.component("player", playerComponent),
                 Placeholder.component("weapon", weaponComponent),
                 Placeholder.component("mob", mobComponent));
 
-        for (Player p : entity.getWorld().getPlayers()) {
+        for (Player p : getBroadcastTargets(entity.getWorld(), level, dm)) {
             p.sendMessage(message);
         }
     }
@@ -55,6 +60,8 @@ public class DeathMessageService {
         DeathMessageConfig dm = config.getDeathMessageConfig();
         if (dm == null || !dm.slainByEnable()) return;
 
+        int level = mobState.getProfile().getLevel();
+        Component playerComponent = getColoredPlayerComponent(victim, dm);
         Component mobComponent = buildMobComponentWithHover(killerMob, mobState, dm);
         String template = pickRandom(dm.slainByMessages());
         Component weaponComponent = null;
@@ -66,18 +73,44 @@ public class DeathMessageService {
                 weaponComponent = getMobWeaponComponent(hand, dm.defaultWeapon());
             }
         }
-        if (weaponComponent == null) {
-            Component message = MiniMessageHelper.deserialize(template,
-                    Placeholder.unparsed("player", victim.getName()),
-                    Placeholder.component("mob", mobComponent));
-            for (Player p : victim.getWorld().getPlayers()) p.sendMessage(message);
-            return;
+        Component message = weaponComponent == null
+                ? MiniMessageHelper.deserialize(template,
+                        Placeholder.component("player", playerComponent),
+                        Placeholder.component("mob", mobComponent))
+                : MiniMessageHelper.deserialize(template,
+                        Placeholder.component("player", playerComponent),
+                        Placeholder.component("mob", mobComponent),
+                        Placeholder.component("weapon", weaponComponent));
+        for (Player p : getBroadcastTargets(victim.getWorld(), level, dm)) {
+            p.sendMessage(message);
         }
-        Component message = MiniMessageHelper.deserialize(template,
-                Placeholder.unparsed("player", victim.getName()),
-                Placeholder.component("mob", mobComponent),
-                Placeholder.component("weapon", weaponComponent));
-        for (Player p : victim.getWorld().getPlayers()) p.sendMessage(message);
+    }
+
+    /** 普通玩家绿色，OP 深红。避免玩家名含 &lt;&gt; 注入，用 Component 着色。 */
+    private Component getColoredPlayerComponent(Player player, DeathMessageConfig dm) {
+        NamedTextColor c = player.isOp() ? toNamedColor(dm.playerColorOp()) : toNamedColor(dm.playerColorNormal());
+        return Component.text(player.getName()).color(c != null ? c : NamedTextColor.WHITE);
+    }
+
+    private NamedTextColor toNamedColor(String tag) {
+        if (tag == null) return NamedTextColor.WHITE;
+        String s = tag.replaceAll("<|>", "").toLowerCase().replace("-", "_");
+        for (NamedTextColor n : NamedTextColor.NAMES.values()) {
+            if (n.toString().equalsIgnoreCase(s)) return n;
+        }
+        return switch (s) {
+            case "green" -> NamedTextColor.GREEN;
+            case "dark_red" -> NamedTextColor.DARK_RED;
+            default -> NamedTextColor.WHITE;
+        };
+    }
+
+    /** 11 级及以上全服播报，否则仅炒鸡插件生效的世界（事件世界）内播报。 */
+    private Collection<? extends Player> getBroadcastTargets(World eventWorld, int mobLevel, DeathMessageConfig dm) {
+        if (mobLevel >= dm.globalBroadcastLevelThreshold()) {
+            return Bukkit.getOnlinePlayers();
+        }
+        return eventWorld.getPlayers();
     }
 
     private boolean isSpecialWeapon(ItemStack item, String when) {

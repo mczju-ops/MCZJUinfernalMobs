@@ -1,6 +1,7 @@
 package com.infernalmobs.controller.listener;
 
 import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.DeathMessageConfig;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
@@ -31,7 +32,8 @@ public class InfernalEyeListener implements Listener {
 
     private static final String INFERNAL_EYE_ID = "infernal_eye";
     private static final double RAY_DISTANCE = 20;
-    private static final String EYE_LINE_TEMPLATE = "<gold>Lv<level> <type></gold> <white>| </white><skills>";
+    /** 与死亡播报、头顶名一致：<mob>= [LvN]前缀+名（含等级颜色、Lv15 炒鸡乱码） */
+    private static final String EYE_LINE_TEMPLATE = "<mob> <white>| </white><skills>";
 
     private final ConfigLoader configLoader;
     private final CombatService combatService;
@@ -66,11 +68,21 @@ public class InfernalEyeListener implements Listener {
 
         MobState mobState = combatService.getMobState(target.getUniqueId());
         if (mobState == null) {
-            player.sendMessage(MiniMessageHelper.deserialize("<gray><type> 不是炒鸡怪", Placeholder.unparsed("type", target.getType().name())));
+            DeathMessageConfig dm = configLoader.getDeathMessageConfig();
+            String typeName = dm != null ? dm.getMobDisplayName(target.getType()) : target.getType().name();
+            player.sendMessage(MiniMessageHelper.deserialize("<gray><type> 不是炒鸡怪", Placeholder.unparsed("type", typeName)));
             return;
         }
 
+        DeathMessageConfig dm = configLoader.getDeathMessageConfig();
         int level = mobState.getProfile().getLevel();
+        String prefix = dm != null ? dm.getLevelPrefix(level) : "炒鸡";
+        String mobName = dm != null ? dm.getMobDisplayName(target.getType()) : target.getType().name();
+        String color = dm != null ? dm.getLevelTierColor(level) : "<gold>";
+        String tagName = color.replaceAll("[<>]", "");
+        String mobTemplate = color + "[Lv" + level + "]" + prefix + mobName + "</" + tagName + ">";
+        Component mobComponent = MiniMessageHelper.deserialize(mobTemplate);
+
         var affixes = mobState.getProfile().getAffixes();
         Component skillsComponent = Component.empty();
         for (int i = 0; i < affixes.size(); i++) {
@@ -81,8 +93,7 @@ public class InfernalEyeListener implements Listener {
             skillsComponent = skillsComponent.append(MiniMessageHelper.parseSkillDisplay(display));
         }
         Component line = MiniMessageHelper.deserialize(EYE_LINE_TEMPLATE,
-                Placeholder.unparsed("level", String.valueOf(level)),
-                Placeholder.unparsed("type", target.getType().name()),
+                Placeholder.component("mob", mobComponent),
                 Placeholder.component("skills", skillsComponent));
         player.sendMessage(line);
     }
