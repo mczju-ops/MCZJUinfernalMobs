@@ -7,6 +7,7 @@ import com.infernalmobs.model.MobState;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
@@ -17,6 +18,7 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
@@ -235,8 +237,12 @@ public class CombatService {
         }
     }
 
-    /** 清理周期：移除无效实体；无玩家附近则更新 lastActiveTick，超过 inactiveSeconds 无玩家则清除。 */
+    private static final String IM_LEVEL = "im_level";
+
+    /** 清理周期：移除无效实体；无玩家附近则更新 lastActiveTick，超过 inactiveSeconds 无玩家则清除；清除孤立 im_level 标签实体。 */
     private void runCleanupCycle(double inactiveRadius, int inactiveSeconds) {
+        removeOrphanedImLevelEntities();
+
         long inactiveTicks = inactiveSeconds * 20L;
         for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
             LivingEntity entity = findEntity(uuid);
@@ -388,6 +394,30 @@ public class CombatService {
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             affix.getSkill().onTrigger(ctx, sc);
         }
+    }
+
+    /**
+     * 扫描 enabled-worlds 中所有生物：有 im_level 的 PDC 但不是炒鸡怪（未注册）的则移除。
+     * 返回移除的实体数量。可由指令 /im cleantags 或定期清理调用。
+     */
+    public int removeOrphanedImLevelEntities() {
+        List<String> worlds = config.getEnabledWorlds();
+        if (worlds == null || worlds.isEmpty()) return 0;
+
+        NamespacedKey key = new NamespacedKey(plugin, IM_LEVEL);
+        int count = 0;
+        for (String name : worlds) {
+            org.bukkit.World w = plugin.getServer().getWorld(name);
+            if (w == null) continue;
+            for (LivingEntity entity : new ArrayList<>(w.getLivingEntities())) {
+                if (!entity.isValid() || entity instanceof Player) continue;
+                if (!entity.getPersistentDataContainer().has(key, PersistentDataType.INTEGER)) continue;
+                if (mobStates.containsKey(entity.getUniqueId())) continue;  // 是炒鸡怪，跳过
+                entity.remove();
+                count++;
+            }
+        }
+        return count;
     }
 
     /** 清除指定位置半径内的炒鸡怪，返回清除数量。 */

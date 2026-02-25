@@ -18,8 +18,11 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,6 +32,9 @@ import java.util.stream.Collectors;
  */
 public class MobFactory {
 
+    private static final String IM_LEVEL = "im_level";
+
+    private final JavaPlugin plugin;
     private final ConfigLoader configLoader;
     private final MobLevelService levelService;
     private final AffixRollService affixRollService;
@@ -36,18 +42,27 @@ public class MobFactory {
     private final CombatService combatService;
     private final RegionService regionService;
 
-    public MobFactory(ConfigLoader configLoader,
+    public MobFactory(JavaPlugin plugin,
+                      ConfigLoader configLoader,
                       MobLevelService levelService,
                       AffixRollService affixRollService,
                       SkillService skillService,
                       CombatService combatService,
                       RegionService regionService) {
+        this.plugin = plugin;
         this.configLoader = configLoader;
         this.levelService = levelService;
         this.affixRollService = affixRollService;
         this.skillService = skillService;
         this.combatService = combatService;
         this.regionService = regionService;
+    }
+
+    private void setImLevelTag(LivingEntity entity, int level) {
+        entity.getPersistentDataContainer().set(
+                new NamespacedKey(plugin, IM_LEVEL),
+                PersistentDataType.INTEGER,
+                level);
     }
 
     /**
@@ -79,6 +94,7 @@ public class MobFactory {
         skillService.equip(entity, mobState, affixes, this);
         combatService.applyStats(entity, mobState);
         setMobDisplayName(entity, mobState);
+        setImLevelTag(entity, level);
         combatService.registerMob(entity.getUniqueId(), mobState);
     }
 
@@ -96,6 +112,7 @@ public class MobFactory {
         skillService.equip(entity, mobState, affixes, this);
         combatService.applyStats(entity, mobState);
         setMobDisplayName(entity, mobState);
+        setImLevelTag(entity, fixedLevel);
         combatService.registerMob(entity.getUniqueId(), mobState);
     }
 
@@ -117,6 +134,7 @@ public class MobFactory {
         skillService.equip(entity, mobState, affixes, this);
         combatService.applyStats(entity, mobState);
         setMobDisplayName(entity, mobState);
+        setImLevelTag(entity, level);
         combatService.registerMob(entity.getUniqueId(), mobState);
     }
 
@@ -138,6 +156,7 @@ public class MobFactory {
         skillService.equip(entity, mobState, affixes, this);
         combatService.applyStats(entity, mobState);
         setMobDisplayName(entity, mobState);
+        setImLevelTag(entity, level);
         combatService.registerMob(entity.getUniqueId(), mobState);
     }
 
@@ -154,6 +173,7 @@ public class MobFactory {
         skillService.equip(entity, mobState, affixes, this);
         combatService.applyStats(entity, mobState);
         setMobDisplayName(entity, mobState);
+        setImLevelTag(entity, level);
         combatService.registerMob(entity.getUniqueId(), mobState);
     }
 
@@ -174,6 +194,7 @@ public class MobFactory {
         skillService.equip(newEntity, newState, affixes, this);
         combatService.applyStats(newEntity, newState);
         setMobDisplayName(newEntity, newState);
+        setImLevelTag(newEntity, oldState.getProfile().getLevel());
 
         double maxHp = newEntity.getMaxHealth();
         // 直接沿用变形前的绝对生命值，避免因为新生物血量上限不同而“回血”或“掉血”

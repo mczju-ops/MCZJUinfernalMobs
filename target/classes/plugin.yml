@@ -10,7 +10,7 @@ softdepend:
 commands:
   im:
     description: 炒鸡怪管理指令（需权限 infernalmobs.admin）
-    usage: /<command> <spawn|stats|debug|reload|clear> [参数]
+    usage: /<command> <spawn|stats|debug|reload|clear|cleantags> [参数]
 
 permissions:
   infernalmobs.admin:

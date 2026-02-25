@@ -56,7 +56,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         DeathMessageService deathMessageService = new DeathMessageService(configLoader);
         RegionService regionService = new RegionService(configLoader.getRegions(), configLoader.getPresets());
 
-        MobFactory mobFactory = new MobFactory(configLoader, levelService, affixRollService, skillService, combatService, regionService);
+        MobFactory mobFactory = new MobFactory(this, configLoader, levelService, affixRollService, skillService, combatService, regionService);
         combatService.setMobFactory(mobFactory);
 
         InfernalMobCommand imCmd = new InfernalMobCommand(this, configLoader, mobFactory, combatService);

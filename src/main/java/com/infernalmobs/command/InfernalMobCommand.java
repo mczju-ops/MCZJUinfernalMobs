@@ -86,6 +86,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         if ("stats".equals(sub)) return handleStats(sender);
         if ("debug".equals(sub)) return handleDebug(sender, args);
         if ("clear".equals(sub)) return handleClear(sender, args);
+        if ("cleantags".equals(sub)) return handleCleanTags(sender);
         sendHelp(sender);
         return true;
     }
@@ -202,7 +203,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleStats(CommandSender sender) {
         int count = combatService.getTrackedCount();
-        send(sender, "<gold>[炒鸡怪]</gold> <white>当前追踪数: </white><count>", Placeholder.unparsed("count", String.valueOf(count)));
+        send(sender, "<gold>[炒鸡怪]</gold> <white>当前记录数: </white><count>", Placeholder.unparsed("count", String.valueOf(count)));
         return true;
     }
 
@@ -231,6 +232,13 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleCleanTags(CommandSender sender) {
+        int count = combatService.removeOrphanedImLevelEntities();
+        send(sender, "<green>[炒鸡怪] 已清除 <count> 只有 im_level 标签但非炒鸡怪的孤立实体",
+                Placeholder.unparsed("count", String.valueOf(count)));
+        return true;
+    }
+
     private boolean handleReload(CommandSender sender) {
         try {
             configLoader.reload();
@@ -246,16 +254,17 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<gold>=== InfernalMobs 炒鸡怪指令 ===</gold>");
         send(sender, "<yellow>/im spawn <实体类型> [等级] [技能1,技能2,...]</yellow> <gray>- 在面前生成炒鸡怪</gray>");
         send(sender, "<gray>  例: /im spawn zombie 5  或  /im spawn creeper 10 poisonous,armoured,ender</gray>");
-        send(sender, "<yellow>/im stats</yellow> <gray>- 查看当前追踪的炒鸡怪数量</gray>");
+        send(sender, "<yellow>/im stats</yellow> <gray>- 查看当前存储的炒鸡怪数量</gray>");
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试模式开关，控制台输出技能日志</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 从 config.yml 重新加载技能参数等配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
+        send(sender, "<yellow>/im cleantags</yellow> <gray>- 清除有 im_level 标签但非炒鸡怪的孤立实体</gray>");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spawn", "stats", "debug", "reload", "clear").stream()
+            return Arrays.asList("spawn", "stats", "debug", "reload", "clear", "cleantags").stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
