@@ -94,6 +94,101 @@ public class AffixRollService {
     }
 
     /**
+     * 抽取词条，结果中一定包含指定的技能 ID。
+     *
+     * @param requiredSkillIds 必须包含的技能 ID，无效或重复的会被忽略
+     */
+    public List<Affix> rollAffixesWithRequired(int level, int count, RegionConfig region, List<String> requiredSkillIds) {
+        List<Affix> result = new ArrayList<>();
+        Set<String> used = new HashSet<>();
+
+        if (requiredSkillIds != null && !requiredSkillIds.isEmpty()) {
+            for (String id : requiredSkillIds) {
+                if (used.contains(id)) continue;
+                Skill skill = SkillRegistry.get(id);
+                if (skill == null) continue;
+                result.add(new Affix(id, skill));
+                used.add(id);
+            }
+        }
+
+        int remaining = count - result.size();
+        if (remaining <= 0) return result;
+
+        Map<String, Integer> weights = region != null && !region.getSkillPool().isEmpty()
+                ? region.getSkillPool()
+                : config.getSkillWeights();
+        if (weights.isEmpty()) return result;
+
+        List<String> ids = new ArrayList<>();
+        List<Integer> weightList = new ArrayList<>();
+        for (String id : weights.keySet()) {
+            if (SkillRegistry.has(id) && !used.contains(id)) {
+                ids.add(id);
+                weightList.add(weights.getOrDefault(id, 10));
+            }
+        }
+        if (ids.isEmpty()) return result;
+
+        int actualRemaining = Math.min(remaining, ids.size());
+        for (int i = 0; i < actualRemaining; i++) {
+            String skillId = rollOne(ids, weightList);
+            Skill skill = SkillRegistry.get(skillId);
+            if (skill == null) continue;
+            result.add(new Affix(skillId, skill));
+            int idx = ids.indexOf(skillId);
+            if (idx >= 0) {
+                ids.remove(idx);
+                weightList.remove(idx);
+            }
+            if (ids.isEmpty()) break;
+        }
+        return result;
+    }
+
+    /**
+     * 抽取词条，结果中一定不包含指定的技能 ID。
+     *
+     * @param excludedSkillIds 必须排除的技能 ID
+     */
+    public List<Affix> rollAffixesWithExcluded(int level, int count, RegionConfig region, List<String> excludedSkillIds) {
+        Set<String> excluded = excludedSkillIds != null && !excludedSkillIds.isEmpty()
+                ? new HashSet<>(excludedSkillIds)
+                : Collections.emptySet();
+
+        Map<String, Integer> weights = region != null && !region.getSkillPool().isEmpty()
+                ? region.getSkillPool()
+                : config.getSkillWeights();
+        if (weights.isEmpty()) return Collections.emptyList();
+
+        List<String> ids = new ArrayList<>();
+        List<Integer> weightList = new ArrayList<>();
+        for (String id : weights.keySet()) {
+            if (SkillRegistry.has(id) && !excluded.contains(id)) {
+                ids.add(id);
+                weightList.add(weights.getOrDefault(id, 10));
+            }
+        }
+        if (ids.isEmpty()) return Collections.emptyList();
+
+        int actualCount = Math.min(count, ids.size());
+        List<Affix> result = new ArrayList<>();
+        for (int i = 0; i < actualCount; i++) {
+            String skillId = rollOne(ids, weightList);
+            Skill skill = SkillRegistry.get(skillId);
+            if (skill == null) continue;
+            result.add(new Affix(skillId, skill));
+            int idx = ids.indexOf(skillId);
+            if (idx >= 0) {
+                ids.remove(idx);
+                weightList.remove(idx);
+            }
+            if (ids.isEmpty()) break;
+        }
+        return result;
+    }
+
+    /**
      * 从预设构建固定词条列表。
      */
     public List<Affix> fromPreset(com.infernalmobs.config.PresetConfig preset) {

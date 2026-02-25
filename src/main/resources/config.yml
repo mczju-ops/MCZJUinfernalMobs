@@ -111,7 +111,7 @@ death-messages:
       - "<gray><player></gray> 惜败于 <mob>!"
       - "<gray><player></gray> 被 <mob> <white>的一套连招击杀了</white>"
       - "<mob> <white>残忍地击杀了 </white><gray><player></gray>"
-      - "<gray><player></gray> <white>死于 </white><mob> <white>之手</white>"
+      - "<gray><player></gray> <white>死于 </white><mob> <white>之手!</white>"
 
 # ===========================================
 # 区域配置：世界 + 两角点(x,y,z)框成的立方体

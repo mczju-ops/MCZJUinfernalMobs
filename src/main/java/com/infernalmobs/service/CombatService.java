@@ -6,6 +6,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
@@ -387,6 +388,26 @@ public class CombatService {
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             affix.getSkill().onTrigger(ctx, sc);
         }
+    }
+
+    /** 清除指定位置半径内的炒鸡怪，返回清除数量。 */
+    public int clearMobsInRadius(Location center, double radius) {
+        if (center == null || center.getWorld() == null || radius <= 0) return 0;
+        double radiusSq = radius * radius;
+        int count = 0;
+        for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
+            LivingEntity entity = findEntity(uuid);
+            if (entity == null || !entity.isValid()) {
+                unregisterMob(uuid);
+                continue;
+            }
+            if (!entity.getWorld().equals(center.getWorld())) continue;
+            if (center.distanceSquared(entity.getLocation()) > radiusSq) continue;
+            entity.remove();
+            unregisterMob(uuid);
+            count++;
+        }
+        return count;
     }
 
     private LivingEntity findEntity(UUID uuid) {

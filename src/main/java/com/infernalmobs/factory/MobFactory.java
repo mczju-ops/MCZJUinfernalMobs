@@ -100,6 +100,48 @@ public class MobFactory {
     }
 
     /**
+     * 等级为 n、一定包含指定词条的炒鸡怪。先加入必选词条，其余由池子随机抽取。
+     *
+     * @param level            等级
+     * @param requiredSkillIds 必须包含的技能 ID（无效或未注册的会被忽略）
+     */
+    public void mechanizeWithRequiredAffixes(LivingEntity entity, Location spawnLocation, int level, List<String> requiredSkillIds) {
+        RegionConfig region = regionService.getRegionAt(spawnLocation);
+        int affixCount = affixRollService.computeAffixCount(level, region);
+        List<Affix> affixes = affixRollService.rollAffixesWithRequired(level, affixCount, region, requiredSkillIds);
+        if (affixes.isEmpty()) return;
+
+        MobProfile profile = new MobProfile(level, affixes);
+        MobState mobState = new MobState(entity.getUniqueId(), profile);
+
+        skillService.equip(entity, mobState, affixes, this);
+        combatService.applyStats(entity, mobState);
+        setMobDisplayName(entity, mobState);
+        combatService.registerMob(entity.getUniqueId(), mobState);
+    }
+
+    /**
+     * 等级为 n、一定不包含指定词条的炒鸡怪。从技能池排除这些词条后随机抽取。
+     *
+     * @param level            等级
+     * @param excludedSkillIds 必须排除的技能 ID
+     */
+    public void mechanizeWithExcludedAffixes(LivingEntity entity, Location spawnLocation, int level, List<String> excludedSkillIds) {
+        RegionConfig region = regionService.getRegionAt(spawnLocation);
+        int affixCount = affixRollService.computeAffixCount(level, region);
+        List<Affix> affixes = affixRollService.rollAffixesWithExcluded(level, affixCount, region, excludedSkillIds);
+        if (affixes.isEmpty()) return;
+
+        MobProfile profile = new MobProfile(level, affixes);
+        MobState mobState = new MobState(entity.getUniqueId(), profile);
+
+        skillService.equip(entity, mobState, affixes, this);
+        combatService.applyStats(entity, mobState);
+        setMobDisplayName(entity, mobState);
+        combatService.registerMob(entity.getUniqueId(), mobState);
+    }
+
+    /**
      * 使用固定技能 ID 列表炒鸡怪化实体（用于 ghost 等召唤物）。
      */
     public void mechanizeWithAffixes(LivingEntity entity, Location spawnLocation, int level, List<String> skillIds) {

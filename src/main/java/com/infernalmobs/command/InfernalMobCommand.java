@@ -57,17 +57,35 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         this.combatService = combatService;
     }
 
+    private static final String PERM_ADMIN = "infernalmobs.admin";
+    private static final String PERM_RELOAD = "infernalmobs.reload";
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
+            if (!sender.hasPermission(PERM_ADMIN)) {
+                send(sender, "<red>你没有权限使用该指令");
+                return true;
+            }
             sendHelp(sender);
             return true;
         }
         String sub = args[0].toLowerCase();
+        if ("reload".equals(sub)) {
+            if (!sender.hasPermission(PERM_ADMIN) && !sender.hasPermission(PERM_RELOAD)) {
+                send(sender, "<red>你没有权限执行该指令");
+                return true;
+            }
+            return handleReload(sender);
+        }
+        if (!sender.hasPermission(PERM_ADMIN)) {
+            send(sender, "<red>你没有权限使用该指令");
+            return true;
+        }
         if ("spawn".equals(sub)) return handleSpawn(sender, args);
         if ("stats".equals(sub)) return handleStats(sender);
         if ("debug".equals(sub)) return handleDebug(sender, args);
-        if ("reload".equals(sub)) return handleReload(sender);
+        if ("clear".equals(sub)) return handleClear(sender, args);
         sendHelp(sender);
         return true;
     }
@@ -140,7 +158,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         if (skillIds.isEmpty()) {
             mobFactory.mechanizeWithLevel(entity, loc, level);
         } else {
-            mobFactory.mechanizeWithAffixes(entity, loc, level, skillIds);
+            mobFactory.mechanizeWithRequiredAffixes(entity, loc, level, skillIds);
         }
         String skillsStr = skillIds.isEmpty() ? "" : " [" + String.join(", ", skillIds) + "]";
         send(sender, "<green>已生成炒鸡怪: <type> Lv<level><skills>", Placeholder.unparsed("type", type.name()), Placeholder.unparsed("level", String.valueOf(level)), Placeholder.unparsed("skills", skillsStr));
@@ -188,11 +206,32 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private boolean handleReload(CommandSender sender) {
-        if (!sender.hasPermission("infernalmobs.reload") && sender instanceof Player) {
-            send(sender, "<red>你没有权限执行该指令");
+    private boolean handleClear(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            send(sender, "<red>该指令仅玩家可执行");
             return true;
         }
+        int radius = 32;
+        if (args.length >= 2) {
+            try {
+                radius = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                send(sender, "<red>半径必须是数字，例: /im clear 64");
+                return true;
+            }
+        }
+        if (radius < 1 || radius > 256) {
+            send(sender, "<red>半径请在 1~256 之间");
+            return true;
+        }
+        int count = combatService.clearMobsInRadius(player.getLocation(), radius);
+        send(sender, "<green>[炒鸡怪] 已清除周围 <radius> 格内 <count> 只炒鸡怪",
+                Placeholder.unparsed("radius", String.valueOf(radius)),
+                Placeholder.unparsed("count", String.valueOf(count)));
+        return true;
+    }
+
+    private boolean handleReload(CommandSender sender) {
         try {
             configLoader.reload();
             if (plugin != null) plugin.reloadLootConfig();
@@ -210,12 +249,13 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<yellow>/im stats</yellow> <gray>- 查看当前追踪的炒鸡怪数量</gray>");
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试模式开关，控制台输出技能日志</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 从 config.yml 重新加载技能参数等配置</gray>");
+        send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spawn", "stats", "debug", "reload").stream()
+            return Arrays.asList("spawn", "stats", "debug", "reload", "clear").stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
@@ -240,6 +280,11 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length >= 4 && "spawn".equalsIgnoreCase(args[0])) {
             return filterPrefix(getAllSkillIds(), args[args.length - 1].toLowerCase());
+        }
+        if (args.length == 2 && "clear".equalsIgnoreCase(args[0])) {
+            return Arrays.asList("16", "32", "64", "128", "256").stream()
+                    .filter(s -> s.startsWith(args[1]))
+                    .collect(Collectors.toList());
         }
         return Collections.emptyList();
     }

@@ -9,10 +9,13 @@ softdepend:
 
 commands:
   im:
-    description: 炒鸡怪调试指令
-    usage: /<command> <spawn|stats|debug|reload> [参数]
+    description: 炒鸡怪管理指令（需权限 infernalmobs.admin）
+    usage: /<command> <spawn|stats|debug|reload|clear> [参数]
 
 permissions:
+  infernalmobs.admin:
+    description: 使用 /im 全部子指令（spawn/stats/debug/reload/clear）
+    default: op
   infernalmobs.reload:
-    description: 允许使用 /im reload 重载配置
+    description: 仅允许 /im reload（未给 admin 时可单独授予）
     default: op
