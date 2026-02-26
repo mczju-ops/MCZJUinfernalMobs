@@ -478,16 +478,13 @@ skills:
     damage: 10
     knockback-horizontal: 2.5
     knockback-vertical: 0.5
+    max-range: 15            # 超过此距离不触发
+    decay-min-multiplier: 0.2 # 距离衰减：最大距离时伤害/击退为基础的 20%
     sound: "ENTITY_WARDEN_SONIC_BOOM"
-    sound-volume: 1.8         # 音效音量，可大于 1
-    sound-at-player: true     # true=在玩家位置播放，false=在怪物位置
-    particle-beam: true       # 怪物→玩家的声波射线
-    particle-beam-density: 24
-    particle-rings: true      # 玩家处同心圆冲击波
-    particle-ring-radius-1: 0.6
-    particle-ring-radius-2: 1.2
-    particle-ring-radius-3: 1.8
-    particle-ring-density: 16
+    sound-volume: 1.8         # 音效音量
+    sound-at-player: true     # 音效在玩家/怪物位置播放
+    particle-sonic-boom: true # 怪物→玩家的 SONIC_BOOM 射线
+    particle-ray-density: 20  # 射线上的粒子数量
 
   swap:
     type: PASSIVE

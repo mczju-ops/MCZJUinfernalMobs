@@ -35,13 +35,13 @@ public final class ParticleEffect {
 
     /**
      * 在给定中心点播放（线形会忽略 base，使用线自带的起点/终点世界）。
+     * base 可为 null，部分 source（如 line、concentricRings）内部自备中心。
      */
     public void play(Location base) {
-        if (base == null || base.getWorld() == null) return;
         List<Location> points = source.getPoints(base, density);
         for (Location loc : points) {
             if (loc == null || loc.getWorld() == null) continue;
-            loc.getWorld().spawnParticle(particle, loc, count, offsetX, offsetY, offsetZ, extra);
+            loc.getWorld().spawnParticle(particle, loc, count, offsetX, offsetY, offsetZ, extra, true);
         }
     }
 

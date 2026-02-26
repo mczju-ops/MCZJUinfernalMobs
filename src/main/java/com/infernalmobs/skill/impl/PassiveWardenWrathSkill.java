@@ -1,8 +1,6 @@
 package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.config.SkillConfig;
-import com.infernalmobs.particle.ParticleEffect;
-import com.infernalmobs.particle.ParticleSource;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
@@ -13,9 +11,15 @@ import org.bukkit.util.Vector;
 
 /**
  * 咆哮：受击时概率释放类似监守者的声波攻击。
- * 监守者发射声波音效，冲击波粒子效果。
+ * 监守者发射声波音效 + 从怪物指向玩家的 SONIC_BOOM 射线。
  */
 public class PassiveWardenWrathSkill implements Skill {
+
+    private static void debugLog(SkillContext ctx, String msg) {
+        if (ctx.getPlugin() instanceof com.infernalmobs.InfernalMobsPlugin p && p.getConfigLoader().isDebug()) {
+            p.getLogger().info("[InfernalMobs:debug:wardenwrath] " + msg);
+        }
+    }
 
     @Override
     public String getId() {
@@ -39,15 +43,31 @@ public class PassiveWardenWrathSkill implements Skill {
         Player player = ctx.getTargetPlayer();
         if (player == null || !player.isOnline()) return;
 
-        double chance = config.getDouble("chance", 0.25);
-        if (Math.random() >= chance) return;
+        debugLog(ctx, "onTrigger entity=" + ctx.getEntity().getType() + " target=" + player.getName());
 
-        double damage = config.getDouble("damage", 10);
-        player.damage(damage, ctx.getEntity());
+        double chance = config.getDouble("chance", 0.25);
+        if (Math.random() >= chance) {
+            debugLog(ctx, "跳过: 概率未通过 (chance=" + chance + ")");
+            return;
+        }
+
+        double distance = ctx.getEntity().getLocation().distance(player.getLocation());
+        double maxRange = config.getDouble("max-range", 15);
+        if (distance > maxRange) {
+            debugLog(ctx, "跳过: 距离超限 distance=" + String.format("%.1f", distance) + " maxRange=" + maxRange);
+            return;
+        }
+
+        double minMultiplier = config.getDouble("decay-min-multiplier", 0.2);
+        double decayMultiplier = 1.0 - (distance / maxRange) * (1.0 - minMultiplier);
+        debugLog(ctx, "生效 distance=" + String.format("%.1f", distance) + " decay=" + String.format("%.2f", decayMultiplier));
+
+        double damage = config.getDouble("damage", 10) * decayMultiplier;
+        if (damage > 0.01) player.damage(damage, ctx.getEntity());
 
         Vector dir = player.getLocation().toVector().subtract(ctx.getEntity().getLocation().toVector()).normalize();
-        double knockbackH = config.getDouble("knockback-horizontal", 2.5);
-        double knockbackV = config.getDouble("knockback-vertical", 0.5);
+        double knockbackH = config.getDouble("knockback-horizontal", 2.5) * decayMultiplier;
+        double knockbackV = config.getDouble("knockback-vertical", 0.5) * decayMultiplier;
         Vector kb = dir.multiply(knockbackH).setY(knockbackV);
         player.setVelocity(player.getVelocity().add(kb));
 
@@ -61,36 +81,30 @@ public class PassiveWardenWrathSkill implements Skill {
             org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
             Location soundAt = soundAtPlayer ? playerLoc : mobLoc;
             soundAt.getWorld().playSound(soundAt, sound, soundVolume, 1f);
-        } catch (IllegalArgumentException ignored) {}
+            debugLog(ctx, "音效已播放 at=" + (soundAtPlayer ? "player" : "mob"));
+        } catch (IllegalArgumentException e) {
+            debugLog(ctx, "音效失败: " + soundKey + " " + e.getMessage());
+        }
 
-        if (config.getBoolean("particle-beam", true)) {
-            int beamDensity = config.getInt("particle-beam-density", 24);
-            ParticleEffect.create()
-                    .source(ParticleSource.line(mobLoc, playerLoc))
-                    .particle(Particle.SONIC_BOOM)
-                    .density(beamDensity)
-                    .count(1)
-                    .play(null);
+        boolean particleEnabled = config.getBoolean("particle-sonic-boom", true);
+        debugLog(ctx, "particle-sonic-boom=" + particleEnabled);
+        if (particleEnabled) {
+            int density = config.getInt("particle-ray-density", 20);
+            debugLog(ctx, "射线 mobLoc=" + formatLoc(mobLoc) + " playerLoc=" + formatLoc(playerLoc) + " density=" + density);
+            double dx = (playerLoc.getX() - mobLoc.getX()) / density;
+            double dy = (playerLoc.getY() - mobLoc.getY()) / density;
+            double dz = (playerLoc.getZ() - mobLoc.getZ()) / density;
+            int count = 0;
+            for (int i = 0; i <= density; i++) {
+                Location at = mobLoc.clone().add(dx * i, dy * i, dz * i);
+                mobLoc.getWorld().spawnParticle(Particle.SONIC_BOOM, at, 1, 0, 0, 0, 0);
+                count++;
+            }
+            debugLog(ctx, "已生成 SONIC_BOOM 粒子 count=" + count + " world=" + mobLoc.getWorld().getName());
         }
-        if (config.getBoolean("particle-rings", true)) {
-            double r1 = config.getDouble("particle-ring-radius-1", 0.6);
-            double r2 = config.getDouble("particle-ring-radius-2", 1.2);
-            double r3 = config.getDouble("particle-ring-radius-3", 1.8);
-            int ringDensity = config.getInt("particle-ring-density", 16);
-            ParticleEffect.create()
-                    .source(ParticleSource.concentricRings(playerLoc, r1, r2, r3))
-                    .particle(Particle.SONIC_BOOM)
-                    .density(ringDensity)
-                    .count(1)
-                    .play(null);
-            ParticleEffect.create()
-                    .source(ParticleSource.concentricRings(playerLoc, r1, r2, r3))
-                    .particle(Particle.DRAGON_BREATH)
-                    .density(ringDensity)
-                    .offset(0.02, 0.02, 0.02)
-                    .extra(0.02)
-                    .count(1)
-                    .play(null);
-        }
+    }
+
+    private static String formatLoc(Location loc) {
+        return loc == null ? "null" : String.format("(%.1f,%.1f,%.1f)", loc.getX(), loc.getY(), loc.getZ());
     }
 }
