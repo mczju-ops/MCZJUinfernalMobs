@@ -31,7 +31,7 @@ public record DeathMessageConfig(
         if (level <= 3) return "初级";
         if (level <= 6) return "中级";
         if (level <= 9) return "高级";
-        if (level >= 15) return "<obfuscated>炒鸡</obfuscated>";
+        if (level >= 15) return "<obfuscated>Infernal</obfuscated>";
         return "炒鸡";
     }
 

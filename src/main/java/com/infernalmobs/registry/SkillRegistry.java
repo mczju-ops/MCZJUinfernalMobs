@@ -55,6 +55,10 @@ public class SkillRegistry {
         register(new com.infernalmobs.skill.impl.StatMountedSkill());
         register(new com.infernalmobs.skill.impl.DualMorphSkill());
         register(new com.infernalmobs.skill.impl.DualRefrigerateSkill());
+        register(new com.infernalmobs.skill.impl.PassiveRustSkill());
+        register(new com.infernalmobs.skill.impl.PassiveVexSummonerSkill());
+        register(new com.infernalmobs.skill.impl.PassiveWardenWrathSkill());
+        register(new com.infernalmobs.skill.impl.PassiveSwapSkill());
     }
 
     public static void register(Skill skill) {

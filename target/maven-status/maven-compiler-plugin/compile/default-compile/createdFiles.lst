@@ -1,6 +1,7 @@
 com\infernalmobs\skill\Skill.class
 com\infernalmobs\util\MiniMessageHelper.class
 com\infernalmobs\service\RegionService.class
+com\infernalmobs\skill\impl\PassiveRustSkill.class
 com\infernalmobs\skill\impl\ActiveFireworkSkill.class
 com\infernalmobs\skill\impl\DualArcherSkill.class
 com\infernalmobs\InfernalMobsPlugin.class
@@ -32,6 +33,7 @@ com\infernalmobs\skill\impl\StatArmouredSkill.class
 com\infernalmobs\skill\impl\DualWeaknessSkill.class
 com\infernalmobs\skill\impl\RangeTosserSkill.class
 com\infernalmobs\config\MobRegistryConfig.class
+com\infernalmobs\skill\impl\PassiveSwapSkill.class
 com\infernalmobs\skill\impl\RangeGravitySkill.class
 com\infernalmobs\registry\SkillRegistry.class
 com\infernalmobs\model\MobProfile.class
@@ -45,6 +47,7 @@ com\infernalmobs\service\AffixRollService.class
 com\infernalmobs\config\RegionConfig.class
 com\infernalmobs\skill\impl\PassiveLifestealSkill.class
 com\infernalmobs\service\CombatService$2.class
+com\infernalmobs\skill\impl\PassiveWardenWrathSkill.class
 com\infernalmobs\model\MobState.class
 com\infernalmobs\config\SkillConfig.class
 com\infernalmobs\skill\impl\Stat1upSkill.class
@@ -54,6 +57,7 @@ com\infernalmobs\skill\SkillContext.class
 com\infernalmobs\particle\ParticleEffect$Builder.class
 com\infernalmobs\affix\Affix.class
 com\infernalmobs\model\StatMap.class
+com\infernalmobs\skill\impl\PassiveVexSummonerSkill.class
 com\infernalmobs\skill\impl\StatBullwarkSkill.class
 com\infernalmobs\skill\impl\PassiveMamaSkill$1.class
 com\infernalmobs\skill\impl\PassiveQuicksandSkill.class

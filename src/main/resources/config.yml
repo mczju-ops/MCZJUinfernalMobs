@@ -56,6 +56,10 @@ skill-weights:
   mounted: 4
   morph: 5
   refrigerate: 6
+  rust: 6
+  vexsummoner: 4
+  wardenwrath: 5
+  swap: 5
 
 # ===========================================
 # 炒鸡怪注册表：索引与定期清理
@@ -446,3 +450,48 @@ skills:
     cooldown-ticks: 80
     chance: 0.25
     freeze-ticks: 100   # 5s 冰冻
+
+  rust:
+    type: PASSIVE
+    display: "&8Rust"
+    chance: 0.3
+    damage-amount: 20    # 主手物品耐久降低量
+    sound: "ENTITY_ITEM_BREAK"
+    sound-pitch: 0.7     # 物品损坏音效变调
+
+  vexsummoner:
+    type: PASSIVE
+    display: "&5VexSummoner"
+    chance: 0.25
+    cooldown-ticks: 60
+    summon-count: 2
+    max-nearby: 4
+    count-range: 16       # 统计附近恼鬼数量的范围（格）
+    sound: "ENTITY_EVOKER_PREPARE_SUMMON"
+    sound-pitch: 0.8     # 准备召唤恼鬼音效变调
+
+  wardenwrath:
+    type: PASSIVE
+    display: "&cWardenWrath"
+    chance: 0.25
+    cooldown-ticks: 80
+    damage: 10
+    knockback-horizontal: 2.5
+    knockback-vertical: 0.5
+    sound: "ENTITY_WARDEN_SONIC_BOOM"
+    sound-volume: 1.8         # 音效音量，可大于 1
+    sound-at-player: true     # true=在玩家位置播放，false=在怪物位置
+    particle-beam: true       # 怪物→玩家的声波射线
+    particle-beam-density: 24
+    particle-rings: true      # 玩家处同心圆冲击波
+    particle-ring-radius-1: 0.6
+    particle-ring-radius-2: 1.2
+    particle-ring-radius-3: 1.8
+    particle-ring-density: 16
+
+  swap:
+    type: PASSIVE
+    display: "&dSwap"
+    chance: 0.25
+    cooldown-ticks: 60
+    sound: "ENTITY_SHULKER_TELEPORT"   # 潜影贝传送音效

@@ -186,6 +186,27 @@ public interface ParticleSource {
     }
 
     /**
+     * 同心圆环：多圈不同半径的圆，模拟冲击波扩散。
+     *
+     * @param center  中心点（base 不为 null 时用 base）
+     * @param radii   各圈半径，如 [0.5, 1.0, 1.5]
+     */
+    static ParticleSource concentricRings(Location center, double... radii) {
+        return (base, density) -> {
+            Location c = base != null ? base : center;
+            if (c == null || c.getWorld() == null || radii == null || radii.length == 0) return new ArrayList<>();
+            List<Location> out = new ArrayList<>();
+            int perRing = Math.max(8, density / radii.length);
+            for (double r : radii) {
+                if (r <= 0) continue;
+                List<Location> ring = circle(c, r, 0).getPoints(c, perRing);
+                out.addAll(ring);
+            }
+            return out;
+        };
+    }
+
+    /**
      * 自定义：按 (base, density) 生成位置列表。
      */
     static ParticleSource custom(BiFunction<Location, Integer, List<Location>> generator) {
