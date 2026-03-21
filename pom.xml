@@ -14,6 +14,9 @@
     <properties>
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <itemcreator.groupId>com.github.tozero0</itemcreator.groupId>
+        <itemcreator.artifactId>itemcreator-api</itemcreator.artifactId>
+        <itemcreator.version>1.0.0</itemcreator.version>
     </properties>
 
     <repositories>
@@ -35,13 +38,26 @@
             <version>1.21.4-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
+        <!-- ItemCreator API：仅编译期依赖(provided)，运行时由 MCZJUItemCreator 插件通过 ServicesManager 提供。
+             默认从 tozero0/itemcreator-api 拉取。mczju-ops 公开后可：mvn -Pitemcreator-mczju clean install -->
         <dependency>
-            <groupId>com.github.tozero0</groupId>
-            <artifactId>itemcreator-api</artifactId>
-            <version>1.0.0</version>
+            <groupId>${itemcreator.groupId}</groupId>
+            <artifactId>${itemcreator.artifactId}</artifactId>
+            <version>${itemcreator.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>itemcreator-mczju</id>
+            <properties>
+                <itemcreator.groupId>com.github.mczju-ops</itemcreator.groupId>
+                <itemcreator.artifactId>MCZJUItemCreator</itemcreator.artifactId>
+                <itemcreator.version>master-SNAPSHOT</itemcreator.version>
+            </properties>
+        </profile>
+    </profiles>
 
     <build>
         <resources>

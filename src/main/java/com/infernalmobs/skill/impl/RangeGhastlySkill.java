@@ -34,6 +34,7 @@ public class RangeGhastlySkill implements Skill {
     public void onTrigger(SkillContext ctx, SkillConfig config) {
         if (ctx.getEntity() == null || !ctx.getEntity().isValid()) return;
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
         double damage = config.getDouble("damage", 8);
         double velocity = config.getDouble("velocity", 1.2);

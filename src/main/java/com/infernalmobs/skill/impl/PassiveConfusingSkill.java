@@ -34,8 +34,8 @@ public class PassiveConfusingSkill implements Skill {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
 
-        int duration = config.getInt("duration-ticks", 80);  // 4s
-        int amplifier = config.getInt("amplifier", 2);  // 反胃III
+        int duration = ctx.isWeakened() ? 20 : config.getInt("duration-ticks", 80);  // 削弱: 1s
+        int amplifier = ctx.isWeakened() ? 2 : config.getInt("amplifier", 2);  // 削弱: 反胃III
 
         ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
                 PotionEffectType.NAUSEA, duration, amplifier, false, true));

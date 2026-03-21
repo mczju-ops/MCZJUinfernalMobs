@@ -32,7 +32,9 @@ public class PassiveMoltenSkill implements Skill {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
 
-        int fireTicks = config.getInt("fire-ticks", 60);  // 3s
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
+
+        int fireTicks = config.getInt("fire-ticks", 60);
         ctx.getTargetPlayer().setFireTicks(Math.max(ctx.getTargetPlayer().getFireTicks(), fireTicks));
     }
 }

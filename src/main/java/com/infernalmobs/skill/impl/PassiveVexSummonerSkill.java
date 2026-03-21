@@ -41,6 +41,7 @@ public class PassiveVexSummonerSkill implements Skill {
 
         double chance = config.getDouble("chance", 0.25);
         if (Math.random() >= chance) return;
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
         int maxNearby = config.getInt("max-nearby", 4);
         double countRange = config.getDouble("count-range", 16);

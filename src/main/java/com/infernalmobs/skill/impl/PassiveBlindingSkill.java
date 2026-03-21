@@ -34,8 +34,8 @@ public class PassiveBlindingSkill implements Skill {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
 
-        int durationTicks = config.getInt("duration-ticks", 60); // 3s
-        int amplifier = config.getInt("amplifier", 0);
+        int durationTicks = ctx.isWeakened() ? 20 : config.getInt("duration-ticks", 60);  // 削弱: 1s
+        int amplifier = ctx.isWeakened() ? 0 : config.getInt("amplifier", 0);
 
         ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
                 PotionEffectType.BLINDNESS, durationTicks, amplifier, false, true));

@@ -34,6 +34,7 @@ public class PassiveVengeanceSkill implements Skill {
 
         double chance = config.getDouble("chance", 0.5);
         if (Math.random() >= chance) return;
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
         double damage = config.getDouble("damage", 10);
         player.damage(damage, ctx.getEntity());

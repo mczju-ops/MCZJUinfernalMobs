@@ -38,6 +38,7 @@ public class DualEnderSkill implements Skill {
 
         double chance = config.getDouble("chance", 1.0);
         if (chance < 1.0 && Math.random() >= chance) return;
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
         Vector behind = target.getLocation().getDirection().multiply(-1).setY(0).normalize();
         double dist = config.getDouble("distance", 2);

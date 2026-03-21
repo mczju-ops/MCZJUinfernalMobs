@@ -12,7 +12,11 @@ import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.service.AffixRollService;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.DeathMessageService;
+import com.infernalmobs.config.GuaranteedLootConfig;
+import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.LootService;
+import com.infernalmobs.service.KillStatsService;
+import com.infernalmobs.service.MagicKingArmorService;
 import com.infernalmobs.service.MobLevelService;
 import com.infernalmobs.service.RegionService;
 import com.infernalmobs.service.SkillService;
@@ -34,6 +38,9 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
     private ConfigLoader configLoader;
     private CombatService combatService;
+    private MagicKingArmorService magicKingArmorService;
+    private KillStatsService killStatsService;
+    private GuaranteedLootService guaranteedLootService;
     private LootConfig lootConfig;
     private LootService lootService;
 
@@ -44,6 +51,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
         if (!getDataFolder().exists()) getDataFolder().mkdirs();
         if (!new File(getDataFolder(), "loot.yml").exists()) saveResource("loot.yml", false);
+        if (!new File(getDataFolder(), "special_loot.yml").exists()) saveResource("special_loot.yml", false);
+        if (!new File(getDataFolder(), "guaranteed_loot.yml").exists()) saveResource("guaranteed_loot.yml", false);
         File lootDir = new File(getDataFolder(), "loot");
         if (!lootDir.exists()) lootDir.mkdirs();
         saveDefaultLootFiles(lootDir);
@@ -52,23 +61,32 @@ public class InfernalMobsPlugin extends JavaPlugin {
         MobLevelService levelService = new MobLevelService(configLoader);
         AffixRollService affixRollService = new AffixRollService(configLoader);
         SkillService skillService = new SkillService(this, configLoader);
+        magicKingArmorService = new MagicKingArmorService();
         combatService = new CombatService(this, configLoader);
+        combatService.setMagicKingArmorService(magicKingArmorService);
+        killStatsService = new KillStatsService(this);
+        killStatsService.load();
         DeathMessageService deathMessageService = new DeathMessageService(configLoader);
         RegionService regionService = new RegionService(configLoader.getRegions(), configLoader.getPresets());
 
         MobFactory mobFactory = new MobFactory(this, configLoader, levelService, affixRollService, skillService, combatService, regionService);
         combatService.setMobFactory(mobFactory);
 
-        InfernalMobCommand imCmd = new InfernalMobCommand(this, configLoader, mobFactory, combatService);
+        InfernalMobCommand imCmd = new InfernalMobCommand(this, configLoader, mobFactory, combatService, killStatsService);
         getCommand("im").setExecutor(imCmd);
         getCommand("im").setTabCompleter(imCmd);
 
         getServer().getPluginManager().registerEvents(new MobSpawnListener(configLoader, mobFactory), this);
-        getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService), this);
+        getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService, guaranteedLootService), this);
         getServer().getPluginManager().registerEvents(new InfernalEyeListener(configLoader, combatService), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
 
         combatService.startTickTask();
+
+        getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+            killStatsService.saveIfDirty();
+            if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
+        }, 20 * 60, 20 * 60);
 
         getLogger().info("InfernalMobs 已启用");
     }
@@ -125,10 +143,16 @@ public class InfernalMobsPlugin extends JavaPlugin {
             }
         }
         lootService = new LootService(this, lootConfig, api);
+        guaranteedLootService = new GuaranteedLootService(this);
+        guaranteedLootService.load();
+        guaranteedLootService.setConfig(GuaranteedLootConfig.load(getDataFolder()));
+        guaranteedLootService.setItemCreatorApi(api);
     }
 
     @Override
     public void onDisable() {
+        if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
+        if (killStatsService != null) killStatsService.saveIfDirty();
         if (combatService != null) combatService.cleanupOnShutdown();
         getLogger().info("InfernalMobs 已禁用");
     }
@@ -141,7 +165,19 @@ public class InfernalMobsPlugin extends JavaPlugin {
         return combatService;
     }
 
+    public MagicKingArmorService getMagicKingArmorService() {
+        return magicKingArmorService;
+    }
+
     public LootService getLootService() {
         return lootService;
+    }
+
+    public KillStatsService getKillStatsService() {
+        return killStatsService;
+    }
+
+    public GuaranteedLootService getGuaranteedLootService() {
+        return guaranteedLootService;
     }
 }

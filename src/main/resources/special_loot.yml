@@ -1,0 +1,10 @@
+# 难打怪物额外特殊战利品（在等级池 loot 之外）
+# 概率 = rates.实体类型 × 怪物等级，可大于 1 表示保底+概率额外
+# 例：warden 0.8、Lv11 → 8.8，即 80% 掉 9 个、20% 掉 8 个
+enable: true
+#item-id: nether_star
+#rates:
+#  RAVAGER: 0.15
+#  ELDER_GUARDIAN: 0.3
+#  WARDEN: 0.8
+#  WITHER: 1.0

@@ -4,6 +4,7 @@ import com.infernalmobs.InfernalMobsPlugin;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.service.CombatService;
+import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.util.MiniMessageHelper;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -49,12 +50,14 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private final ConfigLoader configLoader;
     private final MobFactory mobFactory;
     private final CombatService combatService;
+    private final KillStatsService killStatsService;
 
-    public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory, CombatService combatService) {
+    public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory, CombatService combatService, KillStatsService killStatsService) {
         this.plugin = plugin;
         this.configLoader = configLoader;
         this.mobFactory = mobFactory;
         this.combatService = combatService;
+        this.killStatsService = killStatsService;
     }
 
     private static final String PERM_ADMIN = "infernalmobs.admin";
@@ -83,7 +86,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if ("spawn".equals(sub)) return handleSpawn(sender, args);
-        if ("stats".equals(sub)) return handleStats(sender);
+        if ("stats".equals(sub)) return handleStats(sender, args);
         if ("debug".equals(sub)) return handleDebug(sender, args);
         if ("clear".equals(sub)) return handleClear(sender, args);
         if ("cleantags".equals(sub)) return handleCleanTags(sender);
@@ -201,10 +204,45 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         return player.getLocation().add(player.getLocation().getDirection().multiply(2)).add(0.5, 0, 0.5);
     }
 
-    private boolean handleStats(CommandSender sender) {
-        int count = combatService.getTrackedCount();
-        send(sender, "<gold>[炒鸡怪]</gold> <white>当前记录数: </white><count>", Placeholder.unparsed("count", String.valueOf(count)));
+    private boolean handleStats(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            int count = combatService.getTrackedCount();
+            send(sender, "<gold>[炒鸡怪]</gold> <white>当前追踪炒鸡怪数: </white><count>", Placeholder.unparsed("count", String.valueOf(count)));
+            return true;
+        }
+        String playerId = resolvePlayerId(args[1]);
+        if (playerId == null) {
+            send(sender, "<red>未找到玩家，请使用在线玩家名或 UUID 字符串");
+            return true;
+        }
+        int total = killStatsService.getTotalKills(playerId);
+        Map<Integer, Integer> byLevel = killStatsService.getKillsByLevel(playerId);
+        if (byLevel.isEmpty()) {
+            send(sender, "<gold>[炒鸡怪]</gold> <white>玩家 </white><player><white> 击杀数: 0</white>", Placeholder.unparsed("player", args[1]));
+            return true;
+        }
+        StringBuilder sb = new StringBuilder();
+        byLevel.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e ->
+            sb.append("Lv").append(e.getKey()).append(":").append(e.getValue()).append(" "));
+        send(sender, "<gold>[炒鸡怪]</gold> <white>玩家 </white><player><white> 总击杀: </white><total><white> | </white><detail>",
+                Placeholder.unparsed("player", args[1]),
+                Placeholder.unparsed("total", String.valueOf(total)),
+                Placeholder.unparsed("detail", sb.toString().trim()));
         return true;
+    }
+
+    /** 将玩家名或 UUID 字符串解析为存储用的玩家 id。 */
+    private String resolvePlayerId(String arg) {
+        if (arg == null || arg.isEmpty()) return null;
+        arg = arg.trim();
+        if (arg.length() == 36 && arg.contains("-")) {
+            try {
+                java.util.UUID.fromString(arg);
+                return arg;
+            } catch (IllegalArgumentException ignored) {}
+        }
+        Player p = plugin.getServer().getPlayerExact(arg);
+        return p != null ? p.getUniqueId().toString() : null;
     }
 
     private boolean handleClear(CommandSender sender, String[] args) {
@@ -243,9 +281,9 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         try {
             configLoader.reload();
             if (plugin != null) plugin.reloadLootConfig();
-            send(sender, "<green>[炒鸡怪] 已重新加载 config.yml 与 loot.yml（技能参数、权重、区域、等级掉落池）");
+            send(sender, "<green>[炒鸡怪] 已重新加载 config.yml、loot.yml、special_loot.yml、guaranteed_loot.yml");
         } catch (Exception e) {
-            send(sender, "<red>[炒鸡怪] 重载失败: <err>", Placeholder.unparsed("err", e.getMessage()));
+            send(sender, "<red>[炒鸡插件] 重载失败: <err>", Placeholder.unparsed("err", e.getMessage()));
         }
         return true;
     }
@@ -254,7 +292,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<gold>=== InfernalMobs 炒鸡怪指令 ===</gold>");
         send(sender, "<yellow>/im spawn <实体类型> [等级] [技能1,技能2,...]</yellow> <gray>- 在面前生成炒鸡怪</gray>");
         send(sender, "<gray>  例: /im spawn zombie 5  或  /im spawn creeper 10 poisonous,armoured,ender</gray>");
-        send(sender, "<yellow>/im stats</yellow> <gray>- 查看当前存储的炒鸡怪数量</gray>");
+        send(sender, "<yellow>/im stats [玩家]</yellow> <gray>- 查看追踪数，或指定玩家的击杀统计</gray>");
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试模式开关，控制台输出技能日志</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 从 config.yml 重新加载技能参数等配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
@@ -272,6 +310,9 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             return Arrays.asList("on", "off").stream()
                     .filter(s -> s.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
+        }
+        if (args.length == 2 && "stats".equalsIgnoreCase(args[0])) {
+            return plugin.getServer().getOnlinePlayers().stream().map(Player::getName).filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase())).toList();
         }
         if (args.length == 2 && "spawn".equalsIgnoreCase(args[0])) {
             String prefix = args[1].toUpperCase();

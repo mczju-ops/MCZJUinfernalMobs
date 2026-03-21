@@ -16,6 +16,7 @@ com\infernalmobs\service\LootService.class
 com\infernalmobs\skill\impl\DualThiefSkill.class
 com\infernalmobs\skill\impl\DualStormSkill.class
 com\infernalmobs\skill\impl\StatMountedSkill.class
+com\infernalmobs\service\MagicKingArmorService.class
 com\infernalmobs\util\Keys.class
 com\infernalmobs\config\DeathMessageConfig.class
 com\infernalmobs\skill\impl\PassiveWitheringSkill.class
@@ -23,6 +24,7 @@ com\infernalmobs\skill\impl\ActiveBerserkSkill.class
 com\infernalmobs\controller\listener\InfernalEyeListener.class
 com\infernalmobs\service\CombatService$1.class
 com\infernalmobs\skill\impl\PassiveConfusingSkill.class
+com\infernalmobs\config\GuaranteedLootConfig.class
 com\infernalmobs\skill\impl\DualEnderSkill.class
 com\infernalmobs\skill\impl\PassivePoisonousSkill.class
 com\infernalmobs\factory\MobFactory.class
@@ -43,6 +45,7 @@ com\infernalmobs\particle\ParticleEffect.class
 com\infernalmobs\particle\ParticleSource.class
 com\infernalmobs\skill\impl\PassiveMoltenSkill.class
 com\infernalmobs\controller\listener\CreeperExplodeListener.class
+com\infernalmobs\config\SpecialLootConfig.class
 com\infernalmobs\service\AffixRollService.class
 com\infernalmobs\config\RegionConfig.class
 com\infernalmobs\skill\impl\PassiveLifestealSkill.class
@@ -50,6 +53,7 @@ com\infernalmobs\service\CombatService$2.class
 com\infernalmobs\skill\impl\PassiveWardenWrathSkill.class
 com\infernalmobs\model\MobState.class
 com\infernalmobs\config\SkillConfig.class
+com\infernalmobs\service\GuaranteedLootService.class
 com\infernalmobs\skill\impl\Stat1upSkill.class
 com\infernalmobs\skill\impl\StatSprintSkill.class
 com\infernalmobs\skill\impl\PassiveBlindingSkill.class
@@ -73,4 +77,6 @@ com\infernalmobs\command\InfernalMobCommand.class
 com\infernalmobs\skill\impl\DualMorphSkill$1.class
 com\infernalmobs\skill\impl\DualThiefSkill$1.class
 com\infernalmobs\controller\listener\CombatListener.class
+com\infernalmobs\service\KillStatsService.class
 com\infernalmobs\skill\impl\RangeGhastlySkill.class
+com\infernalmobs\config\GuaranteedLootConfig$GuaranteedRule.class

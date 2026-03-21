@@ -1,0 +1,23 @@
+# 保底掉落：击杀满足条件的炒鸡怪累计到阈值时，必定获得指定奖励
+# 可与等级表、特殊掉落并存，各规则独立累计进度
+enable: true
+rules:
+  # 规则 id，用于区分与持久化进度
+  elite_guardian:
+    # 只统计此等级范围内的击杀（含边界）
+    level-min: 10
+    level-max: 100
+    # 累计击杀数达到此值触发保底
+    count: 1000
+    item-id: nether_star
+    item-amount: 1
+    # 触发后是否归零重新累积（false=每人每规则仅触发一次）
+    reset-on-drop: true
+
+  early_pity:
+    level-min: 1
+    level-max: 5
+    count: 500
+    item-id: emerald
+    item-amount: 3
+    reset-on-drop: true

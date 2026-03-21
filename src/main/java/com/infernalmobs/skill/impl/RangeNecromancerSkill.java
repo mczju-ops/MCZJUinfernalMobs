@@ -34,6 +34,7 @@ public class RangeNecromancerSkill implements Skill {
     @Override
     public void onTrigger(SkillContext ctx, SkillConfig config) {
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
         double velocity = config.getDouble("velocity", 1.0);
         Vector dir = ctx.getTargetPlayer().getEyeLocation().toVector()

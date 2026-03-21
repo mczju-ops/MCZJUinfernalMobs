@@ -34,8 +34,8 @@ public class DualWeaknessSkill implements Skill {
         Player target = ctx.getTargetPlayer();
         if (target == null || !target.isOnline()) return;
 
-        int duration = config.getInt("duration-ticks", 500);  // 25s
-        int amplifier = config.getInt("amplifier", 1);  // Weakness II
+        int duration = ctx.isWeakened() ? 100 : config.getInt("duration-ticks", 500);  // 削弱: 5s
+        int amplifier = ctx.isWeakened() ? 1 : config.getInt("amplifier", 1);  // 削弱: 虚弱II
 
         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, duration, amplifier, false, true));
     }

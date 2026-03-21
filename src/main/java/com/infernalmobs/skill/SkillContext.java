@@ -16,6 +16,8 @@ public class SkillContext {
     private final MobState mobState;
     private Event triggerEvent;
     private Player targetPlayer;
+    /** 魔法王套装削弱：true 时技能按各自削弱方案生效 */
+    private boolean weakened = false;
 
     public SkillContext(JavaPlugin plugin, LivingEntity entity, MobState mobState) {
         this.plugin = plugin;
@@ -60,5 +62,13 @@ public class SkillContext {
     @SuppressWarnings("unchecked")
     public <T> T getMobFactory() {
         return (T) mobFactory;
+    }
+
+    public boolean isWeakened() {
+        return weakened;
+    }
+
+    public void setWeakened(boolean weakened) {
+        this.weakened = weakened;
     }
 }

@@ -39,6 +39,7 @@ public class ActiveFireworkSkill implements Skill {
         if (target == null || !target.isOnline()) return;
         double chance = config.getDouble("chance", 1.0);
         if (chance < 1.0 && Math.random() >= chance) return;
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
         Location mobLoc = ctx.getEntity().getLocation().clone();
 

@@ -39,11 +39,16 @@ public class CombatService {
     private final Map<UUID, MobState> mobStates = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastActiveTick = new ConcurrentHashMap<>();
     private com.infernalmobs.factory.MobFactory mobFactory;
+    private MagicKingArmorService magicKingArmorService;
     private BukkitRunnable cleanupTask;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.config = config;
+    }
+
+    public void setMagicKingArmorService(MagicKingArmorService service) {
+        this.magicKingArmorService = service;
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
@@ -124,6 +129,11 @@ public class CombatService {
             if (sc == null) continue;
 
             double threshold = sc.getDouble("hp-threshold", 8);
+            if (magicKingArmorService != null && event instanceof EntityDamageByEntityEvent edbe) {
+                org.bukkit.entity.Entity damager = edbe.getDamager();
+                if (damager instanceof org.bukkit.entity.Projectile proj && proj.getShooter() instanceof org.bukkit.entity.Player p) damager = p;
+                if (damager instanceof Player p && magicKingArmorService.isWeakened(p, "1up")) threshold = 2;
+            }
             double healthAfter = victim.getHealth() - event.getFinalDamage();
             if (healthAfter > threshold) continue;
 
@@ -154,12 +164,16 @@ public class CombatService {
             ctx.setTargetPlayer(damager);
             ctx.setTriggerEvent(event);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
+            if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(damager, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
 
-            // lifesteal: 受击后设置回血 buff
+            // lifesteal: 受击后设置回血 buff（削弱时概率50%）
             if ("lifesteal".equals(affix.getSkillId()) && affix.getSkill() instanceof com.infernalmobs.skill.impl.PassiveLifestealSkill ls) {
-                int duration = sc.getInt("duration-ticks", 80);  // 4s
-                ls.setLifestealBuff(ctx, currentTick + duration);
+                if (ctx.isWeakened() && Math.random() < 0.5) { /* 削弱：50% 不触发 */ }
+                else {
+                    int duration = sc.getInt("duration-ticks", 80);  // 4s
+                    ls.setLifestealBuff(ctx, currentTick + duration);
+                }
             }
         }
     }
@@ -272,7 +286,7 @@ public class CombatService {
         }
     }
 
-    /** lifesteal: 4s 内每秒回 1 血 */
+    /** lifesteal: 4s 内每秒回血 */
     private void tickLifesteal(LivingEntity entity, MobState state) {
         long until = state.getBuff(com.infernalmobs.skill.impl.PassiveLifestealSkill.BUFF_KEY);
         if (until == 0 || currentTick >= until) return;
@@ -337,6 +351,7 @@ public class CombatService {
             SkillContext ctx = new SkillContext(plugin, entity, state);
             ctx.setTargetPlayer(target);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
+            if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(target, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
         }
     }
@@ -355,6 +370,7 @@ public class CombatService {
             SkillContext ctx = new SkillContext(plugin, damager, state);
             ctx.setTargetPlayer(victim);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
+            if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(victim, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
         }
     }
@@ -371,6 +387,7 @@ public class CombatService {
             SkillContext ctx = new SkillContext(plugin, damager, state);
             ctx.setTargetPlayer(victim);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
+            if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(victim, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
         }
     }

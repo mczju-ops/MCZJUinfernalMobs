@@ -2,6 +2,7 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\controller\listener\In
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\model\MobProfile.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveConfusingSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveWitheringSkill.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\GuaranteedLootConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\DeathMessageService.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\particle\ParticleSource.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\controller\listener\CreeperExplodeListener.java
@@ -19,6 +20,8 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveLife
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveQuicksandSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\RangeGravitySkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveMoltenSkill.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\KillStatsService.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\MagicKingArmorService.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveMamaSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DeathGhostSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualStormSkill.java
@@ -55,6 +58,7 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\InfernalMobsPlugin.jav
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\factory\MobFactory.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualEnderSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\StatSprintSkill.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\GuaranteedLootService.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualArcherSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveVengeanceSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\registry\SkillRegistry.java
@@ -63,6 +67,7 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\LootService.ja
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualThiefSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualWeaknessSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\DeathMessageConfig.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\SpecialLootConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\affix\Affix.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\AffixRollService.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\CombatService.java

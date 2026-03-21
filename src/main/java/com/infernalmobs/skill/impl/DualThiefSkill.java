@@ -41,6 +41,7 @@ public class DualThiefSkill implements Skill {
         // 触发前存主手（延迟后再对比：主手消失则不缴械）
         ItemStack mainBefore = player.getInventory().getItemInMainHand().clone();
         if (mainBefore.getType().isAir()) return;
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
         // 掉落坐标用触发时怪物位置，延迟任务内不再用 ctx.getEntity()。这样与变身同时触发时，原实体被移除、新实体同位置生成，掉落仍落在“怪物处”正确位置
         Location mobLoc = ctx.getEntity().getLocation().clone();

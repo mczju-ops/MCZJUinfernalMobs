@@ -35,6 +35,8 @@ public class RangeGravitySkill implements Skill {
         if (target == null || !target.isOnline()) return;
         if (target.hasPotionEffect(PotionEffectType.LEVITATION)) return;
 
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
+
         int duration = config.getInt("duration-ticks", 60);
         int amplifier = config.getInt("amplifier", 0);
 

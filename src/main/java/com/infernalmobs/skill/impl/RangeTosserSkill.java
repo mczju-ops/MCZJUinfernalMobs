@@ -43,6 +43,11 @@ public class RangeTosserSkill implements Skill {
         toMob.normalize();
         double force = config.getDouble("force", 1.2);
         double up = config.getDouble("upward", 0.2);
+        if (ctx.isWeakened()) {  // 削弱: 概率减小50%，力道减小50%
+            if (Math.random() < 0.5) return;
+            force *= 0.5;
+            up *= 0.5;
+        }
 
         player.setVelocity(toMob.multiply(force).setY(up));
 

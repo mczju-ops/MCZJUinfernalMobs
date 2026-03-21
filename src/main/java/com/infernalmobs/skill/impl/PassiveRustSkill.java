@@ -46,7 +46,7 @@ public class PassiveRustSkill implements Skill {
         int maxDamage = main.getType().getMaxDurability();
         if (maxDamage <= 0) return;
 
-        int damageAmount = config.getInt("damage-amount", 20);
+        int damageAmount = ctx.isWeakened() ? 10 : config.getInt("damage-amount", 20);  // 削弱: 耐久降低10
         int current = damageable.getDamage();
         int next = Math.min(current + damageAmount, maxDamage);
         damageable.setDamage(next);

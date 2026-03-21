@@ -4,6 +4,8 @@ import com.infernalmobs.InfernalMobsPlugin;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.DeathMessageService;
+import com.infernalmobs.service.GuaranteedLootService;
+import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -27,11 +29,16 @@ public class CombatListener implements Listener {
     private final JavaPlugin plugin;
     private final CombatService combatService;
     private final DeathMessageService deathMessageService;
+    private final KillStatsService killStatsService;
+    private final GuaranteedLootService guaranteedLootService;
 
-    public CombatListener(JavaPlugin plugin, CombatService combatService, DeathMessageService deathMessageService) {
+    public CombatListener(JavaPlugin plugin, CombatService combatService, DeathMessageService deathMessageService,
+                          KillStatsService killStatsService, GuaranteedLootService guaranteedLootService) {
         this.plugin = plugin;
         this.combatService = combatService;
         this.deathMessageService = deathMessageService;
+        this.killStatsService = killStatsService;
+        this.guaranteedLootService = guaranteedLootService;
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -74,10 +81,14 @@ public class CombatListener implements Listener {
                 combatService.onMobDeath(event, entity, state);
                 Player killer = entity.getKiller();
                 if (killer != null) {
+                    killStatsService.addKill(killer.getUniqueId().toString(), state.getProfile().getLevel());
                     deathMessageService.broadcastIfEnabled(entity, state, killer);
+                    if (guaranteedLootService != null) {
+                        guaranteedLootService.onKill(killer.getUniqueId().toString(), state.getProfile().getLevel(), killer, entity.getLocation());
+                    }
                 }
                 LootService loot = plugin instanceof InfernalMobsPlugin im ? im.getLootService() : null;
-                if (loot != null && loot.isEnabled()) {
+                if (loot != null) {
                     loot.onInfernalMobDeath(event, entity, state);
                 }
             }
