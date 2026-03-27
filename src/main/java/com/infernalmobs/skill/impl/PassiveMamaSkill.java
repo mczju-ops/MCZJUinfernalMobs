@@ -74,9 +74,16 @@ public class PassiveMamaSkill implements Skill {
             return;
         }
 
+        Set<EntityType> blocked = parseBlockedTypes(config);
+        if (!blocked.isEmpty() && blocked.contains(parent.getType())) {
+            debugLog(ctx, "跳过: 类型 " + parent.getType() + " 命中 mama 黑名单");
+            return;
+        }
+
+        // 兼容旧配置：若配置了 allowed-types，仍按白名单限制
         Set<EntityType> allowed = parseAllowedTypes(config);
         if (!allowed.isEmpty() && !allowed.contains(parent.getType())) {
-            debugLog(ctx, "跳过: 类型 " + parent.getType() + " 不在 mama 允许列表");
+            debugLog(ctx, "跳过: 类型 " + parent.getType() + " 不在 mama 白名单");
             return;
         }
 
@@ -175,6 +182,18 @@ public class PassiveMamaSkill implements Skill {
 
     private Set<EntityType> parseAllowedTypes(SkillConfig config) {
         List<String> raw = config.getStringList("allowed-types");
+        if (raw == null || raw.isEmpty()) return Set.of();
+        Set<EntityType> set = new HashSet<>();
+        for (String s : raw) {
+            try {
+                set.add(EntityType.valueOf(s.trim().toUpperCase()));
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return set;
+    }
+
+    private Set<EntityType> parseBlockedTypes(SkillConfig config) {
+        List<String> raw = config.getStringList("blocked-types");
         if (raw == null || raw.isEmpty()) return Set.of();
         Set<EntityType> set = new HashSet<>();
         for (String s : raw) {

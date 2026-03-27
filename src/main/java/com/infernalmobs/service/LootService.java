@@ -3,10 +3,13 @@ package com.infernalmobs.service;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;
 import com.infernalmobs.config.SpecialLootConfig;
+import com.infernalmobs.util.MiniMessageHelper;
 import io.mczju.mczjuitemcreator.api.ItemCreatorApi;
 import com.infernalmobs.model.MobState;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -42,7 +45,8 @@ public class LootService {
     /**
      * 炒鸡怪死亡时：按等级表权重抽一条掉落；难打怪（ravager/warden 等）再额外掉落 special_loot。
      */
-    public void onInfernalMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState) {
+    public boolean onInfernalMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState) {
+        boolean vanillaDropsCleared = false;
         // 1. 等级表按权重掉落（与普通炒鸡怪相同）
         if (isEnabled()) {
             List<RewardEntry> rewards = config.getRewardsForLevel(mobState.getProfile().getLevel());
@@ -51,25 +55,31 @@ public class LootService {
                 if (!eligible.isEmpty()) {
                     if (config.isReplaceVanillaDrops()) {
                         event.getDrops().clear();
+                        vanillaDropsCleared = true;
                     }
-                    RewardEntry chosen = pickByWeight(eligible);
-                    if (chosen != null) {
+                    Player killer = entity.getKiller();
+                    String playerName = killer != null ? killer.getName() : "";
+                    int dropTimes = config.rollDropTimes(mobState.getProfile().getLevel());
+                    for (int i = 0; i < dropTimes; i++) {
+                        RewardEntry chosen = pickByWeight(eligible);
+                        if (chosen == null) break;
+
                         ItemStack toDrop = null;
                         Optional<ItemStack> opt = itemCreatorApi.createItem(chosen.id, chosen.amount);
                         if (opt != null && opt.isPresent() && !opt.get().getType().isAir()) {
                             toDrop = opt.get().clone();
-                        } else {
-                            toDrop = createVanillaItem(chosen.id, chosen.amount);
                         }
+
                         if (toDrop != null && !toDrop.getType().isAir()) {
-                            entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop);
-                        }
-                        Player killer = entity.getKiller();
-                        String playerName = killer != null ? killer.getName() : "";
-                        for (String cmd : chosen.commands) {
-                            if (cmd == null || cmd.isEmpty()) continue;
-                            String run = cmd.replace("{player}", playerName);
-                            Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
+                            dropInvulnerable(entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop));
+                            for (String cmd : chosen.commands) {
+                                if (cmd == null || cmd.isEmpty()) continue;
+                                String run = cmd.replace("{player}", playerName);
+                                Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
+                            }
+                            if (chosen.broadcast) {
+                                broadcastLootDrop(chosen, playerName, mobState.getProfile().getLevel());
+                            }
                         }
                     }
                 }
@@ -78,6 +88,7 @@ public class LootService {
 
         // 2. 难打怪物额外特殊战利品（独立于等级池，仅部分实体类型）
         dropSpecialLootIfApplicable(event, entity, mobState);
+        return vanillaDropsCleared;
     }
 
     /** 难打怪物额外特殊战利品：概率 = rate × 等级，可 >1 表示保底+小数概率额外。 */
@@ -92,17 +103,17 @@ public class LootService {
         if (amount <= 0) return;
         ItemStack toDrop = createSpecialLootItem(slc.itemId(), amount);
         if (toDrop != null && !toDrop.getType().isAir()) {
-            entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop);
+            dropInvulnerable(entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop));
         }
     }
 
-    /** 过滤轮换：仅保留无 rotation-set 或 rotation-set 等于当月激活套的项。 */
+    /** 过滤轮换：仅保留无 rotation-set 或 rotation-set 集合包含当月激活套的项。 */
     private List<RewardEntry> filterByRotation(List<RewardEntry> rewards) {
         if (!config.isRotationEnable()) return rewards;
         int activeSet = (Calendar.getInstance().get(Calendar.MONTH) % config.getRotationSets()) + 1;
         List<RewardEntry> out = new ArrayList<>();
         for (RewardEntry e : rewards) {
-            if (e.rotationSet == null || e.rotationSet == activeSet) out.add(e);
+            if (e.rotationSets == null || e.rotationSets.contains(activeSet)) out.add(e);
         }
         return out;
     }
@@ -124,19 +135,6 @@ public class LootService {
                 return opt.get();
             }
         }
-        return createVanillaItem(id, amount);
-    }
-
-    /** ItemCreator 无此 id 时，尝试按原版 Material 名创建（如 iron_ingot、diamond）。 */
-    private static ItemStack createVanillaItem(String id, int amount) {
-        if (id == null || id.isEmpty() || amount < 1) return null;
-        String upper = id.toUpperCase().replace(" ", "_");
-        try {
-            Material mat = Material.valueOf(upper);
-            if (mat.isItem() && !mat.isAir()) {
-                return new ItemStack(mat, amount);
-            }
-        } catch (IllegalArgumentException ignored) {}
         return null;
     }
 
@@ -151,4 +149,31 @@ public class LootService {
         }
         return rewards.get(rewards.size() - 1);
     }
+
+    private static void dropInvulnerable(Item itemEntity) {
+        if (itemEntity == null) return;
+        itemEntity.setInvulnerable(true);
+    }
+
+    private void broadcastLootDrop(RewardEntry chosen, String playerName, int level) {
+        String template = chosen.broadcastMessage;
+        if (template == null || template.isEmpty()) {
+            template = "<gold>恭喜欧皇 <yellow><player></yellow> <gold>获得了 <aqua><item></aqua><white>x<amount></white>!";
+        }
+        // 兼容 {player}/{item}/{amount}/{level} 写法
+        template = template
+                .replace("{player}", "<player>")
+                .replace("{item}", "<item>")
+                .replace("{amount}", "<amount>")
+                .replace("{level}", "<level>");
+        Component msg = MiniMessageHelper.deserialize(template,
+                Placeholder.unparsed("player", playerName == null ? "未知玩家" : playerName),
+                Placeholder.unparsed("item", config.getLootDisplayName(chosen.id)),
+                Placeholder.unparsed("amount", String.valueOf(chosen.amount)),
+                Placeholder.unparsed("level", String.valueOf(level)));
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(msg);
+        }
+    }
+
 }

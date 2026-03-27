@@ -16,6 +16,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.persistence.PersistentDataType;
@@ -38,6 +39,8 @@ public class CombatService {
     private final ConfigLoader config;
     private final Map<UUID, MobState> mobStates = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastActiveTick = new ConcurrentHashMap<>();
+    /** 炒鸡怪捡起的物品（用于 replace-vanilla-drops 时恢复到死亡掉落） */
+    private final Map<UUID, List<ItemStack>> pickedUpItems = new ConcurrentHashMap<>();
     private com.infernalmobs.factory.MobFactory mobFactory;
     private MagicKingArmorService magicKingArmorService;
     private BukkitRunnable cleanupTask;
@@ -59,10 +62,61 @@ public class CombatService {
     public void unregisterMob(UUID entityUuid) {
         mobStates.remove(entityUuid);
         lastActiveTick.remove(entityUuid);
+        pickedUpItems.remove(entityUuid);
     }
 
     public MobState getMobState(UUID entityUuid) {
         return mobStates.get(entityUuid);
+    }
+
+    /** 记录炒鸡怪捡起的物品（克隆存储，避免后续元数据/堆叠变化影响）。 */
+    public void recordPickedUpItem(UUID entityUuid, ItemStack item) {
+        if (entityUuid == null || item == null || item.getType().isAir() || item.getAmount() <= 0) return;
+        pickedUpItems.computeIfAbsent(entityUuid, k -> new ArrayList<>()).add(item.clone());
+    }
+
+    /** 消费并返回该炒鸡怪捡起的所有物品。 */
+    public List<ItemStack> consumePickedUpItems(UUID entityUuid) {
+        if (entityUuid == null) return List.of();
+        List<ItemStack> items = pickedUpItems.remove(entityUuid);
+        if (items == null || items.isEmpty()) return List.of();
+        return new ArrayList<>(items);
+    }
+
+    /**
+     * 按“相似物品”从拾取记录中消费数量，并返回可掉落的克隆物品（amount 为实际可消费数量）。
+     * 用于变身时仅掉落后天拾取（非自带）的装备。
+     */
+    public ItemStack consumeMatchedPickedUpItem(UUID entityUuid, ItemStack equipped) {
+        if (entityUuid == null || equipped == null || equipped.getType().isAir() || equipped.getAmount() <= 0) return null;
+        List<ItemStack> items = pickedUpItems.get(entityUuid);
+        if (items == null || items.isEmpty()) return null;
+
+        int needed = equipped.getAmount();
+        int consumed = 0;
+        for (int i = 0; i < items.size() && needed > 0; i++) {
+            ItemStack tracked = items.get(i);
+            if (tracked == null || tracked.getType().isAir() || tracked.getAmount() <= 0) continue;
+            if (!tracked.isSimilar(equipped)) continue;
+
+            int use = Math.min(needed, tracked.getAmount());
+            needed -= use;
+            consumed += use;
+
+            int left = tracked.getAmount() - use;
+            if (left <= 0) {
+                items.set(i, null);
+            } else {
+                tracked.setAmount(left);
+            }
+        }
+        items.removeIf(Objects::isNull);
+        if (items.isEmpty()) pickedUpItems.remove(entityUuid);
+
+        if (consumed <= 0) return null;
+        ItemStack out = equipped.clone();
+        out.setAmount(consumed);
+        return out;
     }
 
     /** 获取当前追踪的炒鸡怪数量 */
@@ -163,6 +217,7 @@ public class CombatService {
             SkillContext ctx = new SkillContext(plugin, victim, mobState);
             ctx.setTargetPlayer(damager);
             ctx.setTriggerEvent(event);
+            ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(damager, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
@@ -176,6 +231,21 @@ public class CombatService {
                 }
             }
         }
+    }
+
+    /**
+     * 玩家右键使用 morph_controller 时调用：禁用目标炒鸡怪的 morph 词条并刷新头顶名。
+     * 返回 true 表示成功禁用（已禁用 / 无该词条 / 非炒鸡怪 → false）。
+     */
+    public boolean suppressMorphAffix(LivingEntity entity) {
+        MobState state = getMobState(entity.getUniqueId());
+        if (state == null) return false;
+        boolean hasMorph = state.getProfile().getAffixes().stream()
+                .anyMatch(a -> "morph".equalsIgnoreCase(a.getSkillId()));
+        if (!hasMorph || state.isAffixSuppressed("morph")) return false;
+        state.suppressAffix("morph");
+        if (mobFactory != null) mobFactory.refreshDisplayName(entity, state);
+        return true;
     }
 
     /**
@@ -227,7 +297,10 @@ public class CombatService {
                         lastActiveTick.remove(e.getKey());
                         continue;
                     }
-                    tickRangeSkills(entity, e.getValue());
+                    // 范围技能降频：每 20 tick（1 秒）检测一次，降低高频扫描开销
+                    if (currentTick % 20 == 0) {
+                        tickRangeSkills(entity, e.getValue());
+                    }
                     tickLifesteal(entity, e.getValue());
                     tickSprint(entity, e.getValue());
                 }
@@ -350,6 +423,7 @@ public class CombatService {
             }
             SkillContext ctx = new SkillContext(plugin, entity, state);
             ctx.setTargetPlayer(target);
+            ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(target, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
@@ -369,6 +443,7 @@ public class CombatService {
             state.setCooldown(affix.getSkillId(), currentTick + cooldown);
             SkillContext ctx = new SkillContext(plugin, damager, state);
             ctx.setTargetPlayer(victim);
+            ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(victim, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
@@ -386,6 +461,7 @@ public class CombatService {
             state.setCooldown(affix.getSkillId(), currentTick + cooldown);
             SkillContext ctx = new SkillContext(plugin, damager, state);
             ctx.setTargetPlayer(victim);
+            ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(victim, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
@@ -404,6 +480,7 @@ public class CombatService {
             SkillContext ctx = new SkillContext(plugin, entity, mobState);
             ctx.setTargetPlayer(killer);
             ctx.setTriggerEvent(event);
+            ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             affix.getSkill().onTrigger(ctx, sc);
         }

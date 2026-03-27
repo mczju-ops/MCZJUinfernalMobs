@@ -1,7 +1,7 @@
 rewards:
   # --- 基础货币与证明 ---
   - id: infernal_exchange_token
-    amount: 1
+    amount: 2
     weight: 70  # 炒鸡兑换币
     
   - id: monster_proof_basic
@@ -20,25 +20,25 @@ rewards:
     weight: 4.5 # 金胡萝卜
     
   - id: minecraft:iron_ore
-    amount: 3
-    weight: 6   # 铁矿
+    amount: 4
+    weight: 4.5   # 铁矿
     
   - id: minecraft:gold_ore
     amount: 2
-    weight: 3   # 金矿
+    weight: 4   # 金矿
     
   - id: minecraft:diamond
     amount: 1
-    weight: 1   # 钻石
+    weight: 1.5   # 钻石
 
   # --- 特殊道具 ---
   - id: tough_stick
     amount: 1
-    weight: 2   # 金刚木棍 (建议ID)
+    weight: 1   # 金刚木棍 (建议ID)
     
   - id: doctor_apple
     amount: 1
-    weight: 1   # 医生的苹果 (建议ID)
+    weight: 2   # 医生的苹果 (建议ID)
     
   - id: fallguard_boots
     amount: 1

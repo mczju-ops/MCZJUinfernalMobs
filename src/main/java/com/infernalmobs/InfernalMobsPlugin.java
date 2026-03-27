@@ -5,7 +5,7 @@ import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
-import com.infernalmobs.controller.listener.InfernalEyeListener;
+import com.infernalmobs.controller.listener.MagicItemListener;
 import com.infernalmobs.controller.listener.MobSpawnListener;
 import io.mczju.mczjuitemcreator.api.ItemCreatorApi;
 import com.infernalmobs.factory.MobFactory;
@@ -27,6 +27,7 @@ import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -43,6 +44,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
     private GuaranteedLootService guaranteedLootService;
     private LootConfig lootConfig;
     private LootService lootService;
+    private MobFactory mobFactory;
 
     @Override
     public void onEnable() {
@@ -51,6 +53,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
         if (!getDataFolder().exists()) getDataFolder().mkdirs();
         if (!new File(getDataFolder(), "loot.yml").exists()) saveResource("loot.yml", false);
+        if (!new File(getDataFolder(), "loot_name.yml").exists()) saveResource("loot_name.yml", false);
         if (!new File(getDataFolder(), "special_loot.yml").exists()) saveResource("special_loot.yml", false);
         if (!new File(getDataFolder(), "guaranteed_loot.yml").exists()) saveResource("guaranteed_loot.yml", false);
         File lootDir = new File(getDataFolder(), "loot");
@@ -69,7 +72,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         DeathMessageService deathMessageService = new DeathMessageService(configLoader);
         RegionService regionService = new RegionService(configLoader.getRegions(), configLoader.getPresets());
 
-        MobFactory mobFactory = new MobFactory(this, configLoader, levelService, affixRollService, skillService, combatService, regionService);
+        mobFactory = new MobFactory(this, configLoader, levelService, affixRollService, skillService, combatService, regionService);
         combatService.setMobFactory(mobFactory);
 
         InfernalMobCommand imCmd = new InfernalMobCommand(this, configLoader, mobFactory, combatService, killStatsService);
@@ -77,8 +80,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
         getCommand("im").setTabCompleter(imCmd);
 
         getServer().getPluginManager().registerEvents(new MobSpawnListener(configLoader, mobFactory), this);
-        getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService, guaranteedLootService), this);
-        getServer().getPluginManager().registerEvents(new InfernalEyeListener(configLoader, combatService), this);
+        getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService), this);
+        getServer().getPluginManager().registerEvents(new MagicItemListener(this, configLoader, combatService), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
 
         combatService.startTickTask();
@@ -142,11 +145,44 @@ public class InfernalMobsPlugin extends JavaPlugin {
                 getLogger().warning("未找到插件 MCZJUItemCreator（或未启用），loot 特殊掉落不生效。请确保 plugin.yml 中 name 为 MCZJUItemCreator，且该插件在 onEnable 中注册 ItemCreatorApi");
             }
         }
+
+        final ItemCreatorApi apiRef = api;
+        if (apiRef != null) {
+            lootConfig.validateEntries(msg -> getLogger().warning(msg), id -> isItemDefined(apiRef, id));
+        }
+
         lootService = new LootService(this, lootConfig, api);
         guaranteedLootService = new GuaranteedLootService(this);
         guaranteedLootService.load();
         guaranteedLootService.setConfig(GuaranteedLootConfig.load(getDataFolder()));
         guaranteedLootService.setItemCreatorApi(api);
+    }
+
+    /** 运行时重载：配置 + 区域/预设快照 + 掉落配置。 */
+    public void reloadRuntimeConfig() {
+        configLoader.reload();
+        if (mobFactory != null) {
+            mobFactory.reloadRuntimeConfig();
+        }
+        reloadLootConfig();
+    }
+
+    private boolean isItemDefined(ItemCreatorApi api, String itemId) {
+        if (itemId == null || itemId.isBlank()) return false;
+        if (api == null) return false;
+        try {
+            var m = api.getClass().getMethod("hasItem", String.class);
+            Object ret = m.invoke(api, itemId);
+            if (ret instanceof Boolean b) return b;
+        } catch (Exception ignored) {
+            // ????? hasItem ???? API???? createItem(1) ???????
+        }
+        try {
+            Optional<?> opt = api.createItem(itemId, 1);
+            return opt != null && opt.isPresent();
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     @Override

@@ -1,0 +1,93 @@
+rewards:
+  # --- 基础货币与证明 ---
+  - id: infernal_exchange_token
+    amount: 7
+    weight: 70    # 炒鸡兑换币
+    
+  - id: monster_proof_advanced
+    amount: 1
+    weight: 5     # 高级怪物证明
+
+  # --- 宝藏与套装 ---
+  - id: golden_city_lootbox
+    amount: 1
+    weight: 4   # 轮换宝藏盒1 (对应黄金城)
+    rotation-set: [1,2,4,5]
+    
+  - id: sky_city_lootbox
+    amount: 1
+    weight: 4   # 轮换宝藏盒2 (对应天空城)
+    rotation-set: [2,3,5,6]
+
+  - id: underwater_city_lootbox
+    amount: 1
+    weight: 4   # 轮换宝藏盒3 (对应海底城)
+    rotation-set: [1,3,4,6]
+
+  - id: ancient_chestplate
+    amount: 1
+    weight: 0.8   # 远古套装 (胸甲)
+
+  - id: ancient_helmet
+    amount: 1
+    weight: 0.8   # 远古套装 (头盔)
+
+  - id: ancient_leggings
+    amount: 1
+    weight: 0.8   # 远古套装 (裤子)
+
+  - id: ancient_boots
+    amount: 1
+    weight: 0.8   # 远古套装 (鞋子)
+
+  - id: ancient_sword
+    amount: 1
+    weight: 0.8   # 远古套装 (剑)
+
+  # --- 消耗品与材料 ---
+  #- id: minecraft:splash_potion
+  #  amount: 1
+  #  weight: 4     # 治疗1药水 (未做)
+    
+  - id: minecraft:golden_apple
+    amount: 4
+    weight: 0.6   # 金苹果
+    
+  - id: minecraft:netherite_upgrade_smithing_template
+    amount: 1
+    weight: 1     # 下界合金升级模版
+    
+  - id: minecraft:diamond
+    amount: 5
+    weight: 3     # 钻石
+    
+  - id: minecraft:netherite_scrap
+    amount: 4
+    weight: 2   # 下界合金碎片
+
+  - id: minecraft:netherite_ingot
+    amount: 2
+    weight: 3.6     # 下界合金锭
+
+  # --- 特殊装备与武器 ---
+  #- id: ignition_book
+  #  amount: 1
+  #  weight: 0.8 # 烈焰魔导书（物理)
+    
+  - id: excalibur_fake_mace
+    amount: 1
+    weight: 0.4   # Excalibur（伪）
+    
+  - id: power_surge_bow
+    amount: 1
+    weight: 0.4   # 伐敌之兵
+    
+  - id: siegebreaker_crossbow
+    amount: 1
+    weight: 1.4   # 破阵弩
+  
+  - id: tai_meteor_mace
+    amount: 1
+    weight: 0.6   # 泰山陨石坠
+
+

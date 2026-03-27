@@ -41,14 +41,9 @@ public class MobSpawnListener implements Listener {
         if (!HOSTILE_MOBS.contains(event.getEntityType())) return;
         if (!config.isWorldEnabled(event.getLocation().getWorld().getName())) return;
 
-        // 仅处理自然刷怪（NATURAL, SPAWNER 等），避免影响刷怪蛋、命令等
+        // 生成原因可配置（config.yml: infernal-spawn-reasons）
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
-        if (reason != CreatureSpawnEvent.SpawnReason.NATURAL
-                && reason != CreatureSpawnEvent.SpawnReason.SPAWNER
-                && reason != CreatureSpawnEvent.SpawnReason.PATROL
-                && reason != CreatureSpawnEvent.SpawnReason.REINFORCEMENTS) {
-            return;
-        }
+        if (!config.getInfernalSpawnReasons().contains(reason)) return;
 
         // 不取消事件，直接对已生成的实体进行炒鸡怪改造
         mobFactory.mechanize(entity, event.getLocation());

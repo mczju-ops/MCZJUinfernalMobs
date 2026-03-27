@@ -3,6 +3,8 @@ package com.infernalmobs.config;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -22,6 +24,8 @@ public class ConfigLoader {
     private int levelMax;
     private int levelFallbackMin;
     private int levelFallbackMax;
+    private Set<EntityType> infernalAllowTypesDefault = Collections.emptySet();
+    private Set<EntityType> infernalDenyTypesDefault = Collections.emptySet();
     private String affixCountFormula;
     private int affixMin;
     private int affixMax;
@@ -31,9 +35,16 @@ public class ConfigLoader {
     private List<RegionConfig> regions;
     private Map<String, PresetConfig> presets;
     private DeathMessageConfig deathMessageConfig;
+    private ProtectedAnimalsConfig protectedAnimalsConfig = ProtectedAnimalsConfig.disabled();
     private MobRegistryConfig mobRegistryConfig;
     private Map<String, String> skillNames;
     private boolean debug;
+    private Set<org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason> infernalSpawnReasons = Set.of(
+            org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL,
+            org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER,
+            org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.PATROL,
+            org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.REINFORCEMENTS
+    );
 
     public ConfigLoader(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -52,6 +63,7 @@ public class ConfigLoader {
 
         debug = config.getBoolean("debug", false);
         enabledWorlds = config.getStringList("enabled-worlds");
+        infernalSpawnReasons = loadSpawnReasons();
         if (config.contains("defaults")) {
             ConfigurationSection d = config.getConfigurationSection("defaults");
             levelBase = d.getInt("level.base", 1);
@@ -59,6 +71,19 @@ public class ConfigLoader {
             levelMax = d.getInt("level.max", 100);
             levelFallbackMin = d.getInt("level.fallback-min", 1);
             levelFallbackMax = d.getInt("level.fallback-max", 15);
+            ConfigurationSection infernalSec = d.getConfigurationSection("infernal");
+            if (infernalSec != null) {
+                infernalAllowTypesDefault = loadEntityTypeSet(infernalSec,
+                        "allow-types", "allow", "whitelist", "infernal-allow-types");
+                infernalDenyTypesDefault = loadEntityTypeSet(infernalSec,
+                        "deny-types", "deny", "blacklist", "infernal-deny-types");
+            } else {
+                // 兼容旧结构：defaults.infernal-allow-types / defaults.infernal-deny-types
+                infernalAllowTypesDefault = loadEntityTypeSet(d,
+                        "infernal-allow-types", "infernal-whitelist", "whitelist", "allow");
+                infernalDenyTypesDefault = loadEntityTypeSet(d,
+                        "infernal-deny-types", "infernal-blacklist", "blacklist", "deny");
+            }
             affixCountFormula = d.getString("affix.count-formula", "level");
             affixMin = d.getInt("affix.min", 1);
             affixMax = d.getInt("affix.max", 6);
@@ -69,6 +94,8 @@ public class ConfigLoader {
             levelMax = config.getInt("level.max", 100);
             levelFallbackMin = config.getInt("level.fallback-min", 1);
             levelFallbackMax = config.getInt("level.fallback-max", 15);
+            infernalAllowTypesDefault = Collections.emptySet();
+            infernalDenyTypesDefault = Collections.emptySet();
             affixCountFormula = "tier";
             affixMin = config.getInt("affix.min", 1);
             affixMax = config.getInt("affix.max", 6);
@@ -94,6 +121,7 @@ public class ConfigLoader {
         regions = loadRegions();
         presets = loadPresets();
         deathMessageConfig = loadDeathMessageConfig();
+        protectedAnimalsConfig = loadProtectedAnimalsConfig();
         mobRegistryConfig = loadMobRegistryConfig();
         skillNames = loadSkillNames();
     }
@@ -101,6 +129,27 @@ public class ConfigLoader {
     /** 从配置文件重新读取技能参数等，等同于 load()，语义上表示“重载”。 */
     public void reload() {
         load();
+    }
+
+    private ProtectedAnimalsConfig loadProtectedAnimalsConfig() {
+        ConfigurationSection sec = config.getConfigurationSection("protected-animals");
+        if (sec == null) {
+            return ProtectedAnimalsConfig.disabled();
+        }
+        boolean enable = sec.getBoolean("enable", true);
+        Set<EntityType> types = new HashSet<>();
+        for (String raw : sec.getStringList("types")) {
+            if (raw == null || raw.isBlank()) continue;
+            try {
+                types.add(EntityType.valueOf(raw.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ex) {
+                plugin.getLogger().warning("[protected-animals] 未知实体类型，已跳过: " + raw);
+            }
+        }
+        String message = sec.getString("message", "<bold><red><player_name>欺负炒鸡小动物！");
+        boolean clearExp = sec.getBoolean("clear-exp", true);
+        Set<EntityType> frozen = types.isEmpty() ? Set.of() : Set.copyOf(types);
+        return new ProtectedAnimalsConfig(enable, frozen, message, clearExp);
     }
 
     private MobRegistryConfig loadMobRegistryConfig() {
@@ -235,10 +284,78 @@ public class ConfigLoader {
                     pool.put(k, r.getInt("skill-pool." + k, 10));
                 }
             }
+
+            // 炒鸡怪实体类型黑/白名单（按区域生效）
+            Set<EntityType> allowTypes = loadEntityTypeSet(r,
+                    "infernal-allow-types", "infernal-whitelist", "whitelist", "allow");
+            Set<EntityType> denyTypes = loadEntityTypeSet(r,
+                    "infernal-deny-types", "infernal-blacklist", "blacklist", "deny");
+
+            // 区域专属 morph 目标池：morph-types / morph-targets
+            List<EntityType> morphTargets = loadEntityTypeList(r,
+                    "morph-types", "morph-targets", "morph-pool");
+
             list.add(new RegionConfig(id, world, minX, minY, minZ, maxX, maxY, maxZ,
-                    levelMin, levelMax, pool.isEmpty() ? null : pool, priority));
+                    levelMin, levelMax,
+                    pool.isEmpty() ? null : pool,
+                    priority,
+                    allowTypes, denyTypes, morphTargets));
         }
         return list;
+    }
+
+    private Set<EntityType> loadEntityTypeSet(ConfigurationSection r, String... keys) {
+        if (r == null || keys == null || keys.length == 0) return Collections.emptySet();
+
+        List<String> raw = new ArrayList<>();
+        for (String k : keys) {
+            if (k == null || k.trim().isEmpty()) continue;
+            if (!r.contains(k)) continue;
+            raw.addAll(r.getStringList(k));
+        }
+
+        if (raw.isEmpty()) return Collections.emptySet();
+
+        Set<EntityType> out = new HashSet<>();
+        for (String s : raw) {
+            if (s == null) continue;
+            String t = s.trim();
+            if (t.isEmpty()) continue;
+            try {
+                out.add(EntityType.valueOf(t.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ex) {
+                plugin.getLogger().warning("regions 配置中无法识别 EntityType: " + t + "（keys=" + Arrays.toString(keys) + "）");
+            }
+        }
+        return out;
+    }
+
+    private List<EntityType> loadEntityTypeList(ConfigurationSection r, String... keys) {
+        if (r == null || keys == null || keys.length == 0) return Collections.emptyList();
+
+        List<String> raw = new ArrayList<>();
+        for (String k : keys) {
+            if (k == null || k.trim().isEmpty()) continue;
+            if (!r.contains(k)) continue;
+            raw.addAll(r.getStringList(k));
+        }
+        if (raw.isEmpty()) return Collections.emptyList();
+
+        List<EntityType> out = new ArrayList<>();
+        for (String s : raw) {
+            if (s == null) continue;
+            String t = s.trim();
+            if (t.isEmpty()) continue;
+            try {
+                EntityType type = EntityType.valueOf(t.toUpperCase(Locale.ROOT));
+                if (type != null && type.isSpawnable() && LivingEntity.class.isAssignableFrom(type.getEntityClass())) {
+                    out.add(type);
+                }
+            } catch (IllegalArgumentException ex) {
+                plugin.getLogger().warning("regions 配置中无法识别 EntityType: " + t + "（keys=" + Arrays.toString(keys) + "）");
+            }
+        }
+        return out;
     }
 
     private int getCoord(ConfigurationSection r, String node, String axis, int def) {
@@ -247,6 +364,38 @@ public class ConfigLoader {
             return r.getInt(node + "." + axis, def);
         }
         return def;
+    }
+
+    private Set<org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason> loadSpawnReasons() {
+        List<String> raw = config.getStringList("infernal-spawn-reasons");
+        if (raw == null || raw.isEmpty()) {
+            return Set.of(
+                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL,
+                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER,
+                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.PATROL,
+                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.REINFORCEMENTS
+            );
+        }
+
+        Set<org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason> out = new HashSet<>();
+        for (String s : raw) {
+            if (s == null || s.isBlank()) continue;
+            try {
+                out.add(org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.valueOf(s.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ex) {
+                plugin.getLogger().warning("infernal-spawn-reasons 包含无效值: " + s + "（已忽略）");
+            }
+        }
+        if (out.isEmpty()) {
+            plugin.getLogger().warning("infernal-spawn-reasons 解析后为空，已回退默认值 NATURAL/SPAWNER/PATROL/REINFORCEMENTS");
+            return Set.of(
+                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL,
+                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER,
+                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.PATROL,
+                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.REINFORCEMENTS
+            );
+        }
+        return out;
     }
 
     private Map<String, PresetConfig> loadPresets() {
@@ -306,8 +455,23 @@ public class ConfigLoader {
     public List<RegionConfig> getRegions() { return regions != null ? new ArrayList<>(regions) : Collections.emptyList(); }
     public Map<String, PresetConfig> getPresets() { return presets != null ? new HashMap<>(presets) : Map.of(); }
     public DeathMessageConfig getDeathMessageConfig() { return deathMessageConfig; }
+    public ProtectedAnimalsConfig getProtectedAnimalsConfig() { return protectedAnimalsConfig; }
     public MobRegistryConfig getMobRegistryConfig() { return mobRegistryConfig; }
     public FileConfiguration getRaw() { return config; }
+    public Set<org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason> getInfernalSpawnReasons() { return infernalSpawnReasons; }
+
+    /**
+     * 无区域匹配（fallback/defaults）时，实体类型是否允许被炒鸡化。
+     * - 命中默认黑名单：禁止
+     * - 默认白名单非空：必须命中白名单
+     * - 默认白名单为空：不限制（除黑名单外都允许）
+     */
+    public boolean canInfernalizeInDefaults(EntityType type) {
+        if (type == null) return true;
+        if (!infernalDenyTypesDefault.isEmpty() && infernalDenyTypesDefault.contains(type)) return false;
+        if (!infernalAllowTypesDefault.isEmpty()) return infernalAllowTypesDefault.contains(type);
+        return true;
+    }
 
     public boolean isDebug() { return debug; }
     public void setDebug(boolean debug) { this.debug = debug; }

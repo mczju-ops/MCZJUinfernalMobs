@@ -97,13 +97,13 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private boolean handleDebug(CommandSender sender, String[] args) {
         if (args.length < 2) {
             boolean on = configLoader.isDebug();
-            send(sender, "<gold>[炒鸡怪]</gold> <white>调试模式: </white><state>", Placeholder.parsed("state", on ? "<green>开" : "<red>关"));
+            send(sender, "<white>调试模式: </white><state>", Placeholder.parsed("state", on ? "<green>开" : "<red>关"));
             return true;
         }
         String v = args[1].toLowerCase();
         if ("on".equals(v) || "true".equals(v) || "1".equals(v)) {
             configLoader.setDebug(true);
-            send(sender, "<green>已开启调试模式，控制台将输出技能关键节点日志");
+            send(sender, "<green>已开启调试模式：控制台将输出技能节点日志与 [InfernalMobs:debug:mechanize] 区域/等级信息");
             return true;
         }
         if ("off".equals(v) || "false".equals(v) || "0".equals(v)) {
@@ -207,7 +207,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private boolean handleStats(CommandSender sender, String[] args) {
         if (args.length < 2) {
             int count = combatService.getTrackedCount();
-            send(sender, "<gold>[炒鸡怪]</gold> <white>当前追踪炒鸡怪数: </white><count>", Placeholder.unparsed("count", String.valueOf(count)));
+            send(sender, "<white>当前记录的炒鸡怪数: </white><count>", Placeholder.unparsed("count", String.valueOf(count)));
             return true;
         }
         String playerId = resolvePlayerId(args[1]);
@@ -218,13 +218,13 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         int total = killStatsService.getTotalKills(playerId);
         Map<Integer, Integer> byLevel = killStatsService.getKillsByLevel(playerId);
         if (byLevel.isEmpty()) {
-            send(sender, "<gold>[炒鸡怪]</gold> <white>玩家 </white><player><white> 击杀数: 0</white>", Placeholder.unparsed("player", args[1]));
+            send(sender, "<white>玩家 </white><player><white> 击杀数: 0</white>", Placeholder.unparsed("player", args[1]));
             return true;
         }
         StringBuilder sb = new StringBuilder();
         byLevel.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e ->
             sb.append("Lv").append(e.getKey()).append(":").append(e.getValue()).append(" "));
-        send(sender, "<gold>[炒鸡怪]</gold> <white>玩家 </white><player><white> 总击杀: </white><total><white> | </white><detail>",
+        send(sender, "<white>玩家 </white><player><white> 总击杀: </white><total><white> | </white><detail>",
                 Placeholder.unparsed("player", args[1]),
                 Placeholder.unparsed("total", String.valueOf(total)),
                 Placeholder.unparsed("detail", sb.toString().trim()));
@@ -264,7 +264,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         int count = combatService.clearMobsInRadius(player.getLocation(), radius);
-        send(sender, "<green>[炒鸡怪] 已清除周围 <radius> 格内 <count> 只炒鸡怪",
+        send(sender, "<green>已清除周围 <radius> 格内 <count> 只炒鸡怪",
                 Placeholder.unparsed("radius", String.valueOf(radius)),
                 Placeholder.unparsed("count", String.valueOf(count)));
         return true;
@@ -272,18 +272,18 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleCleanTags(CommandSender sender) {
         int count = combatService.removeOrphanedImLevelEntities();
-        send(sender, "<green>[炒鸡怪] 已清除 <count> 只有 im_level 标签但非炒鸡怪的孤立实体",
+        send(sender, "<green>已清除 <count> 只有 im_level 标签但非炒鸡怪的孤立实体",
                 Placeholder.unparsed("count", String.valueOf(count)));
         return true;
     }
 
     private boolean handleReload(CommandSender sender) {
         try {
-            configLoader.reload();
-            if (plugin != null) plugin.reloadLootConfig();
-            send(sender, "<green>[炒鸡怪] 已重新加载 config.yml、loot.yml、special_loot.yml、guaranteed_loot.yml");
+            if (plugin != null) plugin.reloadRuntimeConfig();
+            else configLoader.reload();
+            send(sender, "<green>已重新加载炒鸡怪插件下所有配置文件");
         } catch (Exception e) {
-            send(sender, "<red>[炒鸡插件] 重载失败: <err>", Placeholder.unparsed("err", e.getMessage()));
+            send(sender, "<red>重载失败: <err>", Placeholder.unparsed("err", e.getMessage()));
         }
         return true;
     }
@@ -293,7 +293,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<yellow>/im spawn <实体类型> [等级] [技能1,技能2,...]</yellow> <gray>- 在面前生成炒鸡怪</gray>");
         send(sender, "<gray>  例: /im spawn zombie 5  或  /im spawn creeper 10 poisonous,armoured,ender</gray>");
         send(sender, "<yellow>/im stats [玩家]</yellow> <gray>- 查看追踪数，或指定玩家的击杀统计</gray>");
-        send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试模式开关，控制台输出技能日志</gray>");
+        send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志 + 刷怪区域匹配与等级</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 从 config.yml 重新加载技能参数等配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
         send(sender, "<yellow>/im cleantags</yellow> <gray>- 清除有 im_level 标签但非炒鸡怪的孤立实体</gray>");

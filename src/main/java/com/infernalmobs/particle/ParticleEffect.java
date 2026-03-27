@@ -41,7 +41,8 @@ public final class ParticleEffect {
         List<Location> points = source.getPoints(base, density);
         for (Location loc : points) {
             if (loc == null || loc.getWorld() == null) continue;
-            loc.getWorld().spawnParticle(particle, loc, count, offsetX, offsetY, offsetZ, extra, true);
+            // Use no-data overload: passing Boolean here would be interpreted as particle data and crash for Void particles.
+            loc.getWorld().spawnParticle(particle, loc, count, offsetX, offsetY, offsetZ, extra);
         }
     }
 

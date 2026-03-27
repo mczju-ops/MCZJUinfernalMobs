@@ -1,6 +1,18 @@
 # 保底掉落：击杀满足条件的炒鸡怪累计到阈值时，必定获得指定奖励
 # 可与等级表、特殊掉落并存，各规则独立累计进度
 enable: true
+
+# 轮换配置（按“月”切换激活套号）
+# - enable: 是否开启轮换过滤
+# - sets: 总套数（activeSet = 月份%sets + 1，规则可用 rotation-set 指定自己属于哪些套号）
+#
+# 重要：要实现“同样保底500只，1个月掉落A，另一个月掉落B”，建议写两条规则并让它们共享同一个保底进度条：
+# - A规则：count 相同、level范围相同，但 item-id 不同，并写 rotation-set: 1，并配置 progress-id（与B相同）
+# - B规则：count 相同、level范围相同，但 item-id 不同，并写 rotation-set: 2，并配置 progress-id（与A相同）
+rotation:
+  enable: false
+  sets: 2
+
 rules:
   # 规则 id，用于区分与持久化进度
   elite_guardian:
@@ -21,3 +33,25 @@ rules:
     item-id: emerald
     item-amount: 3
     reset-on-drop: true
+
+
+
+  elite_ab_A:
+    level-min: 10
+    level-max: 100
+    count: 500
+    item-id: <A物品id>
+    item-amount: 1
+    reset-on-drop: true
+    progress-id: elite_ab_progress
+    rotation-set: 1
+
+  elite_ab_B:
+    level-min: 10
+    level-max: 100
+    count: 500
+    item-id: <B物品id>
+    item-amount: 1
+    reset-on-drop: true
+    progress-id: elite_ab_progress
+    rotation-set: 2

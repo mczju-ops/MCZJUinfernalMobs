@@ -1,0 +1,84 @@
+rewards:
+  # --- 基础货币与证明 ---
+  - id: infernal_exchange_token
+    amount: 5
+    weight: 70    # 炒鸡兑换币
+    
+  - id: monster_proof_intermediate
+    amount: 1
+    weight: 5     # 中级怪物证明
+
+  # --- 宝藏与套装 ---
+  - id: golden_city_lootbox
+    amount: 1
+    weight: 1.8   # 轮换宝藏盒1 (对应黄金城)
+    rotation-set: [1,2,4,5]
+    
+  - id: sky_city_lootbox
+    amount: 1
+    weight: 1.8   # 轮换宝藏盒2 (对应天空城)
+    rotation-set: [2,3,5,6]
+
+  - id: underwater_city_lootbox
+    amount: 1
+    weight: 1.8   # 轮换宝藏盒3 (对应海底城)
+    rotation-set: [1,3,4,6]
+
+  - id: elder_chestplate
+    amount: 1
+    weight: 1.2   # 中古套装 (胸甲)
+
+  - id: elder_helmet
+    amount: 1
+    weight: 1.2   # 中古套装 (头盔)
+
+  - id: elder_leggings
+    amount: 1
+    weight: 1.2   # 中古套装 (裤子)
+
+  - id: elder_boots
+    amount: 1
+    weight: 1.2   # 中古套装 (鞋子)
+
+  - id: elder_sword
+    amount: 1
+    weight: 1.2   # 中古套装 (剑)
+
+  # --- 消耗品与材料 ---
+  #- id: minecraft:splash_potion
+  #  amount: 1
+  #  weight: 4     # 治疗1药水 (未做)
+    
+  - id: minecraft:ender_pearl
+    amount: 4
+    weight: 1   # 末影珍珠
+    
+  - id: minecraft:gold_ore
+    amount: 6
+    weight: 3     # 金矿
+    
+  - id: minecraft:diamond
+    amount: 2
+    weight: 2     # 钻石
+    
+  - id: minecraft:netherite_scrap
+    amount: 2
+    weight: 1.5   # 下界合金碎片
+
+  # --- 特殊装备与武器 ---
+    
+  - id: storm_sword
+    amount: 1
+    weight: 0.6   # 暴风 
+    
+  - id: wind_burst_mace
+    amount: 1
+    weight: 0.8   # 风暴之锤 
+    
+  - id: ignition_book
+    amount: 1
+    weight: 1.9 # 烈焰魔导书（物理)
+    
+  - id: excalibur_fake_mace
+    amount: 1
+    weight: 0.6   # Excalibur（伪）

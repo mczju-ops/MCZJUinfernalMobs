@@ -21,6 +21,16 @@ public class RegionService {
         this.presets = presets != null ? new HashMap<>(presets) : new HashMap<>();
     }
 
+    /** 运行时重载区域/预设快照，供 /im reload 生效。 */
+    public synchronized void reload(List<RegionConfig> newRegions, Map<String, PresetConfig> newPresets) {
+        regions.clear();
+        if (newRegions != null) regions.addAll(newRegions);
+        regions.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
+
+        presets.clear();
+        if (newPresets != null) presets.putAll(newPresets);
+    }
+
     /**
      * 获取位置所匹配的优先级最高的区域，无匹配则返回 null。
      */

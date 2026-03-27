@@ -4,6 +4,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.HotbarCharmHelper;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -34,8 +35,10 @@ public class RangeGravitySkill implements Skill {
         Player target = ctx.getTargetPlayer();
         if (target == null || !target.isOnline()) return;
         if (target.hasPotionEffect(PotionEffectType.LEVITATION)) return;
-
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
+        // 快捷栏 gravity_charm 抵抗：1/2/3 个 = 30%/60%/100%
+        // 放在后面，先用便宜判定（在线/已有漂浮/削弱随机）过滤，减少背包扫描频率
+        if (HotbarCharmHelper.resistedByGravityCharm(target)) return;
 
         int duration = config.getInt("duration-ticks", 60);
         int amplifier = config.getInt("amplifier", 0);

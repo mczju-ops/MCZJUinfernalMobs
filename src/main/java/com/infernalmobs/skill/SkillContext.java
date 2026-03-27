@@ -18,6 +18,8 @@ public class SkillContext {
     private Player targetPlayer;
     /** 魔法王套装削弱：true 时技能按各自削弱方案生效 */
     private boolean weakened = false;
+    /** 当前战斗 tick（由 CombatService 驱动，用于与冷却/持续时间对齐） */
+    private long currentTick = 0;
 
     public SkillContext(JavaPlugin plugin, LivingEntity entity, MobState mobState) {
         this.plugin = plugin;
@@ -70,5 +72,13 @@ public class SkillContext {
 
     public void setWeakened(boolean weakened) {
         this.weakened = weakened;
+    }
+
+    public long getCurrentTick() {
+        return currentTick;
+    }
+
+    public void setCurrentTick(long currentTick) {
+        this.currentTick = currentTick;
     }
 }
