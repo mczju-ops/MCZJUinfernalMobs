@@ -86,6 +86,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if ("spawn".equals(sub)) return handleSpawn(sender, args);
+        if ("spawnat".equals(sub)) return handleSpawnAt(sender, args);
         if ("stats".equals(sub)) return handleStats(sender, args);
         if ("debug".equals(sub)) return handleDebug(sender, args);
         if ("clear".equals(sub)) return handleClear(sender, args);
@@ -166,6 +167,74 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         }
         String skillsStr = skillIds.isEmpty() ? "" : " [" + String.join(", ", skillIds) + "]";
         send(sender, "<green>已生成炒鸡怪: <type> Lv<level><skills>", Placeholder.unparsed("type", type.name()), Placeholder.unparsed("level", String.valueOf(level)), Placeholder.unparsed("skills", skillsStr));
+        return true;
+    }
+
+    /**
+     * /im spawnat &lt;x&gt; &lt;y&gt; &lt;z&gt; &lt;world&gt; &lt;实体类型&gt; [等级] [技能1,技能2,...]
+     * 控制台、命令方块、玩家均可使用。
+     */
+    private boolean handleSpawnAt(CommandSender sender, String[] args) {
+        if (args.length < 6) {
+            send(sender, "<red>用法: /im spawnat <x> <y> <z> <world> <实体类型> [等级] [技能1,技能2,...]");
+            return true;
+        }
+        double x, y, z;
+        try {
+            x = Double.parseDouble(args[1]);
+            y = Double.parseDouble(args[2]);
+            z = Double.parseDouble(args[3]);
+        } catch (NumberFormatException e) {
+            send(sender, "<red>坐标必须为数字，例: /im spawnat 100 64 -200 world zombie 5");
+            return true;
+        }
+        World world = plugin.getServer().getWorld(args[4]);
+        if (world == null) {
+            send(sender, "<red>未找到世界: <world>", Placeholder.unparsed("world", args[4]));
+            return true;
+        }
+        EntityType type;
+        try {
+            type = EntityType.valueOf(args[5].toUpperCase().replace(" ", "_"));
+        } catch (IllegalArgumentException e) {
+            send(sender, "<red>未知实体类型: <type>", Placeholder.unparsed("type", args[5]));
+            return true;
+        }
+        if (!type.isSpawnable() || !type.isAlive()) {
+            send(sender, "<red>无法生成该类型的炒鸡怪: <type>", Placeholder.unparsed("type", type.name()));
+            return true;
+        }
+        int level = 5;
+        List<String> skillIds = new ArrayList<>();
+        if (args.length >= 7) {
+            if (isNumeric(args[6])) {
+                level = Math.max(1, Math.min(100, Integer.parseInt(args[6])));
+                if (args.length >= 8) skillIds = parseSkillIds(args, 7);
+            } else {
+                skillIds = parseSkillIds(args, 6);
+            }
+        }
+        List<String> invalid = validateSkillIds(skillIds);
+        if (!invalid.isEmpty()) {
+            send(sender, "<red>未知技能: <skills>", Placeholder.unparsed("skills", String.join(", ", invalid)));
+            return true;
+        }
+        Location loc = new Location(world, x, y, z);
+        LivingEntity entity = (LivingEntity) world.spawnEntity(loc, type);
+        if (skillIds.isEmpty()) {
+            mobFactory.mechanizeWithLevel(entity, loc, level);
+        } else {
+            mobFactory.mechanizeWithRequiredAffixes(entity, loc, level, skillIds);
+        }
+        String skillsStr = skillIds.isEmpty() ? "" : " [" + String.join(", ", skillIds) + "]";
+        send(sender, "<green>已生成炒鸡怪: <type> Lv<level> @ <world> (<x>, <y>, <z>)<skills>",
+                Placeholder.unparsed("type", type.name()),
+                Placeholder.unparsed("level", String.valueOf(level)),
+                Placeholder.unparsed("world", world.getName()),
+                Placeholder.unparsed("x", String.valueOf((int) x)),
+                Placeholder.unparsed("y", String.valueOf((int) y)),
+                Placeholder.unparsed("z", String.valueOf((int) z)),
+                Placeholder.unparsed("skills", skillsStr));
         return true;
     }
 
@@ -290,8 +359,10 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
 
     private void sendHelp(CommandSender sender) {
         send(sender, "<gold>=== InfernalMobs 炒鸡怪指令 ===</gold>");
-        send(sender, "<yellow>/im spawn <实体类型> [等级] [技能1,技能2,...]</yellow> <gray>- 在面前生成炒鸡怪</gray>");
-        send(sender, "<gray>  例: /im spawn zombie 5  或  /im spawn creeper 10 poisonous,armoured,ender</gray>");
+        send(sender, "<yellow>/im spawn <实体类型> [等级] [技能1,技能2,...]</yellow> <gray>- 在面前生成炒鸡怪（仅玩家）</gray>");
+        send(sender, "<gray>  例: /im spawn zombie 5  或  /im spawn creeper 10 poisonous,armoured</gray>");
+        send(sender, "<yellow>/im spawnat <x> <y> <z> <世界> <实体类型> [等级] [技能...]</yellow> <gray>- 在指定坐标生成（支持命令方块/控制台）</gray>");
+        send(sender, "<gray>  例: /im spawnat 100 64 -200 world zombie 8 morph,ender</gray>");
         send(sender, "<yellow>/im stats [玩家]</yellow> <gray>- 查看追踪数，或指定玩家的击杀统计</gray>");
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志 + 刷怪区域匹配与等级</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 从 config.yml 重新加载技能参数等配置</gray>");
@@ -302,9 +373,28 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spawn", "stats", "debug", "reload", "clear", "cleantags").stream()
+            return Arrays.asList("spawn", "spawnat", "stats", "debug", "reload", "clear", "cleantags").stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
+        }
+        // spawnat <x> <y> <z> <world> <type> [level] [skills...]
+        if ("spawnat".equalsIgnoreCase(args[0])) {
+            return switch (args.length) {
+                case 2, 3, 4 -> List.of("~");   // x y z 提示波浪号
+                case 5 -> plugin.getServer().getWorlds().stream()
+                        .map(World::getName)
+                        .filter(n -> n.toLowerCase().startsWith(args[4].toLowerCase()))
+                        .sorted().collect(Collectors.toList());
+                case 6 -> {
+                    String prefix = args[5].toUpperCase();
+                    yield SPAWNABLE_TYPES.stream()
+                            .map(Enum::name)
+                            .filter(s -> s.startsWith(prefix))
+                            .sorted().collect(Collectors.toList());
+                }
+                case 7 -> Arrays.asList("1", "5", "10", "15", "20");
+                default -> filterPrefix(getAllSkillIds(), args[args.length - 1].toLowerCase());
+            };
         }
         if (args.length == 2 && "debug".equalsIgnoreCase(args[0])) {
             return Arrays.asList("on", "off").stream()
