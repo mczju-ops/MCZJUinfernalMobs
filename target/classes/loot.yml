@@ -7,3 +7,26 @@ replace-vanilla-drops: true
 rotation:
   enable: true
   sets: 3
+
+# 同一只怪死亡后，从 loot/<level>.yml 的 rewards 里按权重抽取“掉落条目”的次数。
+# 允许重复（每抽一次都独立按权重随机）。
+# ranges 格式：[level-min, level-max, min-times, max-times]
+drop-times:
+  enable: true
+  # fallback：当怪等级没写到时兜底（例如 >15）
+  fallback: [1, 1]
+  1: [1, 1]
+  2: [1, 1]
+  3: [1, 1]
+  4: [1, 2]
+  5: [1, 2]
+  6: [1, 2]
+  7: [1, 3]
+  8: [1, 3]
+  9: [1, 3]
+  10: [1, 4]
+  11: [1, 5]
+  12: [2, 5]
+  13: [3, 5]
+  14: [4, 5]
+  15: [5, 5]

@@ -1,0 +1,80 @@
+rewards:
+  # --- 基础货币与证明 ---
+  - id: infernal_exchange_token
+    amount: 8
+    weight: 55    # 炒鸡兑换币
+
+  - id: infernal_exchange_token_elite
+    amount: 1
+    weight: 15    # 高级炒鸡兑换币
+    
+  - id: monster_proof_infernal_fake
+    amount: 1
+    weight: 5     # 炒鸡怪物证明（伪）
+  
+  # --- 宝藏与套装 ---
+  - id: golden_city_lootbox
+    amount: 2
+    weight: 5.5   # 轮换宝藏盒1 (对应黄金城)
+    rotation-set: [1,2,4,5]
+    
+  - id: sky_city_lootbox
+    amount: 2
+    weight: 5.5   # 轮换宝藏盒2 (对应天空城)
+    rotation-set: [2,3,5,6]
+
+  - id: underwater_city_lootbox
+    amount: 2
+    weight: 5.5   # 轮换宝藏盒3 (对应海底城)
+    rotation-set: [1,3,4,6]
+
+  - id: infernal_hero_certificate
+    amount: 1
+    weight: 0.2   # 轮换证1  (炒鸡英雄之证)
+    rotation-set: [1,3,5]
+
+  - id: infernal_magic_king_certificate
+    amount: 1
+    weight: 0.2   # 轮换证2  (炒鸡证章·魔法之王)
+    rotation-set: [2,4,6]
+
+  # --- 消耗品与材料 ---
+  #- id: minecraft:splash_potion
+  #  amount: 1
+  #  weight: 4     # 治疗1药水 (未做)
+    
+  - id: minecraft:deepslate_diamond_ore
+    amount: 4
+    weight: 3   # 深层钻石矿石
+    
+  - id: minecraft:netherite_scrap
+    amount: 6
+    weight: 3   # 下界合金碎片
+
+  - id: minecraft:netherite_ingot
+    amount: 3
+    weight: 4    # 下界合金锭
+
+  # --- 特殊装备与武器 ---
+    
+  - id: siegebreaker_crossbow
+    amount: 1
+    weight: 0.8   # 破阵弩
+  
+  - id: tai_meteor_mace
+    amount: 1
+    weight: 1   # 泰山陨石坠
+  
+  - id: bible_fake
+    amount: 1
+    weight: 1   # 圣经（伪）
+  
+  - id: mystery_sword
+    amount: 1
+    weight: 0.8   # ????问号剑
+  
+  - id: excalibur_mace
+    amount: 1
+    weight: 0.2  # excalibur（锤）
+
+

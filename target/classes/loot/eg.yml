@@ -3,9 +3,8 @@ rewards:
   - id: diamond
     amount: 1
     weight: 10
-    commands: []
-  - id: iron_ingot
-    amount: 5
-    weight: 50
+    broadcast: true
+    broadcast-message: "<gold>恭喜欧皇<yellow>{player}</yellow>击杀了Lv<level>炒鸡怪并爆出{amount}个{item}"
     commands:
-      - say {player} got iron!
+      - "title {player} title {\"text\":\"欧皇时刻\",\"color\":\"gold\"}"
+      - "playsound minecraft:ui.toast.challenge_complete player {player}"

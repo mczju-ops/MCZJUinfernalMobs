@@ -8,41 +8,59 @@ rewards:
     amount: 1
     weight: 5   # 初级怪物证明
 
-  # --- 装备类 ---
-  - id: ancient_helmet
+
+
+  # --- 消耗品与材料 ---
+  - id: minecraft:ender_pearl
+    amount: 2
+    weight: 4.5 # 末影珍珠
+    
+  - id: minecraft:golden_carrot
+    amount: 3
+    weight: 4.5 # 金胡萝卜
+    
+  - id: minecraft:iron_ore
+    amount: 3
+    weight: 6   # 铁矿
+    
+  - id: minecraft:gold_ore
+    amount: 2
+    weight: 3   # 金矿
+    
+  - id: minecraft:diamond
     amount: 1
-    weight: 2   # 近古套装（远古头盔）
+    weight: 1   # 钻石
+
+  # --- 特殊道具 ---
+  - id: tough_stick
+    amount: 1
+    weight: 2   # 金刚木棍 (建议ID)
+    
+  - id: doctor_apple
+    amount: 1
+    weight: 1   # 医生的苹果 (建议ID)
     
   - id: fallguard_boots
     amount: 1
     weight: 1   # 仙人的皮靴
 
-  # --- 消耗品与材料 ---
-  - id: ender_pearl
-    amount: 2
-    weight: 4.5 # 末影珍珠
-    
-  - id: golden_carrot
-    amount: 3
-    weight: 4.5 # 金胡萝卜
-    
-  - id: iron_ore
-    amount: 3
-    weight: 6   # 铁矿
-    
-  - id: gold_ore
-    amount: 2
-    weight: 3   # 金矿
-    
-  - id: diamond
+# --- 装备类 ---
+  - id: old_helmet
     amount: 1
-    weight: 1   # 钻石
+    weight: 0.4   # 近古套装（头盔）
 
-  # --- 特殊道具 ---
-  - id: adamantite_stick 
+  - id: old_chestplate
     amount: 1
-    weight: 2   # 金刚木棍 (建议ID)
-    
-  - id: doctors_apple
+    weight: 0.4   # 近古套装（胸甲）
+
+  - id: old_leggings
     amount: 1
-    weight: 1   # 医生的苹果 (建议ID)
+    weight: 0.4   # 近古套装（裤子）
+
+  - id: old_boots
+    amount: 1
+    weight: 0.4   # 近古套装（鞋子）
+
+  - id: old_sword
+    amount: 1
+    weight: 0.4   # 近古套装（剑）

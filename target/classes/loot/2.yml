@@ -1,0 +1,66 @@
+rewards:
+  # --- 基础货币与证明 ---
+  - id: infernal_exchange_token
+    amount: 2
+    weight: 70  # 炒鸡兑换币
+    
+  - id: monster_proof_basic
+    amount: 1
+    weight: 5   # 初级怪物证明
+
+
+
+  # --- 消耗品与材料 ---
+  - id: minecraft:ender_pearl
+    amount: 2
+    weight: 4.5 # 末影珍珠
+    
+  - id: minecraft:golden_carrot
+    amount: 3
+    weight: 4.5 # 金胡萝卜
+    
+  - id: minecraft:iron_ore
+    amount: 4
+    weight: 4.5   # 铁矿
+    
+  - id: minecraft:gold_ore
+    amount: 2
+    weight: 4   # 金矿
+    
+  - id: minecraft:diamond
+    amount: 1
+    weight: 1.5   # 钻石
+
+  # --- 特殊道具 ---
+  - id: tough_stick
+    amount: 1
+    weight: 1   # 金刚木棍 (建议ID)
+    
+  - id: doctor_apple
+    amount: 1
+    weight: 2   # 医生的苹果 (建议ID)
+    
+  - id: fallguard_boots
+    amount: 1
+    weight: 1   # 仙人的皮靴
+
+# --- 装备类 ---
+  - id: old_helmet
+    amount: 1
+    weight: 0.4   # 近古套装（头盔）
+
+  - id: old_chestplate
+    amount: 1
+    weight: 0.4   # 近古套装（胸甲）
+
+  - id: old_leggings
+    amount: 1
+    weight: 0.4   # 近古套装（裤子）
+
+  - id: old_boots
+    amount: 1
+    weight: 0.4   # 近古套装（鞋子）
+
+  - id: old_sword
+    amount: 1
+    weight: 0.4   # 近古套装（剑）

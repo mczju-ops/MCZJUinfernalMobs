@@ -2,11 +2,24 @@
 # InfernalMobs - 炒鸡怪插件配置
 # ===========================================
 
+# true 时控制台输出 [InfernalMobs:debug:mechanize]：世界、方块坐标、是否 enabled-worlds、匹配区域与等级范围、最终等级与词条数
+# 也可在游戏内临时开关：/im debug on|off（不写回本文件）
+debug: false
+
 # 启用炒鸡怪刷怪的世界名称列表（无区域配置时的全局开关）
 enabled-worlds:
-  - world
-  - world_nether
-  - world_the_end
+  - SuperResource
+  - Abyssal01
+  - Abyssal02
+
+# 哪些 CreatureSpawnEvent.SpawnReason 会被“炒鸡化”监听接管（大小写不敏感）
+# 例如：NATURAL, SPAWNER, PATROL, REINFORCEMENTS, TRIAL_SPAWNER, RAID, JOCKEY ...
+# 若为空或全部写错，会回退默认值：NATURAL/SPAWNER/PATROL/REINFORCEMENTS
+infernal-spawn-reasons:
+  - NATURAL
+  - REINFORCEMENTS
+  - TRIAL_SPAWNER
+  - OMINOUS_ITEM_SPAWNER
 
 # 全局默认（无区域匹配时使用）
 defaults:
@@ -16,7 +29,27 @@ defaults:
     max: 100
     # 无区域匹配时：在此范围内随机，覆盖距离公式（世界名要与 regions 里一致）
     fallback-min: 1
-    fallback-max: 15
+    fallback-max: 10
+  # 无区域匹配（走 defaults/fallback）时的炒鸡怪类型黑白名单（可选）
+  # - deny-types 命中则禁止（优先级高）
+  # - allow-types 非空时，只允许列表内类型
+  infernal:
+    allow-types:
+      - PUFFERFISH
+      - BOGGED
+      - CREEPER
+      - GUARDIAN
+      - HUSK
+      - PILLAGER
+      - SKELETON
+      - STRAY
+      - WITCH
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - CAVE_SPIDER
+      - DROWNED
+      - SPIDER
+    deny-types: []
   affix:
     count-formula: "level"  # "level" = n级n条词条, "tier" = 旧公式 min + level/tier-threshold
     min: 1
@@ -25,41 +58,44 @@ defaults:
 
 # 技能池权重（全局默认，区域可覆盖）
 skill-weights:
-  poisonous: 12
-  armoured: 8
+  # 白色词条
+  poisonous: 10
+  armoured: 10
   blinding: 10
-  withering: 8
+  withering: 10
   quicksand: 10
-  bullwark: 6
-  1up: 4
-  cloaked: 5
-  ender: 6
-  ghastly: 5
-  lifesteal: 8
+  bullwark: 10
+  1up: 10
+  cloaked: 10
+  ender: 10
+  ghastly: 10
+  lifesteal: 10
   sprint: 10
-  sapper: 8
-  webber: 6
-  molten: 8
-  archer: 6
-  necromancer: 5
-  firework: 4
-  ghost: 4
-  confusing: 8
-  thief: 6
-  tosser: 5
-  storm: 5
-  vengeance: 6
-  weakness: 8
-  berserk: 6
-  mama: 4
-  gravity: 5
-  mounted: 4
-  morph: 5
-  refrigerate: 6
-  rust: 6
-  vexsummoner: 4
-  wardenwrath: 5
-  swap: 5
+  sapper: 10
+  webber: 10
+  molten: 10
+  archer: 10
+  necromancer: 10
+  firework: 10
+  ghost: 10
+  confusing: 10
+  # 黄色词条
+  thief: 10
+  tosser: 10
+  storm: 10
+  vengeance: 10
+  weakness: 10
+  berserk: 10
+  mama: 10
+  gravity: 10
+  mounted: 10
+  morph: 10    
+  refrigerate: 10
+  # 红色词条
+  rust: 1
+  vexsummoner: 1
+  wardenwrath: 1
+  swap: 1
 
 # ===========================================
 # 炒鸡怪注册表：索引与定期清理
@@ -116,68 +152,348 @@ death-messages:
         - "<mob><white>用</white><weapon><white>终结了</white><player><white>!</white>"
 
 # ===========================================
+# 炒鸡小动物：仅“已炒鸡化且类型在清单内”的生物死亡时清除掉落
+# 若击杀者为玩家，则向死亡所在世界内全体在线玩家广播（MiniMessage）
+# 实体名为 Bukkit EntityType 枚举，大写，如 COW、SHEEP
+# ===========================================
+protected-animals:
+  enable: true
+  clear-exp: true   # 是否同时清空经验球（仅针对清单内、且已炒鸡化）
+  types:
+    - COW
+    - MOOSHROOM
+    - SHEEP
+    - PIG
+    - CHICKEN
+    - GOAT            # 山羊
+    - RABBIT
+    - BEE
+    - AXOLOTL
+    - CAT
+    - OCELOT
+    - FOX
+    - PANDA
+    - TURTLE
+    - SQUID           # 鱿鱼
+    - GLOW_SQUID      # 发光鱿鱼
+    - DOLPHIN
+    - FROG
+    - SNIFFER         # 嗅探兽
+    - CAMEL
+    - MULE            # 骡
+    - DONKEY          # 驴
+    - HORSE
+    - LLAMA
+    - TRADER_LLAMA    # 行商羊驼
+    - PARROT
+    - BAT
+    - ARMADILLO       # 犰狳 
+    - SILVERFISH      # 蠹虫
+    - ENDERMITE      # 末影螨
+  # 占位符 <player_name> 为击杀者游戏内名称（原文，不着色）；消息发往死亡发生的世界
+  message: "<bold><red><player_name>欺负炒鸡小动物！"
+
+# ===========================================
 # 区域配置：世界 + 两角点(x,y,z)框成的立方体
 # 怪物在区域内刷出时，使用该区域的等级范围与技能池
 # ===========================================
 regions:
   # 出生点附近低等级区
   spawn_zone:
-    world: world
-    min: { x: -200, y: 0, z: -200 }
-    max: { x: 200, y: 256, z: 200 }
+    # 自然生成情况下的炒鸡怪白名单
+    infernal-allow-types:
+      - PUFFERFISH
+      - BOGGED
+      - CREEPER
+      - GUARDIAN
+      - HUSK
+      - PILLAGER
+      - SKELETON
+      - STRAY
+      - WITCH
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - CAVE_SPIDER
+      - DROWNED
+      - SPIDER
+    # 禁止成为炒鸡怪的实体类型（黑名单）。有值优先级高于白名单。
+    infernal-deny-types:
+      - WARDEN
+
+    world: SuperResource
+    min: { x: -500, y: -256, z: -500 }
+    max: { x: 500, y: 256, z: 500 }
     priority: 10
     level-min: 1
-    level-max: 10
+    level-max: 5
     skill-pool:
-      poisonous: 30
-      armoured: 25
-      blinding: 20
-      withering: 15
+      # 白色词条
+      poisonous: 10
+      armoured: 10
+      blinding: 10
+      withering: 10
       quicksand: 10
-
-  # 下界堡垒高等级区
-  nether_fortress:
-    world: world_nether
-    min: { x: -2000, y: 50, z: -2000 }
-    max: { x: 2000, y: 120, z: 2000 }
-    priority: 5
-    level-min: 20
-    level-max: 50
-    skill-pool:
-      poisonous: 30
-      armoured: 25
-      ghastly: 20
-      archer: 15
+      bullwark: 10
+      1up: 10
+      cloaked: 10
+      ender: 10
+      ghastly: 10
+      lifesteal: 10
+      sprint: 10
+      sapper: 10
+      webber: 10
+      molten: 10
+      archer: 10
+      necromancer: 10
       firework: 10
-      molten: 8
+      ghost: 10
+      confusing: 10
+      # 黄色词条
+      thief: 1
+      tosser: 1
+      storm: 1
+      vengeance: 1
+      weakness: 1
+      berserk: 1
+      mama: 1
+      gravity: 1
+      mounted: 1
+      morph: 1    
+      refrigerate: 1
+
+  
+  # 深渊01
+  abyssal01:
+    world: Abyssal01
+    min: { x: -500, y: -256, z: -500 } 
+    max: { x: 500, y: 256, z: 500 }
+    priority: 100
+    level-min: 10
+    level-max: 15
+    # 该区域配置了 morph-types：DualMorphSkill 变身池只从这些里抽（仍然会排除“变成自己”）。
+    # 没写或写空：就继续用全局 skills.morph.morph-types（或默认 MORPH_TYPES）。
+    morph-types:
+      - BLAZE
+      - BOGGED
+      - CREEPER
+      - ELDER_GUARDIAN
+      - EVOKER
+      - GUARDIAN
+      - HUSK
+      - MAGMA_CUBE
+      - PILLAGER
+      - RAVAGER
+      - SKELETON
+      - STRAY 
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER_SKELETON
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - CAVE_SPIDER
+      - DROWNED
+      - SPIDER
+      - ZOMBIFIED_PIGLIN
+      - WITHER
+      # 动物
+      - PIG
+      - SHEEP
+      - COW
+      - CHICKEN
+      - MUSHROOM_COW
+      - HORSE
+      - POLAR_BEAR
+      - ARMADILLO     # 犰狳
+      - DONKEY        # 驴
+      - MULE          # 骡
+      - SNIFFER       # 嗅探兽
+      - GOAT          # 山羊
+      - TRADER_LLAMA  # 行商羊驼
+      - SQUID         # 鱿鱼
+      - GLOW_SQUID    # 发光鱿鱼
+      # 额外添加
+      
+      - ILLUSIONER
+      - SHULKER
+      - IRON_GOLEM
+      
+    skill-pool:
+      # 白色词条
+      poisonous: 10
+      armoured: 10
+      blinding: 10
+      withering: 10
+      quicksand: 10
+      bullwark: 10
+      1up: 10
+      cloaked: 10
+      ender: 10
+      ghastly: 10
+      lifesteal: 10
+      sprint: 10
+      sapper: 10
+      webber: 10
+      molten: 10
+      archer: 10
+      necromancer: 10
+      firework: 10
+      ghost: 10
+      confusing: 10
+      # 黄色词条
+      thief: 10
+      tosser: 10
+      storm: 10
+      vengeance: 10
+      weakness: 10
+      berserk: 10
+      mama: 10
+      gravity: 10
+      mounted: 10
+      morph: 10    
+      refrigerate: 10
+      rust: 10
+      vexsummoner: 10
+      wardenwrath: 10
+      swap: 10
+
+  # 深渊02
+  abyssal02:
+    world: Abyssal02
+    min: { x: -500, y: -256, z: -500 } 
+    max: { x: 500, y: 256, z: 500 }
+    priority: 100
+    level-min: 10
+    level-max: 15
+    morph-types:
+      - BLAZE
+      - BOGGED
+      - CREEPER
+      - ELDER_GUARDIAN
+      - EVOKER
+      - GUARDIAN
+      - HUSK
+      - MAGMA_CUBE
+      - PILLAGER
+      - RAVAGER
+      - SKELETON
+      - STRAY 
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER_SKELETON
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - CAVE_SPIDER
+      - DROWNED
+      - SPIDER
+      - ZOMBIFIED_PIGLIN
+      - WITHER
+      # 动物
+      - CHICKEN
+      - COW
+      - HORSE
+      - MOOSHROOM
+      - PARROT
+      - PIG
+      - SHEEP
+      - SKELETON_HORSE
+      - STRIDER
+      - ZOMBIE_HORSE
+      - PUFFERFISH
+      - BEE
+      - LLAMA
+      - POLAR_BEAR
+      - PIG
+      - SHEEP
+      - COW
+      - CHICKEN
+      - MUSHROOM_COW
+      - HORSE
+      - POLAR_BEAR
+      - ARMADILLO     # 犰狳
+      - DONKEY        # 驴
+      - MULE          # 骡
+      - SNIFFER       # 嗅探兽
+      - GOAT          # 山羊
+      - TRADER_LLAMA  # 行商羊驼
+      - SQUID         # 鱿鱼
+      - GLOW_SQUID    # 发光鱿鱼
+      # 额外添加
+      
+      - ILLUSIONER
+      - SHULKER
+      - IRON_GOLEM
+
+
+    skill-pool:
+      poisonous: 10
+      armoured: 10
+      blinding: 10
+      withering: 10
+      quicksand: 10
+      bullwark: 10
+      1up: 10
+      cloaked: 10
+      ender: 10
+      ghastly: 10
+      lifesteal: 10
+      sprint: 10
+      sapper: 10
+      webber: 10
+      molten: 10
+      archer: 10
+      necromancer: 10
+      firework: 10
+      ghost: 10
+      confusing: 10
+      # 黄色词条
+      thief: 10
+      tosser: 10
+      storm: 10
+      vengeance: 10
+      weakness: 10
+      berserk: 10
+      mama: 10
+      gravity: 10
+      mounted: 10
+      morph: 10    
+      refrigerate: 10
+      rust: 10
+      vexsummoner: 10
+      wardenwrath: 10
+      swap: 10
 
 # ===========================================
 # 预设怪物：固定技能组合，仅在指定区域有概率刷新
 # ===========================================
-presets:
-  infernal_archer:
-    display: "&cInfernal Archer"
-    level: 25
-    skills:
-      - { id: archer, level: 5 }
-      - { id: ghastly, level: 3 }
-      - { id: armoured, level: 2 }
-    spawn:
-      regions: [nether_fortress]
-      weight: 0.05
-
-  explosive_zombie:
-    display: "&4Explosive Zombie"
-    level: 15
-    skills:
-      - { id: ghastly, level: 3 }
-      - { id: molten, level: 2 }
-    spawn:
-      regions: [spawn_zone, nether_fortress]
-      weight: 0.03
+#presets:
+#  infernal_archer:
+#    display: "&cInfernal Archer"
+#    level: 25
+#    skills:
+#      - { id: archer, level: 5 }
+#      - { id: ghastly, level: 3 }
+#      - { id: armoured, level: 2 }
+#    spawn:
+#      regions: [nether_fortress]
+#      weight: 0.05
+#
+#  explosive_zombie:
+#    display: "&4Explosive Zombie"
+#    level: 15
+#    skills:
+#      - { id: ghastly, level: 3 }
+#      - { id: molten, level: 2 }
+#    spawn:
+#      regions: [spawn_zone, nether_fortress]
+#      weight: 0.03
 
 # ===========================================
 # 技能参数 (所有技能参数集中在此，便于调整)
+# RANGE范围内触发的技能都为1秒判定一次
 # ===========================================
 skills:
   poisonous:
@@ -222,7 +538,7 @@ skills:
     type: STAT
     display: "&a1up"
     hp-threshold: 8
-    sound: "BLOCK_BREWING_STAND_BREW"
+    sound: "BLOCK_BREWING_STAND_BREW" # 1up 音效
 
   cloaked:
     type: STAT
@@ -240,7 +556,7 @@ skills:
     type: RANGE
     display: "&cGhastly"
     range: 12
-    chance: 0.03
+    chance: 0.3
     cooldown-ticks: 80
     damage: 8
     velocity: 1.2
@@ -271,6 +587,10 @@ skills:
     cooldown-ticks: 20
     chance: 0.5
     sound: "BLOCK_COBWEB_PLACE"  # 蜘蛛网放置音效
+    giant-sphere-chance: 0.15    # 蜘蛛网球概率（每只蜘蛛仅会以这种方式释放技能一次）
+    giant-sphere-radius: 6       # 蜘蛛网球半径
+    giant-sphere-thickness: 0.5  # 蜘蛛网球密度（0.01-1，越大越密越厚度）
+    giant-sphere-lifetime-ticks: 200 # 蜘蛛网球存在时间 (10s)
 
   molten:
     type: PASSIVE
@@ -292,7 +612,7 @@ skills:
     type: RANGE
     display: "&5Necromancer"
     range: 14
-    chance: 0.025
+    chance: 0.3
     cooldown-ticks: 100
     velocity: 1.0
 
@@ -326,12 +646,21 @@ skills:
     cooldown-ticks: 80
     chance: 0.5
     sound: "entity.wind_charge.throw"
+        # --- 反制缴械：副手持有 thief_counter 时触发 ---
+    # 本次缴械仍会成功，但会把该怪的 thief 冷却延长 counter-duration-ticks，从而封住缴械能力
+    counter-duration-ticks: 200
+    counter-sound: "item.crossbow.quick_charge_1"
+    # 螺旋粒子（围绕怪物转圈）。如果服务器该粒子名不存在，会自动回退到 SPELL_WITCH
+    counter-particle: "item_cobweb"
+    # 绘制线粒子：玩家眼睛 -> 本次缴械落点
+    counter-line-particle: "item_cobweb"
+
 
   tosser:
     type: RANGE
     display: "&eTosser"
     range: 6
-    chance: 0.03
+    chance: 0.3
     cooldown-ticks: 100
     force: 4       # 拉向怪物的力度
     upward: 0.2      # 竖直分量
@@ -381,34 +710,19 @@ skills:
     #   2: { min: 2, max: 5 }
     #   3: { min: 3, max: 7 }
     #   4: { min: 4, max: 10 }
-    level-min: -1
+    level-min: -1        # -1即不统一区间，按档位默认 
     level-max: -1
-    # 仅以下类型的怪物可触发 mama（参考原版；留空则不限制类型）
-    allowed-types:
-      - COW
-      - MOOSHROOM
-      - SHEEP
-      - PIG
-      - CHICKEN
-      - WOLF
-      - ZOMBIE
-      - PIGLIN
-      - HORSE
-      - VILLAGER
-      - OCELOT
-      - SKELETON
-      - CREEPER
-      - SPIDER
-      - CAVE_SPIDER
-      - WITCH
-      - ENDERMAN
-      - RAVAGER
+    # 黑名单：以下类型不会触发 mama（推荐使用，没列到的默认都可触发）
+    blocked-types:
+      - WARDEN
+      - WITHER
+
 
   gravity:
     type: RANGE
     display: "&bGravity"
     range: 8
-    chance: 0.02
+    chance: 0.3
     cooldown-ticks: 100
     duration-ticks: 100   # 漂浮 5s
     amplifier: 0
@@ -417,10 +731,49 @@ skills:
   mounted:
     type: STAT
     display: "&6Mounted"
-    # 坐骑类型：列表则随机一种。不写马则不会骑马，只骑下面这些
-    # 可选：SPIDER, WOLF, PIG, STRIDER, SKELETON_HORSE, ZOMBIE_HORSE, HORSE, INFERNAL 等
-    mount-types:
-      - INFERNAL
+    # 骑手白名单：只有这些实体类型拥有 mounted 词条时才会触发骑乘（留空=不限制）
+    enabled-riders:
+      - WITHER_SKELETON
+      - STRAY
+      - HUSK
+      - ZOMBIE_VILLAGER
+      - EVOKER
+      - VINDICATOR
+      - SKELETON
+      - ZOMBIE
+      - PIG_ZOMBIE
+      - ENDERMAN
+      - WITCH
+      - SNOWMAN
+      - VILLAGER
+      - ILLUSIONER
+      - DROWNED
+      - ZOMBIFIED_PIGLIN
+      - PIGLIN
+      - BLAZE
+      - BOGGED
+      - STRIDER
+    # 坐骑白名单（核心池）：从此列表随机生成坐骑，且生成后会被炒鸡化
+    # 留空=不生成坐骑（mounted 实际不生效）
+    enabled-mounts:
+      - SPIDER
+      - SKELETON_HORSE
+      - ZOMBIE_HORSE
+      - MULE
+      - SLIME
+      - GHAST
+      - MAGMA_CUBE
+      - PIG
+      - SHEEP
+      - COW
+      - CHICKEN
+      - HORSE
+      - POLAR_BEAR
+      - ZOGLIN
+      - STRIDER
+      - RAVAGER
+      - BLAZE
+      - ZOMBIE
     level-min: 1
     level-max: 10
 
@@ -433,16 +786,46 @@ skills:
     sound-volume: 0.6
     sound-pitch: 0.7                 # 变调（小于 1 偏低，大于 1 偏高）
     morph-types:
-      - ZOMBIE
-      - SKELETON
+      - BLAZE
+      - BOGGED
       - CREEPER
-      - SPIDER
-      - CAVE_SPIDER
-      - WITCH
+      - ELDER_GUARDIAN
+      - EVOKER
+      - GUARDIAN
       - HUSK
-      - STRAY
+      - MAGMA_CUBE
+      - PILLAGER
+      - RAVAGER
+      - SKELETON
+      - STRAY 
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER_SKELETON
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - CAVE_SPIDER
       - DROWNED
-      - ENDERMAN
+      - SPIDER
+      - ZOMBIFIED_PIGLIN
+      - WITHER
+      # 动物
+      - PIG
+      - SHEEP
+      - COW
+      - CHICKEN
+      - MUSHROOM_COW
+      - HORSE
+      - POLAR_BEAR
+      - ARMADILLO     # 犰狳
+      - DONKEY        # 驴
+      - MULE          # 骡
+      - SNIFFER       # 嗅探兽
+      - GOAT          # 山羊
+      - TRADER_LLAMA  # 行商羊驼
+      - SQUID         # 鱿鱼
+      - GLOW_SQUID    # 发光鱿鱼
 
   refrigerate:
     type: DUAL

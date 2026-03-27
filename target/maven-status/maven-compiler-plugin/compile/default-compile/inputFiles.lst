@@ -1,4 +1,3 @@
-D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\controller\listener\InfernalEyeListener.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\model\MobProfile.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveConfusingSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveWitheringSkill.java
@@ -34,6 +33,7 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\SkillType.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\ConfigLoader.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\SkillConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualRefrigerateSkill.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\controller\listener\MagicItemListener.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\model\StatMap.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\RegionConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\SkillContext.java
@@ -62,10 +62,12 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\GuaranteedLoot
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualArcherSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveVengeanceSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\registry\SkillRegistry.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\ProtectedAnimalsConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveSapperSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\LootService.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualThiefSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualWeaknessSkill.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\util\HotbarCharmHelper.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\DeathMessageConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\SpecialLootConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\affix\Affix.java
