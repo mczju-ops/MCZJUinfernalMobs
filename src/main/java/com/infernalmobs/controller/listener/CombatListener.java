@@ -1,6 +1,7 @@
 package com.infernalmobs.controller.listener;
 
 import com.infernalmobs.InfernalMobsPlugin;
+import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.ProtectedAnimalsConfig;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
@@ -102,6 +103,16 @@ public class CombatListener implements Listener {
                 } else {
                     Player killer = entity.getKiller();
                     if (killer != null) {
+                        // 玩家击杀：经验缩放、战利品、统计、保底、播报
+                        if (plugin instanceof InfernalMobsPlugin im) {
+                            ConfigLoader cfg = im.getConfigLoader();
+                            double mult = cfg.getExpMultiplier();
+                            if (mult > 0 && event.getDroppedExp() > 0) {
+                                int level = state.getProfile().getLevel();
+                                int scaled = (int) Math.round(event.getDroppedExp() * level * mult);
+                                event.setDroppedExp(scaled);
+                            }
+                        }
                         String uuid = killer.getUniqueId().toString();
                         String pname = killer.getName();
                         killStatsService.addKill(uuid, pname, state.getProfile().getLevel());
@@ -112,19 +123,24 @@ public class CombatListener implements Listener {
                         if (guaranteedLootService != null) {
                             guaranteedLootService.onKill(uuid, pname, state.getProfile().getLevel(), killer, entity.getLocation());
                         }
-                    }
-                    LootService loot = plugin instanceof InfernalMobsPlugin im ? im.getLootService() : null;
-                    boolean vanillaDropsCleared = false;
-                    if (loot != null) {
-                        vanillaDropsCleared = loot.onInfernalMobDeath(event, entity, state);
-                    }
-                    // 若开启了 replace-vanilla-drops 清空原版掉落，则补回该炒鸡怪生前捡到的玩家物品
-                    if (vanillaDropsCleared) {
-                        for (ItemStack picked : combatService.consumePickedUpItems(entity.getUniqueId())) {
-                            if (picked != null && !picked.getType().isAir() && picked.getAmount() > 0) {
-                                event.getDrops().add(picked);
+                        LootService loot = plugin instanceof InfernalMobsPlugin im ? im.getLootService() : null;
+                        boolean vanillaDropsCleared = false;
+                        if (loot != null) {
+                            vanillaDropsCleared = loot.onInfernalMobDeath(event, entity, state);
+                        }
+                        // 若开启了 replace-vanilla-drops 清空原版掉落，则补回该炒鸡怪生前捡到的玩家物品
+                        if (vanillaDropsCleared) {
+                            for (ItemStack picked : combatService.consumePickedUpItems(entity.getUniqueId())) {
+                                if (picked != null && !picked.getType().isAir() && picked.getAmount() > 0) {
+                                    event.getDrops().add(picked);
+                                }
                             }
                         }
+                    } else {
+                        // 非玩家击杀：清空炒鸡经验加成与原版掉落，仅播报抢人头
+                        event.getDrops().clear();
+                        event.setDroppedExp(0);
+                        deathMessageService.broadcastKillStealIfEnabled(entity, state);
                     }
                 }
             }

@@ -6,6 +6,11 @@
 # 也可在游戏内临时开关：/im debug on|off（不写回本文件）
 debug: false
 
+# 炒鸡怪死亡时的经验倍率
+# 最终经验 = 原版经验 × 炒鸡怪等级 × exp-multiplier
+# 设为 0 则不修改原版经验；设为 1.0 表示每 1 级经验翻 1 倍（例：15 级怪 × 1.0 = 15 倍经验）
+exp-multiplier: 1.0
+
 # 启用炒鸡怪刷怪的世界名称列表（无区域配置时的全局开关）
 enabled-worlds:
   - SuperResource
@@ -135,6 +140,15 @@ death-messages:
     - "<mob><white>被</white><player><white>用</white><weapon><white>终结!</white>"
     - "<player><white>向</white><mob><white>展现了残酷!</white>"
     - "<mob><white>凄惨地死于</white><player><white>之手!</white>"
+
+  # 炒鸡怪被非玩家因素击杀时（摔落/火/其他怪物等）的「抢人头」播报
+  # 占位符：<nearest_player>（最近玩家，已按身份着色）、<mob>（炒鸡怪名）、<source>（伤害来源）
+  kill-steal:
+    enable: true
+    range: 48        # 搜索最近玩家的范围（格），超出范围则不播报
+    messages:
+      - "<nearest_player><white>附近的</white><mob><white>被</white><source><white>抢人头了！</white>"
+      - "<source><white>偷偷击杀了</white><nearest_player><white>附近的</white><mob><white>！</white>"
 
   # 玩家被炒鸡怪击杀时的播报（<player>=死者，已按身份着色 <mob>=炒鸡怪名，悬停显示词条）
   slain-by:

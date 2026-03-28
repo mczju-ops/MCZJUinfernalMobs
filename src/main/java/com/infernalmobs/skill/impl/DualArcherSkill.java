@@ -69,6 +69,7 @@ public class DualArcherSkill implements Skill {
 
             Arrow arr = mob.getWorld().spawnArrow(loc2, dir, speed, arrowSpread);
             arr.setShooter(mob);
+            arr.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
         }
 
         String soundKey = config.getString("sound", "ENTITY_ARROW_SHOOT");

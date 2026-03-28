@@ -24,7 +24,10 @@ public record DeathMessageConfig(
         List<String> slainByWithWeaponMessages,
         String playerColorNormal,
         String playerColorOp,
-        int globalBroadcastLevelThreshold
+        int globalBroadcastLevelThreshold,
+        boolean killStealEnable,
+        List<String> killStealMessages,
+        double killStealRange
 ) {
     /** 等级前缀：初级(1-3)/中级(4-6)/高级(7-9)/炒鸡(10+)。Lv15 的炒鸡用 &lt;obfuscated&gt; 乱码效果。 */
     public String getLevelPrefix(int level) {

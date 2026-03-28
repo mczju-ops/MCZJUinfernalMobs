@@ -39,6 +39,8 @@ public class ConfigLoader {
     private MobRegistryConfig mobRegistryConfig;
     private Map<String, String> skillNames;
     private boolean debug;
+    /** 炒鸡怪经验倍率：最终经验 = 原版经验 × 等级 × expMultiplier，0 表示不修改。 */
+    private double expMultiplier;
     private Set<org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason> infernalSpawnReasons = Set.of(
             org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL,
             org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER,
@@ -62,6 +64,7 @@ public class ConfigLoader {
         if (!skillNameFile.exists()) plugin.saveResource("skill_name.yml", false);
 
         debug = config.getBoolean("debug", false);
+        expMultiplier = config.getDouble("exp-multiplier", 1.0);
         enabledWorlds = config.getStringList("enabled-worlds");
         infernalSpawnReasons = loadSpawnReasons();
         if (config.contains("defaults")) {
@@ -171,7 +174,7 @@ public class ConfigLoader {
         if (sec == null) {
             return new DeathMessageConfig(false, "&finfernal", "拳头",
                     Map.of(), Map.of(), List.of(), Map.of(), false, List.of(), false, "enchanted", List.of(),
-                    "<green>", "<dark_red>", 11);
+                    "<green>", "<dark_red>", 11, false, List.of(), 48.0);
         }
         boolean enable = sec.getBoolean("enable", true);
         String namePrefix = sec.getString("name-prefix", "&finfernal");
@@ -217,10 +220,19 @@ public class ConfigLoader {
         String playerColorNormal = sec.getString("player-color-normal", "<green>");
         String playerColorOp = sec.getString("player-color-op", "<dark_red>");
         int globalBroadcastLevelThreshold = sec.getInt("global-broadcast-level-threshold", 11);
+
+        ConfigurationSection ksSec = sec.getConfigurationSection("kill-steal");
+        boolean killStealEnable = ksSec != null && ksSec.getBoolean("enable", true);
+        List<String> killStealMessages = ksSec != null ? ksSec.getStringList("messages") : List.of();
+        if (killStealMessages.isEmpty()) killStealMessages = List.of(
+                "<nearest_player><white>附近的</white><mob><white>被</white><source><white>抢人头了！</white>");
+        double killStealRange = ksSec != null ? ksSec.getDouble("range", 48.0) : 48.0;
+
         return new DeathMessageConfig(enable, namePrefix, defaultWeapon,
                 levelPrefixes, levelTierColors, messages, mobNames, slainByEnable, slainByMessages,
                 slainByWithWeaponEnable, slainByWithWeaponWhen, slainByWithWeaponMessages,
-                playerColorNormal, playerColorOp, globalBroadcastLevelThreshold);
+                playerColorNormal, playerColorOp, globalBroadcastLevelThreshold,
+                killStealEnable, killStealMessages, killStealRange);
     }
 
     /** 从 skill_name.yml 加载技能 id → MiniMessage 显示名，未配置则返回 null 表示用 config 或 id。 */
@@ -457,6 +469,7 @@ public class ConfigLoader {
     public DeathMessageConfig getDeathMessageConfig() { return deathMessageConfig; }
     public ProtectedAnimalsConfig getProtectedAnimalsConfig() { return protectedAnimalsConfig; }
     public MobRegistryConfig getMobRegistryConfig() { return mobRegistryConfig; }
+    public double getExpMultiplier() { return expMultiplier; }
     public FileConfiguration getRaw() { return config; }
     public Set<org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason> getInfernalSpawnReasons() { return infernalSpawnReasons; }
 

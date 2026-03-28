@@ -276,7 +276,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private boolean handleStats(CommandSender sender, String[] args) {
         if (args.length < 2) {
             int count = combatService.getTrackedCount();
-            send(sender, "<white>当前记录的炒鸡怪数: </white><count>", Placeholder.unparsed("count", String.valueOf(count)));
+            send(sender, "<gold>当前追踪的炒鸡怪数: <white>" + count);
             return true;
         }
         String playerId = resolvePlayerId(args[1]);
@@ -286,18 +286,43 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         }
         int total = killStatsService.getTotalKills(playerId);
         Map<Integer, Integer> byLevel = killStatsService.getKillsByLevel(playerId);
+
+        send(sender, "<gold>━━━ <white>" + args[1] + " <gray>的炒鸡怪击杀统计 <gold>━━━");
         if (byLevel.isEmpty()) {
-            send(sender, "<white>玩家 </white><player><white> 击杀数: 0</white>", Placeholder.unparsed("player", args[1]));
-            return true;
+            send(sender, "<gray>  尚无击杀记录");
+        } else {
+            // 按等级排序，过滤掉 0 击杀，每行最多 4 个等级
+            List<Map.Entry<Integer, Integer>> entries = byLevel.entrySet().stream()
+                    .filter(e -> e.getValue() > 0)
+                    .sorted(Map.Entry.comparingByKey())
+                    .toList();
+            StringBuilder row = new StringBuilder();
+            int col = 0;
+            for (Map.Entry<Integer, Integer> e : entries) {
+                row.append(levelColor(e.getKey()))
+                   .append("Lv").append(e.getKey())
+                   .append(" <white>×").append(e.getValue())
+                   .append("  ");
+                col++;
+                if (col == 4) {
+                    send(sender, "  " + row.toString().stripTrailing());
+                    row.setLength(0);
+                    col = 0;
+                }
+            }
+            if (!row.isEmpty()) send(sender, "  " + row.toString().stripTrailing());
         }
-        StringBuilder sb = new StringBuilder();
-        byLevel.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e ->
-            sb.append("Lv").append(e.getKey()).append(":").append(e.getValue()).append(" "));
-        send(sender, "<white>玩家 </white><player><white> 总击杀: </white><total><white> | </white><detail>",
-                Placeholder.unparsed("player", args[1]),
-                Placeholder.unparsed("total", String.valueOf(total)),
-                Placeholder.unparsed("detail", sb.toString().trim()));
+        send(sender, "<gray>  合计: <yellow>" + total + " <gray>击杀");
         return true;
+    }
+
+    /** 根据等级返回 MiniMessage 颜色标签，3 级一档对应五阶稀有度。 */
+    private String levelColor(int level) {
+        if (level >= 13) return "<red>";          // infernal
+        if (level >= 10) return "<gold>";         // legendary
+        if (level >= 7)  return "<dark_purple>";  // epic
+        if (level >= 4)  return "<blue>";         // rare
+        return "<white>";                         // common
     }
 
     /** 将玩家名或 UUID 字符串解析为存储用的玩家 id。 */

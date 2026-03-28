@@ -55,6 +55,7 @@ public class RangeGhastlySkill implements Skill {
             f.setMetadata("infernalmobs_damage", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), damage));
             f.setMetadata("infernalmobs_fire_ticks", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), fireTicks));
             f.setMetadata("infernalmobs_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), mob.getUniqueId()));
+            f.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
         });
         scheduleProjectileLifetime(fb, ctx.getPlugin(), lifetimeTicks);
     }

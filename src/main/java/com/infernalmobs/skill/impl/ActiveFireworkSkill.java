@@ -46,6 +46,7 @@ public class ActiveFireworkSkill implements Skill {
 
         Firework fw = targetLoc.getWorld().spawn(targetLoc, Firework.class);
         fw.setMetadata("infernalmobs_firework_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getEntity().getUniqueId()));
+        fw.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
         FireworkMeta meta = fw.getFireworkMeta();
         meta.setPower(config.getInt("power", 1));
 

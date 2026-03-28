@@ -43,6 +43,8 @@ public class RangeNecromancerSkill implements Skill {
 
         WitherSkull skull = ctx.getEntity().getWorld().spawn(spawnAt, WitherSkull.class, s -> {
             s.setDirection(dir.multiply(velocity));
+            s.setMetadata("infernalmobs_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getEntity().getUniqueId()));
+            s.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
         });
     }
 }
