@@ -14,14 +14,27 @@ import java.util.Set;
  */
 public class RegionConfig {
 
+    /**
+     * 带权重的等级区间段。配置了 level-ranges 时使用加权随机；未配置则退化为
+     * level-min ~ level-max 的均匀随机。
+     */
+    public record LevelRange(int min, int max, int weight) {}
+
     private final String id;
     private final String world;
     private final int minX, minY, minZ;
     private final int maxX, maxY, maxZ;
     private final int levelMin;
     private final int levelMax;
-    private final Map<String, Integer> skillPool; // 该区域可 roll 的技能及权重，空则用全局
-    private final int priority; // 区域优先级，高者先匹配
+    /** 带权重的等级区间列表；非空时优先于 levelMin/levelMax 使用加权随机。 */
+    private final List<LevelRange> levelRanges;
+    /**
+     * 单级权重表：key=等级，value=权重。非空时优先级最高，覆盖 levelRanges 和 levelMin/levelMax。
+     * 对应 level-chances 配置项。
+     */
+    private final Map<Integer, Integer> levelChances;
+    private final Map<String, Integer> skillPool;
+    private final int priority;
     /** 区域内允许成为炒鸡怪的实体类型（白名单）。空表示不限制。 */
     private final Set<EntityType> infernalAllowTypes;
     /** 区域内禁止成为炒鸡怪的实体类型（黑名单）。有值优先级高于白名单。 */
@@ -31,6 +44,8 @@ public class RegionConfig {
 
     public RegionConfig(String id, String world, int minX, int minY, int minZ, int maxX, int maxY, int maxZ,
                         int levelMin, int levelMax,
+                        List<LevelRange> levelRanges,
+                        Map<Integer, Integer> levelChances,
                         Map<String, Integer> skillPool,
                         int priority,
                         Set<EntityType> infernalAllowTypes,
@@ -46,6 +61,8 @@ public class RegionConfig {
         this.maxZ = Math.max(minZ, maxZ);
         this.levelMin = levelMin;
         this.levelMax = levelMax;
+        this.levelRanges = levelRanges != null ? List.copyOf(levelRanges) : Collections.emptyList();
+        this.levelChances = levelChances != null ? Map.copyOf(levelChances) : Collections.emptyMap();
         this.skillPool = skillPool != null ? new HashMap<>(skillPool) : Collections.emptyMap();
         this.priority = priority;
         this.infernalAllowTypes = infernalAllowTypes != null ? Set.copyOf(infernalAllowTypes) : Collections.emptySet();
@@ -66,6 +83,12 @@ public class RegionConfig {
     public String getWorld() { return world; }
     public int getLevelMin() { return levelMin; }
     public int getLevelMax() { return levelMax; }
+    /** 带权重的等级区间列表；非空时优先使用加权随机，空则退回 levelMin~levelMax 均匀随机。 */
+    public List<LevelRange> getLevelRanges() { return levelRanges; }
+    /**
+     * 单级权重表（level-chances）；非空时优先级最高，覆盖 levelRanges 和 levelMin/levelMax。
+     */
+    public Map<Integer, Integer> getLevelChances() { return levelChances; }
     public Map<String, Integer> getSkillPool() { return skillPool; }
     public int getPriority() { return priority; }
 
@@ -80,6 +103,11 @@ public class RegionConfig {
         if (!infernalDenyTypes.isEmpty() && infernalDenyTypes.contains(type)) return false;
         if (!infernalAllowTypes.isEmpty()) return infernalAllowTypes.contains(type);
         return true;
+    }
+
+    /** 区域是否显式配置了 infernal-allow-types 白名单（非空则表示有独立配置）。 */
+    public boolean hasExplicitAllowTypes() {
+        return !infernalAllowTypes.isEmpty();
     }
 
     /**

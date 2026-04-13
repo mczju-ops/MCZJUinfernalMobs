@@ -34,8 +34,9 @@ public class PassivePoisonousSkill implements Skill {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
 
-        int durationTicks = ctx.isWeakened() ? 60 : config.getInt("duration-ticks", 200);  // 削弱: 3s
-        int amplifier = ctx.isWeakened() ? 1 : config.getInt("amplifier", 1);  // 削弱: 中毒II
+        int durationTicks = config.getInt("duration-ticks", 200);
+        int amplifier = config.getInt("amplifier", 1);
+        if (ctx.isWeakened()) durationTicks = Math.max(1, durationTicks / 2);
 
         ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
                 PotionEffectType.POISON, durationTicks, amplifier, false, true));

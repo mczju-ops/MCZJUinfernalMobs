@@ -18,7 +18,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 /**
  * 盗贼：受击或攻击时，玩家主手物品掉落在怪物身后。
- * 触发前存主手、副手快照，延迟后再读并对比：若主手物品已消失（如耐久为 0 被消耗），则不执行缴械；若主手物品还在，再照常缴械。
+ * - 炒鸡物品（PDC mczju:im_rarity 存在）：按 infernal-steal-chance 概率触发缴械。
+ * - 非炒鸡普通物品：按 steal-chance 概率触发缴械（默认 10%）。
+ * 触发前存主手快照，延迟后再读并对比：若主手物品已消失（如耐久为 0 被消耗），则不执行缴械。
  */
 public class DualThiefSkill implements Skill {
 
@@ -48,7 +50,12 @@ public class DualThiefSkill implements Skill {
         if (mainBefore.getType().isAir()) return;
         // 主手携带免疫缴械标记时，直接取消本次缴械
         if (hasThiefResistance(mainBefore)) return;
-        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
+        // 按物品类型分别取概率：炒鸡物品用 infernal-steal-chance，普通物品用 steal-chance
+        double chance = isInfernalItem(mainBefore)
+                ? config.getDouble("infernal-steal-chance", 0.10)
+                : config.getDouble("steal-chance", 0.10);
+        if (Math.random() >= chance) return;
+        if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率再减小50%
 
         // 掉落坐标用触发时怪物位置，延迟任务内不再用 ctx.getEntity()。这样与变身同时触发时，原实体被移除、新实体同位置生成，掉落仍落在“怪物处”正确位置
         Location mobLoc = ctx.getEntity().getLocation().clone();
@@ -101,12 +108,22 @@ public class DualThiefSkill implements Skill {
                     try {
                         if (mobLoc.getWorld() != null) {
                             Sound s2 = Sound.valueOf(counterSoundKey.toUpperCase().replace(".", "_"));
-                            mobLoc.getWorld().playSound(mobLoc, s2, 1f, 1f);
+                            mobLoc.getWorld().playSound(mobLoc, s2, 1f, 2f);
                         }
                     } catch (IllegalArgumentException ignored) {}
                 }
             }
         }.runTaskLater(ctx.getPlugin(), 1L);
+    }
+
+    /**
+     * 炒鸡物品判定：PDC mczju:im_rarity 存在即视为炒鸡物品，不可缴械。
+     */
+    private static boolean isInfernalItem(ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) return false;
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return false;
+        return meta.getPersistentDataContainer().has(Keys.IM_RARITY, PersistentDataType.STRING);
     }
 
     /**

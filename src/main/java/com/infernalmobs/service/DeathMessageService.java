@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * 击杀播报服务。MiniMessage 模板 + Placeholder，世界广播；怪物名 [LvN]前缀+名 紧凑有框框有颜色。
+ * 击杀播报服务。MiniMessage 模板 + Placeholder；玩家被炒鸡怪击杀为全服广播，其余多数按等级阈值在世界或全服间切换。
  */
 public class DeathMessageService {
 
@@ -64,12 +64,11 @@ public class DeathMessageService {
         }
     }
 
-    /** 玩家被炒鸡怪击杀时世界广播。若怪物手持特殊武器且开启，播报带武器的模板。 */
+    /** 玩家被炒鸡怪击杀时全服广播（不限于事件所在世界）。若怪物手持特殊武器且开启，播报带武器的模板。 */
     public void broadcastSlainByIfEnabled(Player victim, LivingEntity killerMob, MobState mobState) {
         DeathMessageConfig dm = config.getDeathMessageConfig();
         if (dm == null || !dm.slainByEnable()) return;
 
-        int level = mobState.getProfile().getLevel();
         Component playerComponent = getColoredPlayerComponent(victim, dm);
         Component mobComponent = buildMobComponentWithHover(killerMob, mobState, dm);
         String template = pickRandom(dm.slainByMessages());
@@ -90,7 +89,7 @@ public class DeathMessageService {
                         Placeholder.component("player", playerComponent),
                         Placeholder.component("mob", mobComponent),
                         Placeholder.component("weapon", weaponComponent));
-        for (Player p : getBroadcastTargets(victim.getWorld(), level, dm)) {
+        for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendMessage(message);
         }
     }
@@ -222,13 +221,9 @@ public class DeathMessageService {
         if (casterUuid == null || combatService == null) return null;
         com.infernalmobs.model.MobState state = combatService.getMobState(casterUuid);
         if (state == null) return null;
-        final java.util.UUID finalUuid = casterUuid;
-        // 从世界里找该实体
-        for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
-            LivingEntity le = (LivingEntity) world.getEntities().stream()
-                    .filter(e -> e.getUniqueId().equals(finalUuid) && e instanceof LivingEntity)
-                    .findFirst().orElse(null);
-            if (le != null) return buildMobComponentWithHover(le, state, config.getDeathMessageConfig());
+        Entity e = Bukkit.getServer().getEntity(casterUuid);
+        if (e instanceof LivingEntity le && le.isValid()) {
+            return buildMobComponentWithHover(le, state, config.getDeathMessageConfig());
         }
         return null;
     }
@@ -271,7 +266,7 @@ public class DeathMessageService {
         };
     }
 
-    /** 11 级及以上全服播报，否则仅炒鸡插件生效的世界（事件世界）内播报。 */
+    /** 玩家击杀炒鸡怪、抢人头：11 级及以上全服播报，否则仅事件所在世界内播报。（玩家被炒鸡怪击杀见 {@link #broadcastSlainByIfEnabled}，始终全服。） */
     private Collection<? extends Player> getBroadcastTargets(World eventWorld, int mobLevel, DeathMessageConfig dm) {
         if (mobLevel >= dm.globalBroadcastLevelThreshold()) {
             return Bukkit.getOnlinePlayers();
@@ -318,7 +313,7 @@ public class DeathMessageService {
 
         Component hoverContent = Component.text("词条：");
         for (int i = 0; i < affixComps.size(); i++) {
-            if (i > 0) hoverContent = hoverContent.append(Component.text(", "));
+            if (i > 0) hoverContent = hoverContent.append(Component.text(" "));
             hoverContent = hoverContent.append(affixComps.get(i));
         }
         return textComponent.hoverEvent(HoverEvent.showText(hoverContent));

@@ -36,15 +36,11 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(MiniMessageHelper.deserialize(template, resolvers));
     }
 
-    private static final Set<EntityType> SPAWNABLE_TYPES = Set.of(
-            EntityType.ZOMBIE, EntityType.SKELETON, EntityType.CREEPER, EntityType.SPIDER,
-            EntityType.CAVE_SPIDER, EntityType.ENDERMAN, EntityType.WITCH, EntityType.PHANTOM,
-            EntityType.DROWNED, EntityType.STRAY, EntityType.HUSK, EntityType.PIGLIN,
-            EntityType.PIGLIN_BRUTE, EntityType.ZOGLIN, EntityType.WARDEN,
-            EntityType.BLAZE, EntityType.GHAST, EntityType.MAGMA_CUBE, EntityType.VINDICATOR,
-            EntityType.EVOKER, EntityType.PILLAGER, EntityType.RAVAGER, EntityType.GUARDIAN,
-            EntityType.ELDER_GUARDIAN
-    );
+    /** 所有可生成的 LivingEntity 类型（运行时从枚举动态计算，支持全版本所有生物）。 */
+    private static final Set<EntityType> SPAWNABLE_TYPES = Arrays.stream(EntityType.values())
+            .filter(EntityType::isSpawnable)
+            .filter(t -> t.getEntityClass() != null && org.bukkit.entity.LivingEntity.class.isAssignableFrom(t.getEntityClass()))
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     private final InfernalMobsPlugin plugin;
     private final ConfigLoader configLoader;
@@ -104,7 +100,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         String v = args[1].toLowerCase();
         if ("on".equals(v) || "true".equals(v) || "1".equals(v)) {
             configLoader.setDebug(true);
-            send(sender, "<green>已开启调试模式：控制台将输出技能节点日志与 [InfernalMobs:debug:mechanize] 区域/等级信息");
+            send(sender, "<green>已开启调试模式：控制台将输出技能日志与 [InfernalMobs:debug:mechanize]（区域/等级等）");
             return true;
         }
         if ("off".equals(v) || "false".equals(v) || "0".equals(v)) {
@@ -132,7 +128,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             send(sender, "<red>未知实体类型: <type>", Placeholder.unparsed("type", args[1]));
             return true;
         }
-        if (!SPAWNABLE_TYPES.contains(type) || !type.isSpawnable() || !type.isAlive()) {
+        if (!SPAWNABLE_TYPES.contains(type)) {
             send(sender, "<red>无法生成该类型的炒鸡怪: <type>", Placeholder.unparsed("type", type.name()));
             return true;
         }
@@ -200,7 +196,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             send(sender, "<red>未知实体类型: <type>", Placeholder.unparsed("type", args[5]));
             return true;
         }
-        if (!type.isSpawnable() || !type.isAlive()) {
+        if (!SPAWNABLE_TYPES.contains(type)) {
             send(sender, "<red>无法生成该类型的炒鸡怪: <type>", Placeholder.unparsed("type", type.name()));
             return true;
         }
@@ -389,7 +385,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<yellow>/im spawnat <x> <y> <z> <世界> <实体类型> [等级] [技能...]</yellow> <gray>- 在指定坐标生成（支持命令方块/控制台）</gray>");
         send(sender, "<gray>  例: /im spawnat 100 64 -200 world zombie 8 morph,ender</gray>");
         send(sender, "<yellow>/im stats [玩家]</yellow> <gray>- 查看追踪数，或指定玩家的击杀统计</gray>");
-        send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志 + 刷怪区域匹配与等级</gray>");
+        send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志与 mechanize 区域/等级输出</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 从 config.yml 重新加载技能参数等配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
         send(sender, "<yellow>/im cleantags</yellow> <gray>- 清除有 im_level 标签但非炒鸡怪的孤立实体</gray>");

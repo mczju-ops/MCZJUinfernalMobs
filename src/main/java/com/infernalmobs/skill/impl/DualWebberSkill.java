@@ -19,6 +19,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class DualWebberSkill implements Skill {
     private static final String GIANT_WEB_ONE_TIME_KEY = "webber_giant_hollow_sphere_done";
     private static final String GIANT_WEB_META_KEY = "infernalmobs_giant_web";
+    private static final String WEB_META_KEY = "infernalmobs_web";
 
     @Override
     public String getId() {
@@ -53,7 +54,8 @@ public class DualWebberSkill implements Skill {
         double giantChance = config.getDouble("giant-sphere-chance", 0.15);
         int radius = config.getInt("giant-sphere-radius", 8);
         double thickness = config.getDouble("giant-sphere-thickness", 0.35);
-        int lifetimeTicks = config.getInt("giant-sphere-lifetime-ticks", 200); // 默认 10s
+        int lifetimeTicks = config.getInt("giant-sphere-lifetime-ticks", 200);
+        int webLifetimeTicks = config.getInt("web-lifetime-ticks", 100); // 普通网寿命，默认 5s
 
         if (canGiantVariant
                 && ctx.getMobState() != null
@@ -65,13 +67,19 @@ public class DualWebberSkill implements Skill {
             // 普通 web：在玩家脚下放蛛网；脚下不是空气则尝试脚下一格上方。
             Location loc = target.getLocation().getBlock().getLocation();
             Block block = loc.getBlock();
+            Block placed = null;
             if (block.getType().isAir()) {
                 block.setType(Material.COBWEB);
+                placed = block;
             } else {
                 Block above = loc.clone().add(0, 1, 0).getBlock();
                 if (above.getType().isAir()) {
                     above.setType(Material.COBWEB);
+                    placed = above;
                 }
+            }
+            if (placed != null && webLifetimeTicks > 0) {
+                scheduleWebRemoval(ctx.getPlugin(), placed, webLifetimeTicks);
             }
         }
 
@@ -149,5 +157,27 @@ public class DualWebberSkill implements Skill {
             }
         };
         cleaner.runTaskLater(plugin, lifetimeTicks);
+    }
+
+    /** 普通蛛网定时消失：寿命到期后若方块仍是蛛网则清除。 */
+    private static void scheduleWebRemoval(JavaPlugin plugin, Block block, int delayTicks) {
+        String token = java.util.UUID.randomUUID().toString();
+        block.setMetadata(WEB_META_KEY, new FixedMetadataValue(plugin, token));
+        org.bukkit.Location loc = block.getLocation().clone();
+
+        new org.bukkit.scheduler.BukkitRunnable() {
+            @Override
+            public void run() {
+                if (loc.getWorld() == null) return;
+                Block b = loc.getWorld().getBlockAt(loc);
+                if (b.getType() != Material.COBWEB) return;
+                if (!b.hasMetadata(WEB_META_KEY)) return;
+                boolean matches = b.getMetadata(WEB_META_KEY).stream()
+                        .anyMatch(m -> plugin.equals(m.getOwningPlugin()) && token.equals(m.value()));
+                if (!matches) return;
+                b.removeMetadata(WEB_META_KEY, plugin);
+                b.setType(Material.AIR);
+            }
+        }.runTaskLater(plugin, delayTicks);
     }
 }

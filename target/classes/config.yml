@@ -4,12 +4,22 @@
 
 # true 时控制台输出 [InfernalMobs:debug:mechanize]：世界、方块坐标、是否 enabled-worlds、匹配区域与等级范围、最终等级与词条数
 # 也可在游戏内临时开关：/im debug on|off（不写回本文件）
+# 若控制台出现「Named entity ... died: ... was slain by...」，来自服务端 spigot.yml 的 settings.log-named-deaths（有自定义名的实体死亡），与本项无关；要关闭请在 spigot.yml 设 log-named-deaths: false
 debug: false
 
 # 炒鸡怪死亡时的经验倍率
 # 最终经验 = 原版经验 × 炒鸡怪等级 × exp-multiplier
 # 设为 0 则不修改原版经验；设为 1.0 表示每 1 级经验翻 1 倍（例：15 级怪 × 1.0 = 15 倍经验）
-exp-multiplier: 1.0
+exp-multiplier: 5
+
+# 全知之眼的射线判定距离（格），默认 20
+infernal-eye:
+  range: 20
+
+# 幻形之锁（morph_controller，ItemCreator mi_id）：右键空气/方块时按准星射线延伸距离（格），便于略超原版右键实体距离。
+# 设为 0 则关闭射线，仅能通过原版近距离右键实体使用。不影响已成功右键实体时的行为。
+morph-controller:
+  ray-range: 8
 
 # 启用炒鸡怪刷怪的世界名称列表（无区域配置时的全局开关）
 enabled-worlds:
@@ -32,12 +42,22 @@ defaults:
     base: 1
     scale: 100
     max: 100
-    # 无区域匹配时：在此范围内随机，覆盖距离公式（世界名要与 regions 里一致）
+    # 无区域匹配时：在此范围内随机，覆盖距离公式（世界名要�? regions 里一致）
     fallback-min: 1
     fallback-max: 10
-  # 无区域匹配（走 defaults/fallback）时的炒鸡怪类型黑白名单（可选）
-  # - deny-types 命中则禁止（优先级高）
-  # - allow-types 非空时，只允许列表内类型
+    # level-chances: weighted per-level odds (overrides fallback-min/max when present)
+    # Defaults chances (no region match):
+    chances:
+      '1': 13
+      '2': 13
+      '3': 13
+      '4': 10
+      '5': 10
+      '6': 10
+      '7': 10
+      '8': 9
+      '9': 7
+      '10': 5
   infernal:
     allow-types:
       - PUFFERFISH
@@ -127,7 +147,7 @@ death-messages:
     "7": "<dark_purple>"
     "10": "<gold>"
     "13": "<red>"
-  # 玩家名单独上色：普通绿色、OP 深红。11 级及以上全服播报，否则仅事件世界
+  # 玩家名单独上色：普通绿色、OP 深红。玩家击杀怪物与抢人头：11 级及以上全服，否则仅事件所在世界；玩家被炒鸡怪击杀始终全服
   player-color-normal: "<green>"
   player-color-op: "<dark_red>"
   global-broadcast-level-threshold: 11
@@ -140,15 +160,6 @@ death-messages:
     - "<mob><white>被</white><player><white>用</white><weapon><white>终结!</white>"
     - "<player><white>向</white><mob><white>展现了残酷!</white>"
     - "<mob><white>凄惨地死于</white><player><white>之手!</white>"
-
-  # 炒鸡怪被非玩家因素击杀时（摔落/火/其他怪物等）的「抢人头」播报
-  # 占位符：<nearest_player>（最近玩家，已按身份着色）、<mob>（炒鸡怪名）、<source>（伤害来源）
-  kill-steal:
-    enable: true
-    range: 48        # 搜索最近玩家的范围（格），超出范围则不播报
-    messages:
-      - "<nearest_player><white>附近的</white><mob><white>被</white><source><white>抢人头了！</white>"
-      - "<source><white>偷偷击杀了</white><nearest_player><white>附近的</white><mob><white>！</white>"
 
   # 玩家被炒鸡怪击杀时的播报（<player>=死者，已按身份着色 <mob>=炒鸡怪名，悬停显示词条）
   slain-by:
@@ -165,6 +176,16 @@ death-messages:
         - "<player><white>被</white><mob><white>用</white><weapon><white>杀死了!</white>"
         - "<mob><white>用</white><weapon><white>终结了</white><player><white>!</white>"
 
+  # 炒鸡怪被非玩家因素击杀时（摔落/火/其他怪物等）的「抢人头」播报
+  # 占位符：<nearest_player>（最近玩家，已按身份着色）、<mob>（炒鸡怪名）、<source>（伤害来源）
+  kill-steal:
+    enable: false
+    range: 48        # 搜索最近玩家的范围（格），超出范围则不播报
+    messages:
+      - <nearest_player><white>眼睁睁看着</white><mob><white>死于</white><source><white>！</white>
+      - <mob><white>没撑到</white><nearest_player><white>补刀，被</white><source><white>收割了！</white>
+
+  # 玩家被炒鸡怪击杀时的播报（<player>=死者，已按身份着色 <mob>=炒鸡怪名，悬停显示词条）
 # ===========================================
 # 炒鸡小动物：仅“已炒鸡化且类型在清单内”的生物死亡时清除掉落
 # 若击杀者为玩家，则向死亡所在世界内全体在线玩家广播（MiniMessage）
@@ -204,6 +225,8 @@ protected-animals:
     - ARMADILLO       # 犰狳 
     - SILVERFISH      # 蠹虫
     - ENDERMITE      # 末影螨
+    - ZOMBIE_HORSE
+    - SKELETON_HORSE
   # 占位符 <player_name> 为击杀者游戏内名称（原文，不着色）；消息发往死亡发生的世界
   message: "<bold><red><player_name>欺负炒鸡小动物！"
 
@@ -238,8 +261,12 @@ regions:
     min: { x: -500, y: -256, z: -500 }
     max: { x: 500, y: 256, z: 500 }
     priority: 10
-    level-min: 1
-    level-max: 5
+    levelChance:
+      '1': 25  # 25%概率生成1级怪物
+      '2': 22  
+      '3': 20  
+      '4': 18 
+      '5': 15
     skill-pool:
       # 白色词条
       poisonous: 10
@@ -279,11 +306,25 @@ regions:
   # 深渊01
   abyssal01:
     world: Abyssal01
-    min: { x: -500, y: -256, z: -500 } 
-    max: { x: 500, y: 256, z: 500 }
+    min: { x: -1000, y: -256, z: -1000 } 
+    max: { x: 1000, y: 256, z: 1000 }
     priority: 100
-    level-min: 10
-    level-max: 15
+    levelChance:
+      '1': 5   
+      '2': 5   
+      '3': 5   
+      '4': 8  
+      '5': 8 
+      '6': 10  
+      '7': 10 
+      '8': 12 
+      '9': 12  
+      '10': 10 
+      '11': 8  
+      '12': 4  
+      '13': 2  
+      '14': 2  
+      '15': 1  
     # 该区域配置了 morph-types：DualMorphSkill 变身池只从这些里抽（仍然会排除“变成自己”）。
     # 没写或写空：就继续用全局 skills.morph.morph-types（或默认 MORPH_TYPES）。
     morph-types:
@@ -375,11 +416,27 @@ regions:
   # 深渊02
   abyssal02:
     world: Abyssal02
-    min: { x: -500, y: -256, z: -500 } 
-    max: { x: 500, y: 256, z: 500 }
+    min: { x: -1000, y: -256, z: -1000 } 
+    max: { x: 1000, y: 256, z: 1000 }
     priority: 100
-    level-min: 10
-    level-max: 15
+    levelChance:
+      '1': 5   
+      '2': 5   
+      '3': 5   
+      '4': 8  
+      '5': 8 
+      '6': 10  
+      '7': 10 
+      '8': 12 
+      '9': 12  
+      '10': 10 
+      '11': 8  
+      '12': 4  
+      '13': 2  
+      '14': 2  
+      '15': 1  
+    # 该区域配置了 morph-types：DualMorphSkill 变身池只从这些里抽（仍然会排除“变成自己”）。
+    # 没写或写空：就继续用全局 skills.morph.morph-types（或默认 MORPH_TYPES）。
     morph-types:
       - BLAZE
       - BOGGED
@@ -406,20 +463,6 @@ regions:
       - ZOMBIFIED_PIGLIN
       - WITHER
       # 动物
-      - CHICKEN
-      - COW
-      - HORSE
-      - MOOSHROOM
-      - PARROT
-      - PIG
-      - SHEEP
-      - SKELETON_HORSE
-      - STRIDER
-      - ZOMBIE_HORSE
-      - PUFFERFISH
-      - BEE
-      - LLAMA
-      - POLAR_BEAR
       - PIG
       - SHEEP
       - COW
@@ -440,7 +483,6 @@ regions:
       - ILLUSIONER
       - SHULKER
       - IRON_GOLEM
-
 
     skill-pool:
       poisonous: 10
@@ -586,8 +628,8 @@ skills:
   sprint:
     type: STAT
     display: "&eSprint"
-    range: 16
-    amplifier: 1   # Speed II
+    # 常驻速度：装配时施加无限时长速度效果（不再检测附近玩家）；range 已废弃可删
+    amplifier: 1   # Speed II（等级 = amplifier+1）
 
   sapper:
     type: PASSIVE
@@ -598,8 +640,8 @@ skills:
   webber:
     type: DUAL
     display: "&8Webber"
-    cooldown-ticks: 20
-    chance: 0.5
+    cooldown-ticks: 40
+    chance: 0.15
     sound: "BLOCK_COBWEB_PLACE"  # 蜘蛛网放置音效
     giant-sphere-chance: 0.15    # 蜘蛛网球概率（每只蜘蛛仅会以这种方式释放技能一次）
     giant-sphere-radius: 6       # 蜘蛛网球半径
@@ -658,7 +700,7 @@ skills:
     type: DUAL
     display: "&6Thief"
     cooldown-ticks: 80
-    chance: 0.5
+    chance: 0.33
     sound: "entity.wind_charge.throw"
         # --- 反制缴械：副手持有 thief_counter 时触发 ---
     # 本次缴械仍会成功，但会把该怪的 thief 冷却延长 counter-duration-ticks，从而封住缴械能力
@@ -667,7 +709,7 @@ skills:
     # 螺旋粒子（围绕怪物转圈）。如果服务器该粒子名不存在，会自动回退到 SPELL_WITCH
     counter-particle: "item_cobweb"
     # 绘制线粒子：玩家眼睛 -> 本次缴械落点
-    counter-line-particle: "item_cobweb"
+    counter-line-particle: "small_gust"
 
 
   tosser:
@@ -713,7 +755,7 @@ skills:
     type: PASSIVE
     display: "&dMama"
     chance: 0.15
-    cooldown-ticks: 40   # 2 秒内最多触发一次
+    cooldown-ticks: 200   # 10 秒内最多触发一次
     count-by-tier: true  # true=按档位数量：初级1只/中级2只/高级3只/炒鸡4只；false=用下面 count
     count: 4             # 仅当 count-by-tier 为 false 时生效
     baby: true           # 有幼体的设幼体；无幼体的用 no-baby-scale 缩小体型
@@ -755,7 +797,6 @@ skills:
       - VINDICATOR
       - SKELETON
       - ZOMBIE
-      - PIG_ZOMBIE
       - ENDERMAN
       - WITCH
       - SNOWMAN
@@ -788,6 +829,8 @@ skills:
       - RAVAGER
       - BLAZE
       - ZOMBIE
+    # 炒鸡坐骑等级：在生成位置按区域 level-chances / level-ranges / level-min~max 与全局规则计算（与天然炒鸡怪一致），不再读取下方项
+    # level-min / level-max: 已废弃，可删除
     level-min: 1
     level-max: 10
 
@@ -795,7 +838,9 @@ skills:
     type: DUAL
     display: "&5Morph"
     cooldown-ticks: 120
-    chance: 0.15
+    chance: 0.1
+    suppress-sound: BLOCK_VAULT_REJECT_REWARDED_PLAYER
+    suppress-sound-pitch: 1
     sound: "block.ender_chest.open"   # 触发成功播放，变调
     sound-volume: 0.6
     sound-pitch: 0.7                 # 变调（小于 1 偏低，大于 1 偏高）

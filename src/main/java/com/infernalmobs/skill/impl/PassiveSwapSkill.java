@@ -4,6 +4,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.DisplacementImmunityHelper;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
@@ -34,6 +35,7 @@ public class PassiveSwapSkill implements Skill {
         if (ctx.getEntity() == null || !ctx.getEntity().isValid()) return;
         Player player = ctx.getTargetPlayer();
         if (player == null || !player.isOnline()) return;
+        if (DisplacementImmunityHelper.isImmuneAndCleanup(player, ctx.getCurrentTick())) return;
 
         double chance = config.getDouble("chance", 0.25);
         if (Math.random() >= chance) return;

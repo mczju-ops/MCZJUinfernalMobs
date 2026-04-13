@@ -4,15 +4,14 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 /**
- * 冲刺：追击玩家时移速加快。
- * 由 CombatService 在 tick 中检测附近玩家并施加速度效果。
+ * 疾速：装配时施加常驻速度药水（无限时长），不依赖附近是否有玩家。
  */
 public class StatSprintSkill implements Skill {
-
-    /** Buff 键：速度效果到期 tick，用于只在快消失时重新施加 */
-    public static final String BUFF_KEY = "sprint_until";
 
     @Override
     public String getId() {
@@ -25,8 +24,22 @@ public class StatSprintSkill implements Skill {
     }
 
     @Override
-    public void onEquip(SkillContext ctx, SkillConfig config) {}
+    public void onEquip(SkillContext ctx, SkillConfig config) {
+        LivingEntity entity = ctx.getEntity();
+        if (entity == null || !entity.isValid()) return;
+        int amplifier = config != null ? config.getInt("amplifier", 1) : 1;
+        entity.addPotionEffect(new PotionEffect(
+                PotionEffectType.SPEED,
+                PotionEffect.INFINITE_DURATION,
+                amplifier,
+                false,
+                true));
+    }
 
     @Override
-    public void onUnequip(SkillContext ctx) {}
+    public void onUnequip(SkillContext ctx) {
+        LivingEntity entity = ctx.getEntity();
+        if (entity == null || !entity.isValid()) return;
+        entity.removePotionEffect(PotionEffectType.SPEED);
+    }
 }

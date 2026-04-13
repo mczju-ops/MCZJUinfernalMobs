@@ -9,6 +9,8 @@ import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -16,6 +18,8 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -84,20 +88,76 @@ public class CombatService {
     }
 
     /**
+     * replace-vanilla-drops 时补回玩家被捡走的物品：仅当前仍穿/拿在身上的栏位，
+     * 且能从拾取记录中匹配到的才掉落；曾捡起后又扔掉的条目不会进入掉落（记录会清空）。
+     */
+    public List<ItemStack> releasePickedUpItemsStillEquipped(LivingEntity entity) {
+        UUID uuid = entity.getUniqueId();
+        EntityEquipment eq = entity.getEquipment();
+        List<ItemStack> drops = new ArrayList<>();
+        if (eq != null) {
+            for (EquipmentSlot slot : PICKUP_TRACKED_EQUIPMENT_SLOTS) {
+                ItemStack inSlot = getItemInEquipmentSlot(eq, slot);
+                if (inSlot == null || inSlot.getType().isAir() || inSlot.getAmount() <= 0) continue;
+                ItemStack matched = consumeMatchedPickedUpItem(uuid, inSlot);
+                if (matched != null && !matched.getType().isAir() && matched.getAmount() > 0) {
+                    drops.add(matched);
+                }
+            }
+        }
+        pickedUpItems.remove(uuid);
+        return drops;
+    }
+
+    private static final EquipmentSlot[] PICKUP_TRACKED_EQUIPMENT_SLOTS = {
+            EquipmentSlot.HAND, EquipmentSlot.OFF_HAND,
+            EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
+    };
+
+    private static ItemStack getItemInEquipmentSlot(EntityEquipment eq, EquipmentSlot slot) {
+        return switch (slot) {
+            case HAND -> eq.getItemInMainHand();
+            case OFF_HAND -> eq.getItemInOffHand();
+            case HEAD -> eq.getHelmet();
+            case CHEST -> eq.getChestplate();
+            case LEGS -> eq.getLeggings();
+            case FEET -> eq.getBoots();
+            default -> null;
+        };
+    }
+
+    /**
+     * 怪物将物品丢到地上时调用：从拾取记录中按相似物品扣减数量（与 {@link #consumeMatchedPickedUpItem} 同一套匹配规则）。
+     */
+    public void unrecordDroppedPickedUpItem(UUID entityUuid, ItemStack dropped) {
+        if (entityUuid == null || dropped == null || dropped.getType().isAir() || dropped.getAmount() <= 0) return;
+        removeMatchedPickedUpAmount(entityUuid, dropped);
+    }
+
+    /**
      * 按“相似物品”从拾取记录中消费数量，并返回可掉落的克隆物品（amount 为实际可消费数量）。
      * 用于变身时仅掉落后天拾取（非自带）的装备。
      */
     public ItemStack consumeMatchedPickedUpItem(UUID entityUuid, ItemStack equipped) {
         if (entityUuid == null || equipped == null || equipped.getType().isAir() || equipped.getAmount() <= 0) return null;
-        List<ItemStack> items = pickedUpItems.get(entityUuid);
-        if (items == null || items.isEmpty()) return null;
+        int consumed = removeMatchedPickedUpAmount(entityUuid, equipped);
+        if (consumed <= 0) return null;
+        ItemStack out = equipped.clone();
+        out.setAmount(consumed);
+        return out;
+    }
 
-        int needed = equipped.getAmount();
+    /** 从拾取记录中扣减与 reference 相似的堆叠数量，返回实际扣减数量。 */
+    private int removeMatchedPickedUpAmount(UUID entityUuid, ItemStack reference) {
+        List<ItemStack> items = pickedUpItems.get(entityUuid);
+        if (items == null || items.isEmpty()) return 0;
+
+        int needed = reference.getAmount();
         int consumed = 0;
         for (int i = 0; i < items.size() && needed > 0; i++) {
             ItemStack tracked = items.get(i);
             if (tracked == null || tracked.getType().isAir() || tracked.getAmount() <= 0) continue;
-            if (!tracked.isSimilar(equipped)) continue;
+            if (!tracked.isSimilar(reference)) continue;
 
             int use = Math.min(needed, tracked.getAmount());
             needed -= use;
@@ -112,11 +172,7 @@ public class CombatService {
         }
         items.removeIf(Objects::isNull);
         if (items.isEmpty()) pickedUpItems.remove(entityUuid);
-
-        if (consumed <= 0) return null;
-        ItemStack out = equipped.clone();
-        out.setAmount(consumed);
-        return out;
+        return consumed;
     }
 
     /** 获取当前追踪的炒鸡怪数量 */
@@ -134,19 +190,56 @@ public class CombatService {
     }
 
     /**
+     * 僵尸系炒鸡怪回血上限：按「原版基础 20 血 × 炒鸡等级」封顶。
+     * 头领僵尸等会抬高 MAX_HEALTH，若回血可回到 attr 满血会远超普通 20× 等级；再生/瞬间治疗等统一按此假装仍是普通僵尸血量池。
+     *
+     * @return 非僵尸系返回 {@link Double#POSITIVE_INFINITY} 表示不额外限制
+     */
+    public static double zombieFamilyHealCap(LivingEntity entity, MobState state) {
+        if (entity == null || state == null) return Double.POSITIVE_INFINITY;
+        int lv = Math.max(1, state.getProfile().getLevel());
+        EntityType t = entity.getType();
+        return switch (t) {
+            case ZOMBIE, ZOMBIE_VILLAGER, HUSK, DROWNED, BOGGED -> 20.0 * lv;
+            default -> Double.POSITIVE_INFINITY;
+        };
+    }
+
+    private static double healCeiling(LivingEntity entity, MobState state) {
+        var attr = entity.getAttribute(Attribute.MAX_HEALTH);
+        double attrMax = attr != null ? attr.getValue() : entity.getMaxHealth();
+        double paperMax = entity.getMaxHealth();
+        double zCap = zombieFamilyHealCap(entity, state);
+        if (!Double.isInfinite(zCap)) {
+            return Math.min(Math.min(attrMax, zCap), paperMax);
+        }
+        return Math.min(attrMax, paperMax);
+    }
+
+    /**
      * 怪物生成后调用，应用 StatMap 中的数值到实体。
-     * 血量与等级成正比：N 级 = 原血量 × N，再叠加技能加成。
+     * 最大血量与当前血量均乘以等级倍数，保留原始血量比例：
+     *   改造后最大血量 = 原最大血量 × 等级
+     *   改造后当前血量 = 原当前血量 × 等级
+     * 例：原 20/80 + Lv10 → 200/800（不会强制回满血）。
      */
     public void applyStats(LivingEntity entity, MobState mobState) {
         var attr = entity.getAttribute(Attribute.MAX_HEALTH);
         if (attr != null) {
-            double base = attr.getBaseValue();
             int level = Math.max(1, mobState.getProfile().getLevel());
-            base *= level;  // 等级倍数
-            double hpBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.HP_BONUS);
-            base += hpBonus;
-            attr.setBaseValue(base);
-            entity.setHealth(entity.getMaxHealth());
+            double baseMax = attr.getBaseValue();
+            double baseCurrent = entity.getHealth();
+
+            double newMax = baseMax * level
+                    + mobState.getStatMap().get(com.infernalmobs.model.StatMap.HP_BONUS);
+            attr.setBaseValue(newMax);
+
+            // 当前血量等比缩放。
+            // Paper 对 setHealth() 的实际上限是 entity.getMaxHealth()（属性值被 MC 原生截断为 1024），
+            // 因此必须以 getMaxHealth() 为上限，否则超 1024 会抛 IllegalArgumentException。
+            double effectiveCap = entity.getMaxHealth();
+            double newCurrent = baseCurrent * level;
+            entity.setHealth(Math.max(0.1, Math.min(effectiveCap, newCurrent)));
         }
 
         double speedBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.SPEED_MULTIPLIER);
@@ -186,16 +279,17 @@ public class CombatService {
             if (magicKingArmorService != null && event instanceof EntityDamageByEntityEvent edbe) {
                 org.bukkit.entity.Entity damager = edbe.getDamager();
                 if (damager instanceof org.bukkit.entity.Projectile proj && proj.getShooter() instanceof org.bukkit.entity.Player p) damager = p;
-                if (damager instanceof Player p && magicKingArmorService.isWeakened(p, "1up")) threshold = 2;
+                if (damager instanceof Player p && magicKingArmorService.isWeakened(p, "1up")) threshold = threshold / 2.0;
             }
             double healthAfter = victim.getHealth() - event.getFinalDamage();
-            if (healthAfter > threshold) continue;
+            if (healthAfter > threshold) continue;   // 还在阈值以上，不触发
+            if (healthAfter <= 0) continue;          // 致命一击，不拦截，让怪直接死亡
 
             if (!state.useOneTimeIfNotUsed("1up")) continue;
 
             event.setDamage(0);
             if (affix.getSkill() instanceof com.infernalmobs.skill.impl.Stat1upSkill skill) {
-                skill.trigger(victim, sc);
+                skill.trigger(victim, sc, state);
             }
             break;
         }
@@ -222,11 +316,11 @@ public class CombatService {
             if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(damager, affix.getSkillId()));
             affix.getSkill().onTrigger(ctx, sc);
 
-            // lifesteal: 受击后设置回血 buff（削弱时概率50%）
+            // lifesteal: 受击后设置回血 buff（削弱时 50% 概率不触发）
             if ("lifesteal".equals(affix.getSkillId()) && affix.getSkill() instanceof com.infernalmobs.skill.impl.PassiveLifestealSkill ls) {
                 if (ctx.isWeakened() && Math.random() < 0.5) { /* 削弱：50% 不触发 */ }
                 else {
-                    int duration = sc.getInt("duration-ticks", 80);  // 4s
+                    int duration = sc.getInt("duration-ticks", 80);
                     ls.setLifestealBuff(ctx, currentTick + duration);
                 }
             }
@@ -293,8 +387,7 @@ public class CombatService {
                 for (Map.Entry<UUID, MobState> e : mobStates.entrySet()) {
                     LivingEntity entity = findEntity(e.getKey());
                     if (entity == null || !entity.isValid()) {
-                        mobStates.remove(e.getKey());
-                        lastActiveTick.remove(e.getKey());
+                        unregisterMob(e.getKey());
                         continue;
                     }
                     // 范围技能降频：每 20 tick（1 秒）检测一次，降低高频扫描开销
@@ -302,7 +395,6 @@ public class CombatService {
                         tickRangeSkills(entity, e.getValue());
                     }
                     tickLifesteal(entity, e.getValue());
-                    tickSprint(entity, e.getValue());
                 }
             }
         }.runTaskTimer(plugin, 20L, 1L);
@@ -370,28 +462,8 @@ public class CombatService {
         double amount = sc != null ? sc.getDouble("heal-per-second", 1) : 1;
         var attr = entity.getAttribute(Attribute.MAX_HEALTH);
         if (attr == null) return;
-        entity.setHealth(Math.min(attr.getValue(), entity.getHealth() + amount));
-    }
-
-    /** sprint: 附近有玩家时施加速度效果，仅在效果快消失时重新施加以降低开销 */
-    private void tickSprint(LivingEntity entity, MobState state) {
-        if (state.getProfile().getAffixes().stream().noneMatch(a -> "sprint".equals(a.getSkillId()))) return;
-
-        long until = state.getBuff(com.infernalmobs.skill.impl.StatSprintSkill.BUFF_KEY);
-        if (until > 0 && currentTick < until - 5) return;  // 效果仍有效，留 5 tick 余量再续
-
-        var sc = config.getSkillConfig("sprint");
-        if (sc == null) return;
-
-        double range = sc.getDouble("range", 16);
-        Player p = findNearestPlayer(entity, range);
-        if (p == null) return;
-
-        int amplifier = sc.getInt("amplifier", 1);
-        int durationTicks = 40;
-        entity.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                org.bukkit.potion.PotionEffectType.SPEED, durationTicks, amplifier, false, true));
-        state.setBuff(com.infernalmobs.skill.impl.StatSprintSkill.BUFF_KEY, currentTick + durationTicks);
+        double ceiling = healCeiling(entity, state);
+        entity.setHealth(Math.min(ceiling, entity.getHealth() + amount));
     }
 
     /** 范围技能：玩家在范围内时按概率触发 */
@@ -530,13 +602,14 @@ public class CombatService {
         return count;
     }
 
+    /**
+     * 按 UUID 取实体。必须用 {@link org.bukkit.Server#getEntity(UUID)}，禁止每 tick 全服遍历生物（会随实体数爆炸）。
+     */
     private LivingEntity findEntity(UUID uuid) {
-        for (org.bukkit.World w : plugin.getServer().getWorlds()) {
-            for (org.bukkit.entity.LivingEntity le : w.getLivingEntities()) {
-                if (le.getUniqueId().equals(uuid)) return le;
-            }
-        }
-        return null;
+        if (uuid == null) return null;
+        Entity e = plugin.getServer().getEntity(uuid);
+        if (!(e instanceof LivingEntity le)) return null;
+        return le.isValid() ? le : null;
     }
 
 

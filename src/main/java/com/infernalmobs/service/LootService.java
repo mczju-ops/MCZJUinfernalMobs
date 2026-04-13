@@ -1,5 +1,6 @@
 package com.infernalmobs.service;
 
+import com.infernalmobs.config.GuaranteedLootConfig;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;
 import com.infernalmobs.config.SpecialLootConfig;
@@ -43,9 +44,24 @@ public class LootService {
     }
 
     /**
-     * 炒鸡怪死亡时：按等级表权重抽一条掉落；难打怪（ravager/warden 等）再额外掉落 special_loot。
+     * 与 {@link #onInfernalMobDeath(EntityDeathEvent, LivingEntity, MobState, int)} 一致：仅在会执行等级池加权抽取时
+     * 调用 {@link LootConfig#rollDropTimes(int)}，否则返回 0。供保底进度与死亡掉落共用同一次 roll。
      */
-    public boolean onInfernalMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState) {
+    public int rollDeathLootTimes(int level) {
+        if (!isEnabled()) return 0;
+        List<RewardEntry> rewards = config.getRewardsForLevel(level);
+        if (rewards.isEmpty()) return 0;
+        List<RewardEntry> eligible = filterByRotation(rewards);
+        if (eligible.isEmpty()) return 0;
+        return config.rollDropTimes(level);
+    }
+
+    /**
+     * 炒鸡怪死亡时：按等级表权重抽一条掉落；难打怪（ravager/warden 等）再额外掉落 special_loot。
+     *
+     * @param preRolledDropTimes 已由 {@link #rollDeathLootTimes(int)} 与保底共用的一次结果；传入 -1 则在内部单独 roll（不推荐）
+     */
+    public boolean onInfernalMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState, int preRolledDropTimes) {
         boolean vanillaDropsCleared = false;
         // 1. 等级表按权重掉落（与普通炒鸡怪相同）
         if (isEnabled()) {
@@ -59,7 +75,7 @@ public class LootService {
                     }
                     Player killer = entity.getKiller();
                     String playerName = killer != null ? killer.getName() : "";
-                    int dropTimes = config.rollDropTimes(mobState.getProfile().getLevel());
+                    int dropTimes = preRolledDropTimes >= 0 ? preRolledDropTimes : config.rollDropTimes(mobState.getProfile().getLevel());
                     for (int i = 0; i < dropTimes; i++) {
                         RewardEntry chosen = pickByWeight(eligible);
                         if (chosen == null) break;
@@ -139,15 +155,53 @@ public class LootService {
     }
 
     private static RewardEntry pickByWeight(List<RewardEntry> rewards) {
-        int total = 0;
+        double total = 0;
         for (RewardEntry e : rewards) total += e.weight;
         if (total <= 0) return rewards.isEmpty() ? null : rewards.get(ThreadLocalRandom.current().nextInt(rewards.size()));
-        int r = ThreadLocalRandom.current().nextInt(total);
+        double r = ThreadLocalRandom.current().nextDouble() * total;
         for (RewardEntry e : rewards) {
-            if (r < e.weight) return e;
             r -= e.weight;
+            if (r < 0) return e;
         }
         return rewards.get(rewards.size() - 1);
+    }
+
+    /**
+     * 处理保底掉落：在怪物死亡位置掉落物品（无敌实体），并触发 loot config 中对应条目的命令和广播。
+     * 保底掉落不受 replace-vanilla-drops 影响（始终以 dropItemNaturally 掉落在地）。
+     * 若 loot config 中不存在匹配的 RewardEntry，仍然掉落物品，但不触发命令和广播。
+     *
+     * @param rule     触发的保底规则
+     * @param entity   死亡的炒鸡怪
+     * @param killer   击杀玩家（用于命令中的 {player} 占位）
+     * @param level    怪物等级（用于广播模板）
+     */
+    public void processGuaranteedDrop(GuaranteedLootConfig.GuaranteedRule rule,
+                                      LivingEntity entity, Player killer, int level) {
+        if (itemCreatorApi == null) return;
+        Optional<ItemStack> opt = itemCreatorApi.createItem(rule.itemId, rule.itemAmount);
+        if (opt == null || opt.isEmpty() || opt.get().getType().isAir()) return;
+
+        ItemStack toDrop = opt.get().clone();
+        dropInvulnerable(entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop));
+
+        // 在当前怪等级的 loot 池里查找同名条目，获取命令和广播配置
+        if (config != null) {
+            RewardEntry entry = config.getRewardsForLevel(level).stream()
+                    .filter(e -> rule.itemId.equals(e.id))
+                    .findFirst().orElse(null);
+            if (entry != null) {
+                String playerName = killer != null ? killer.getName() : "";
+                for (String cmd : entry.commands) {
+                    if (cmd == null || cmd.isEmpty()) continue;
+                    String run = cmd.replace("{player}", playerName);
+                    Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
+                }
+                if (entry.broadcast) {
+                    broadcastLootDrop(entry, playerName, level);
+                }
+            }
+        }
     }
 
     private static void dropInvulnerable(Item itemEntity) {

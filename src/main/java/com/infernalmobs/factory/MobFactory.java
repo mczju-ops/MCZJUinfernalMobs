@@ -67,6 +67,18 @@ public class MobFactory {
         regionService.reload(configLoader.getRegions(), configLoader.getPresets());
     }
 
+    /**
+     * 按生成位置计算炒鸡怪等级（与无预设的 {@link #mechanize(LivingEntity, Location)} 相同：
+     * 区域 level-chances / level-ranges / level-min~max，无匹配区域则用全局与 fallback）。
+     */
+    public int computeLevelAt(Location spawnLocation) {
+        RegionConfig region = null;
+        if (spawnLocation != null && spawnLocation.getWorld() != null) {
+            region = regionService.getRegionAt(spawnLocation);
+        }
+        return levelService.computeLevel(spawnLocation, region);
+    }
+
     private void setImLevelTag(LivingEntity entity, int level) {
         entity.getPersistentDataContainer().set(
                 new NamespacedKey(plugin, IM_LEVEL),
@@ -96,16 +108,25 @@ public class MobFactory {
     }
 
     /**
+     * 与 {@link #mechanize} / {@link #mechanizeWithLevel} 入口一致：区域 infernal-allow-types + defaults.infernal.allow-types。
+     */
+    private boolean passesInfernalWhitelist(EntityType type, RegionConfig region) {
+        if (type == null) return false;
+        if (region != null) {
+            if (!region.canInfernalize(type)) return false;
+            if (!region.hasExplicitAllowTypes() && !configLoader.canInfernalizeInDefaults(type)) return false;
+        } else {
+            if (!configLoader.canInfernalizeInDefaults(type)) return false;
+        }
+        return true;
+    }
+
+    /**
      * 对已生成的怪物进行炒鸡怪改造。
      */
     public void mechanize(LivingEntity entity, Location spawnLocation) {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
-        if (region != null) {
-            if (!region.canInfernalize(entity.getType())) return;
-        } else {
-            // 无区域匹配时，使用 defaults 下的黑白名单
-            if (!configLoader.canInfernalizeInDefaults(entity.getType())) return;
-        }
+        if (!passesInfernalWhitelist(entity.getType(), region)) return;
         List<EntityType> morphTargets = region != null ? region.getMorphTargetTypes() : null;
         PresetConfig preset = null;
         if (region != null) {
@@ -139,9 +160,23 @@ public class MobFactory {
 
     /**
      * 使用固定等级炒鸡怪化实体（用于召唤物等）。
+     * 同样受区域 / defaults 白黑名单约束，不在白名单内的类型直接跳过。
      */
     public void mechanizeWithLevel(LivingEntity entity, Location spawnLocation, int fixedLevel) {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
+        if (!passesInfernalWhitelist(entity.getType(), region)) return;
+        doMechanizeWithLevel(entity, spawnLocation, fixedLevel, region);
+    }
+
+    /**
+     * 使用固定等级炒鸡怪化实体，跳过区域白名单检查（用于 infernal-mounts 等已明确指定类型的场景）。
+     */
+    public void mechanizeWithLevelForced(LivingEntity entity, Location spawnLocation, int fixedLevel) {
+        RegionConfig region = regionService.getRegionAt(spawnLocation);
+        doMechanizeWithLevel(entity, spawnLocation, fixedLevel, region);
+    }
+
+    private void doMechanizeWithLevel(LivingEntity entity, Location spawnLocation, int fixedLevel, RegionConfig region) {
         List<EntityType> morphTargets = region != null ? region.getMorphTargetTypes() : null;
         int affixCount = affixRollService.computeAffixCount(fixedLevel, region);
         List<Affix> affixes = affixRollService.rollAffixes(fixedLevel, affixCount, region);
