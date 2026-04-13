@@ -4,6 +4,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.DisplacementImmunityHelper;
 import com.infernalmobs.util.HotbarCharmHelper;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
@@ -37,6 +38,7 @@ public class RangeTosserSkill implements Skill {
         if (player == null || !player.isOnline()) return;
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
         if (player.isSneaking()) return;
+        if (DisplacementImmunityHelper.isImmuneAndCleanup(player, ctx.getCurrentTick())) return;
 
         var mobLoc = ctx.getEntity().getLocation();
         Vector toMob = mobLoc.toVector().subtract(player.getLocation().toVector()).setY(0);

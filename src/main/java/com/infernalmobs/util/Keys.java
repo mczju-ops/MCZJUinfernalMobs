@@ -24,6 +24,8 @@ public final class Keys {
     public static final NamespacedKey IM_RARITY = key("im_rarity");
     /** 免疫缴械词条，Boolean */
     public static final NamespacedKey IM_THIEF_RESISTANCE = key("im_thief_resistance");
+    /** 位移免疫过期 tick，Integer（Bukkit#getCurrentTick 基准） */
+    public static final NamespacedKey IM_DISPLACEMENT_IMMUNITY_EXPIRES_AT = key("displacement_immunity_expires_at");
 
     // === MCZJUMagicItems 数据 ===
     /** 内置 ID，String，ItemCreator 的 magicItemId 写入此键 */
