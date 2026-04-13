@@ -19,13 +19,17 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.entity.Firework;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityDropItemEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.world.EntitiesUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -101,6 +105,7 @@ public class CombatListener implements Listener {
                     }
                     broadcastProtectedAnimalWarning(entity, protectedAnimalsConfig);
                 } else {
+                    // 与原版一致：getKiller() 为「最近对该实体造成伤害的玩家」记名（几秒内参与过即可），不要求最后一击是玩家（如摔死、环境杀）
                     Player killer = entity.getKiller();
                     if (killer != null) {
                         // 玩家击杀：经验缩放、战利品、统计、保底、播报
@@ -117,20 +122,27 @@ public class CombatListener implements Listener {
                         String pname = killer.getName();
                         killStatsService.addKill(uuid, pname, state.getProfile().getLevel());
                         deathMessageService.broadcastIfEnabled(entity, state, killer);
+                        LootService loot = plugin instanceof InfernalMobsPlugin im ? im.getLootService() : null;
+                        // 保底掉落：先于常规抽取，以 dropItemNaturally 掉落在地并触发命令/广播
                         GuaranteedLootService guaranteedLootService = plugin instanceof InfernalMobsPlugin im
                                 ? im.getGuaranteedLootService()
                                 : null;
-                        if (guaranteedLootService != null) {
-                            guaranteedLootService.onKill(uuid, pname, state.getProfile().getLevel(), killer, entity.getLocation());
+                        int mobLevel = state.getProfile().getLevel();
+                        int deathLootRolls = loot != null ? loot.rollDeathLootTimes(mobLevel) : 0;
+                        if (guaranteedLootService != null && loot != null) {
+                            for (com.infernalmobs.config.GuaranteedLootConfig.GuaranteedRule rule
+                                    : guaranteedLootService.collectTriggered(uuid, pname, mobLevel, deathLootRolls)) {
+                                loot.processGuaranteedDrop(rule, entity, killer, mobLevel);
+                            }
                         }
-                        LootService loot = plugin instanceof InfernalMobsPlugin im ? im.getLootService() : null;
+                        // 常规等级池抽取（与保底共用同一次 drop-times roll）
                         boolean vanillaDropsCleared = false;
                         if (loot != null) {
-                            vanillaDropsCleared = loot.onInfernalMobDeath(event, entity, state);
+                            vanillaDropsCleared = loot.onInfernalMobDeath(event, entity, state, deathLootRolls);
                         }
-                        // 若开启了 replace-vanilla-drops 清空原版掉落，则补回该炒鸡怪生前捡到的玩家物品
+                        // 若开启了 replace-vanilla-drops 清空原版掉落，则补回「当前仍装备」且本插件记录过的拾取物（不含已扔掉的）
                         if (vanillaDropsCleared) {
-                            for (ItemStack picked : combatService.consumePickedUpItems(entity.getUniqueId())) {
+                            for (ItemStack picked : combatService.releasePickedUpItemsStillEquipped(entity)) {
                                 if (picked != null && !picked.getType().isAir() && picked.getAmount() > 0) {
                                     event.getDrops().add(picked);
                                 }
@@ -164,6 +176,7 @@ public class CombatListener implements Listener {
 
     /**
      * 优先使用 Bukkit 的 getKiller；若为空则从最后一次伤害事件里解析玩家（含玩家射出的投射物）。
+     * 仅用于保护动物警告广播（只需要"有没有玩家参与"，不要求最后一击）。
      */
     private static Player resolvePlayerKiller(LivingEntity entity) {
         Player killer = entity.getKiller();
@@ -182,6 +195,21 @@ public class CombatListener implements Listener {
         LivingEntity entity = (LivingEntity) event.getEntity();
         if (combatService.getMobState(entity.getUniqueId()) == null) return;
         combatService.recordPickedUpItem(entity.getUniqueId(), event.getItem().getItemStack());
+    }
+
+    /**
+     * 炒鸡怪把物品扔到地上时同步扣减拾取记录，避免列表里长期残留已丢弃的堆叠。
+     * 生命为 0 时跳过：死亡相关掉落可能也走此事件，拾取补回由 {@link CombatService#releasePickedUpItemsStillEquipped} 统一处理。
+     */
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onEntityDropItem(EntityDropItemEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity entity)) return;
+        if (entity.getHealth() <= 0) return;
+        if (combatService.getMobState(entity.getUniqueId()) == null) return;
+        Item drop = event.getItemDrop();
+        if (drop == null) return;
+        ItemStack stack = drop.getItemStack();
+        combatService.unrecordDroppedPickedUpItem(entity.getUniqueId(), stack);
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -211,8 +239,41 @@ public class CombatListener implements Listener {
         }
     }
 
+    /**
+     * 僵尸系炒鸡怪：再生、瞬间治疗等回血按「原版 20 血 × 等级」封顶，避免头领僵尸抬高的 MAX_HEALTH 被回满导致超模。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEntityRegainHealth(EntityRegainHealthEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity le)) return;
+        if (event.getAmount() <= 0) return;
+        MobState state = combatService.getMobState(le.getUniqueId());
+        if (state == null) return;
+        double zCap = CombatService.zombieFamilyHealCap(le, state);
+        if (Double.isInfinite(zCap)) return;
+        double cap = Math.min(zCap, le.getMaxHealth());
+        double cur = le.getHealth();
+        if (cur >= cap) {
+            event.setCancelled(true);
+            return;
+        }
+        double after = cur + event.getAmount();
+        if (after > cap) {
+            event.setAmount(cap - cur);
+        }
+    }
+
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onProjectileHit(ProjectileHitEvent event) {
         combatService.onProjectileHit(event);
+    }
+
+    /** 区块卸载时，同步注销该区块内所有已追踪的炒鸡怪，避免内存泄漏。 */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntitiesUnload(EntitiesUnloadEvent event) {
+        for (org.bukkit.entity.Entity e : event.getEntities()) {
+            if (combatService.getMobState(e.getUniqueId()) != null) {
+                combatService.unregisterMob(e.getUniqueId());
+            }
+        }
     }
 }

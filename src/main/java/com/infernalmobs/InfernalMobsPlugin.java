@@ -156,7 +156,6 @@ public class InfernalMobsPlugin extends JavaPlugin {
         guaranteedLootService = new GuaranteedLootService(this);
         guaranteedLootService.load();
         guaranteedLootService.setConfig(GuaranteedLootConfig.load(getDataFolder()));
-        guaranteedLootService.setItemCreatorApi(api);
     }
 
     /** 运行时重载：配置 + 区域/预设快照 + 掉落配置。 */

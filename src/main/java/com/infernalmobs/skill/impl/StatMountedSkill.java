@@ -22,9 +22,12 @@ import java.util.Collections;
 
 /**
  * 骑乘：怪物诞生时骑乘一只坐骑（参考原版 InfernalMobs）。
- * 由两个白名单控制：
+ * 由三个列表控制：
  * - enabled-riders：哪些实体类型可触发 mounted
- * - enabled-mounts：可生成且会被炒鸡化的坐骑类型池
+ * - infernal-mounts：可生成且会被炒鸡化的坐骑候选
+ * - enabled-mounts：可生成但不会被炒鸡化的普通坐骑候选
+ * 两个坐骑列表合并为随机池，选中后按来源决定是否炒鸡化。
+ * 炒鸡坐骑的等级在生成位置按区域/全局 level 规则计算（与天然炒鸡怪一致），不受 skills.mounted 的 level-min/max 约束。
  */
 public class StatMountedSkill implements Skill {
 
@@ -70,20 +73,31 @@ public class StatMountedSkill implements Skill {
             return;
         }
 
-        Set<EntityType> enabledMounts = parseEntityTypeSet(config, "enabled-mounts", "enabledMounts");
-        // 先从白名单里筛出“可生成且是 LivingEntity”的有效坐骑候选，再进行随机。
-        List<EntityType> mountPool = enabledMounts.stream()
+        // infernal-mounts：炒鸡坐骑候选；enabled-mounts：普通坐骑候选
+        Set<EntityType> infernalMounts = parseEntityTypeSet(config, "infernal-mounts", "infernalMounts");
+        Set<EntityType> normalMounts  = parseEntityTypeSet(config, "enabled-mounts",  "enabledMounts");
+
+        List<EntityType> infernalPool = infernalMounts.stream()
                 .filter(EntityType::isSpawnable)
                 .filter(t -> t.getEntityClass() != null && LivingEntity.class.isAssignableFrom(t.getEntityClass()))
                 .toList();
-        debugLog(ctx, "候选坐骑池大小=" + mountPool.size() + " 原始白名单数量=" + enabledMounts.size());
+        List<EntityType> normalPool = normalMounts.stream()
+                .filter(t -> !infernalMounts.contains(t))
+                .filter(EntityType::isSpawnable)
+                .filter(t -> t.getEntityClass() != null && LivingEntity.class.isAssignableFrom(t.getEntityClass()))
+                .toList();
+
+        List<EntityType> mountPool = new ArrayList<>();
+        mountPool.addAll(infernalPool);
+        mountPool.addAll(normalPool);
+
+        debugLog(ctx, "候选坐骑池大小=" + mountPool.size()
+                + " (炒鸡=" + infernalPool.size() + " 普通=" + normalPool.size() + ")");
         if (mountPool.isEmpty()) {
             debugLog(ctx, "跳过：候选坐骑池为空");
             return;
         }
 
-        // 对自然刷怪，onEquip 可能发生在 CreatureSpawnEvent 事件栈内；
-        // 延迟一 tick 再生成/挂载坐骑，避免时机过早导致挂载失败。
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -95,27 +109,24 @@ public class StatMountedSkill implements Skill {
                     debugLog(ctx, "延迟任务跳过：rider 已有载具 vehicle=" + rider.getVehicle().getType());
                     return;
                 }
-                // 抬高生成点，降低坐骑/骑手卡墙窒息概率。
                 Location loc = rider.getLocation().add(0, 1.25, 0);
 
-                // 重要：部分实体类型在特定版本/场景下 addPassenger 可能失败。
-                // 这里对候选池做一次随机洗牌，逐个尝试，直到成功挂载或耗尽候选。
                 List<EntityType> attempts = new ArrayList<>(mountPool);
                 Collections.shuffle(attempts, ThreadLocalRandom.current());
                 for (EntityType type : attempts) {
                     if (type == null) continue;
                     Entity mount = rider.getWorld().spawnEntity(loc, type);
-                    // enabled-mounts 决定“生成什么坐骑”，也决定“哪些坐骑会被炒鸡化”
-                    maybeMechanizeMount(ctx, config, mount, loc);
+                    if (infernalPool.contains(type)) {
+                        maybeMechanizeMount(ctx, config, mount, loc);
+                    }
 
                     boolean mounted = mount.addPassenger(rider);
-                    debugLog(ctx, "尝试坐骑 type=" + type + " addPassenger=" + mounted);
+                    debugLog(ctx, "尝试坐骑 type=" + type + " infernal=" + infernalPool.contains(type) + " addPassenger=" + mounted);
                     if (mounted) {
                         debugLog(ctx, "挂载成功 rider=" + rider.getType() + " mount=" + type);
                         return;
                     }
 
-                    // 挂载失败：清理本次尝试，继续换下一个候选
                     mount.remove();
                 }
                 debugLog(ctx, "所有候选坐骑尝试失败 rider=" + rider.getType());
@@ -132,10 +143,9 @@ public class StatMountedSkill implements Skill {
         MobFactory factory = ctx.getMobFactory();
         if (factory == null) return;
 
-        int levelMin = config.getInt("level-min", 1);
-        int levelMax = Math.max(config.getInt("level-max", 10), levelMin);
-        int level = levelMin + ThreadLocalRandom.current().nextInt(levelMax - levelMin + 1);
-        factory.mechanizeWithLevel(mountEntity, loc, level);
+        // 与骑手同坐标系：坐骑等级按区域/全局 level 规则 roll，不再用技能内 level-min/max（避免超出区域限制）
+        int level = factory.computeLevelAt(loc);
+        factory.mechanizeWithLevelForced(mountEntity, loc, level);
     }
 
     private Set<EntityType> parseEntityTypeSet(SkillConfig config, String... keys) {

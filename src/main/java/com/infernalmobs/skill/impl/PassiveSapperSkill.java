@@ -34,8 +34,9 @@ public class PassiveSapperSkill implements Skill {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
 
-        int duration = ctx.isWeakened() ? 100 : config.getInt("duration-ticks", 500);  // 削弱: 5s
-        int amplifier = ctx.isWeakened() ? 1 : config.getInt("amplifier", 1);  // 削弱: 饥饿II
+        int duration = config.getInt("duration-ticks", 500);
+        int amplifier = config.getInt("amplifier", 1);
+        if (ctx.isWeakened()) duration = Math.max(1, duration / 2);
 
         ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
                 PotionEffectType.HUNGER, duration, amplifier, false, true));

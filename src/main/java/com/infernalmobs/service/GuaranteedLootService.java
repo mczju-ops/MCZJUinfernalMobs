@@ -2,10 +2,6 @@ package com.infernalmobs.service;
 
 import com.infernalmobs.config.GuaranteedLootConfig;
 import com.infernalmobs.config.GuaranteedLootConfig.GuaranteedRule;
-import io.mczju.mczjuitemcreator.api.ItemCreatorApi;
-import org.bukkit.entity.Item;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -14,7 +10,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 保底掉落服务：按规则累计击杀进度，达到阈值时发放奖励。
+ * 保底掉落服务：按规则累计进度（与单次击杀时等级池 drop-times 的抽取次数一致），达到阈值时发放奖励。
  * 落盘时主键仍为玩家 UUID，每位玩家下额外写入 {@code name} 便于阅读。
  */
 public class GuaranteedLootService {
@@ -25,7 +21,6 @@ public class GuaranteedLootService {
 
     private final JavaPlugin plugin;
     private final File progressFile;
-    private ItemCreatorApi itemCreatorApi;
     private GuaranteedLootConfig config;
     /** 玩家 UUID -> (规则 id -> 当前进度)，-1 表示已触发且不重置 */
     private final Map<String, Map<String, Integer>> progress = new ConcurrentHashMap<>();
@@ -40,10 +35,6 @@ public class GuaranteedLootService {
 
     public void setConfig(GuaranteedLootConfig config) {
         this.config = config;
-    }
-
-    public void setItemCreatorApi(ItemCreatorApi api) {
-        this.itemCreatorApi = api;
     }
 
     public void load() {
@@ -78,6 +69,7 @@ public class GuaranteedLootService {
         yml.options().header("""
                 players 下主键为玩家 UUID。
                 每位玩家下: name 为落盘时最后已知的游戏内名称（便于阅读）；其余键为保底规则 id -> 累计进度。
+                进度按每次击杀时等级池战利品的 drop-times 抽取次数累加（与死亡当次 roll 出的次数一致，未发生等级池抽取时为 0）。
                 """);
         var playersSec = yml.createSection(KEY_PLAYERS);
         for (Map.Entry<String, Map<String, Integer>> e : progress.entrySet()) {
@@ -100,20 +92,24 @@ public class GuaranteedLootService {
     }
 
     /**
-     * 玩家击杀炒鸡怪时调用。若进度达到阈值则发放保底奖励。
+     * 玩家击杀炒鸡怪时调用。检测并累计保底进度，返回本次触发的所有规则列表（可能为空）。
+     * 调用方负责根据返回的规则实际生成并掉落物品（通过 LootService.processGuaranteedDrop）。
      *
-     * @param playerUuid   玩家 UUID 字符串
-     * @param displayName  当前游戏内名称，写入 YAML 的 name 字段（可 null）
-     * @param level        怪物等级
-     * @param killer       击杀者（用于发放物品，可 null 时掉落世界）
-     * @param dropLocation 若无 killer 则在此位置掉落
+     * @param playerUuid      玩家 UUID 字符串
+     * @param displayName     当前游戏内名称，写入 YAML 的 name 字段（可 null）
+     * @param level           怪物等级
+     * @param lootRollCount   本次死亡时与等级池战利品抽取次数一致的 roll 结果（未发生抽取时为 0）；累加到保底进度
+     * @return 本次触发保底的规则列表（通常为空；多条规则同时触发时包含多个元素）
      */
-    public void onKill(String playerUuid, String displayName, int level, Player killer, org.bukkit.Location dropLocation) {
-        if (config == null || !config.isEnable() || config.getRules().isEmpty()) return;
-
+    public List<GuaranteedRule> collectTriggered(String playerUuid, String displayName, int level, int lootRollCount) {
+        List<GuaranteedRule> triggered = new ArrayList<>();
         if (displayName != null && !displayName.isBlank()) {
             displayNames.put(playerUuid, displayName.trim());
         }
+        if (config == null || !config.isEnable() || config.getRules().isEmpty()) return triggered;
+
+        int add = Math.max(0, lootRollCount);
+        if (add == 0) return triggered;
 
         // 同一个保底条(progressId)在一次击杀里最多只累计一次，避免配置重复导致进度被叠加。
         Set<String> processedProgressIds = new HashSet<>();
@@ -129,7 +125,7 @@ public class GuaranteedLootService {
                     .getOrDefault(pid, 0);
             if (current < 0) continue;  // 已触发且不重置
 
-            int next = current + 1;
+            int next = current + add;
             progress.get(playerUuid).put(pid, next);
             dirty = true;
 
@@ -139,44 +135,13 @@ public class GuaranteedLootService {
                 } else {
                     progress.get(playerUuid).put(pid, -1);
                 }
-                giveGuaranteedItem(rule, killer, dropLocation);
+                triggered.add(rule);
             }
         }
-    }
-
-    private void giveGuaranteedItem(GuaranteedRule rule, Player killer, org.bukkit.Location dropLocation) {
-        ItemStack item = createItem(rule.itemId, rule.itemAmount);
-        if (item == null || item.getType().isAir()) return;
-
-        if (killer != null && killer.isOnline()) {
-            HashMap<Integer, ItemStack> overflow = killer.getInventory().addItem(item);
-            if (!overflow.isEmpty()) {
-                for (ItemStack left : overflow.values()) {
-                    markInvulnerable(killer.getWorld().dropItemNaturally(killer.getLocation(), left));
-                }
-            }
-        } else if (dropLocation != null && dropLocation.getWorld() != null) {
-            markInvulnerable(dropLocation.getWorld().dropItemNaturally(dropLocation, item));
-        }
-    }
-
-    private ItemStack createItem(String id, int amount) {
-        if (id == null || id.isEmpty() || amount < 1) return null;
-        if (itemCreatorApi != null) {
-            var opt = itemCreatorApi.createItem(id, amount);
-            if (opt != null && opt.isPresent() && !opt.get().getType().isAir()) {
-                return opt.get();
-            }
-        }
-        return null;
+        return triggered;
     }
 
     public void markDirty() {
         dirty = true;
-    }
-
-    private static void markInvulnerable(Item itemEntity) {
-        if (itemEntity == null) return;
-        itemEntity.setInvulnerable(true);
     }
 }

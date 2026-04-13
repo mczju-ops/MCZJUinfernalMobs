@@ -9,9 +9,7 @@ import com.infernalmobs.util.Keys;
 import com.infernalmobs.util.MiniMessageHelper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import com.infernalmobs.InfernalMobsPlugin;
 import com.infernalmobs.skill.impl.DualMorphSkill;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -36,12 +34,13 @@ import org.bukkit.util.Vector;
 
 /**
  * 全知之眼：右键按准星射线判定瞄准实体；命中炒鸡怪才消耗并在粒子动画后显示其技能。
+ * 非炒鸡怪（含玩家）在动作栏提示「名称不是炒鸡怪」，不消耗道具。
+ * 幻形之锁（morph_controller）：可配置射线距离，右键空气/方块时延伸命中（见 config morph-controller.ray-range）。
  * 通过 PDC infernal_item 或 mi_id=infernal_eye 识别物品（兼容 ItemCreator magicItemId）。
  */
 public class MagicItemListener implements Listener {
 
     private static final String INFERNAL_EYE_ID = "infernal_eye";
-    private static final double RAY_DISTANCE = 20;
     private static final double RAY_SIZE = 0.15;
     private static final int REVEAL_STEPS = 12;
     private static final long REVEAL_STEP_TICKS = 2L;
@@ -71,29 +70,59 @@ public class MagicItemListener implements Listener {
         var pdc = item.getPersistentDataContainer();
         String itemId = pdc.getOrDefault(Keys.IM_ITEM_ID, PersistentDataType.STRING, "");
         if (itemId.isEmpty()) itemId = pdc.getOrDefault(Keys.MI_ID, PersistentDataType.STRING, "");
-        if (!INFERNAL_EYE_ID.equals(itemId)) return;
+        if (INFERNAL_EYE_ID.equals(itemId)) {
+            handleInfernalEyeInteract(event);
+            return;
+        }
+        if (isMorphController(item)) {
+            tryMorphControllerRaycast(event);
+        }
+    }
 
+    private void handleInfernalEyeInteract(PlayerInteractEvent event) {
         event.setCancelled(true);
 
         Player player = event.getPlayer();
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_EYE_DEATH, 1f, 1f);
-        LivingEntity target = raycastTarget(player);
+        LivingEntity target = raycastTarget(player, configLoader.getInfernalEyeRange());
         if (target == null) {
-            player.sendMessage(MiniMessageHelper.deserialize("<gray>未瞄准任何生物"));
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_EYE_DEATH, 1f, 0.5f);
+            player.sendActionBar(MiniMessageHelper.deserialize("<gray>未瞄准任何生物"));
             return;
         }
 
         MobState mobState = combatService.getMobState(target.getUniqueId());
         if (mobState == null) {
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_EYE_DEATH, 1f, 0.5f);
             DeathMessageConfig dm = configLoader.getDeathMessageConfig();
-            String typeName = dm != null ? dm.getMobDisplayName(target.getType()) : target.getType().name();
-            player.sendMessage(MiniMessageHelper.deserialize("<gray><type>不是炒鸡怪", Placeholder.unparsed("type", typeName)));
+            String typeName = target instanceof Player viewed
+                    ? viewed.getName()
+                    : (dm != null ? dm.getMobDisplayName(target.getType()) : target.getType().name());
+            player.sendActionBar(MiniMessageHelper.deserialize("<gray><type>不是炒鸡怪", Placeholder.unparsed("type", typeName)));
             return;
         }
 
-        // 只有成功识别炒鸡怪才消耗道具
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_EYE_DEATH, 1f, 1.4f);
         consumeOneFromMainHand(player);
         playRevealAnimationThenSend(player, target, buildEyeLine(target, mobState));
+    }
+
+    /**
+     * 幻形之锁：右键空气/方块时用射线延伸距离；仅成功封印幻形词条时取消事件并消耗道具。
+     */
+    private void tryMorphControllerRaycast(PlayerInteractEvent event) {
+        double range = configLoader.getMorphControllerRayRange();
+        if (range <= 0) return;
+
+        Player player = event.getPlayer();
+        LivingEntity target = raycastTarget(player, range);
+        if (target == null) return;
+
+        boolean suppressed = combatService.suppressMorphAffix(target);
+        if (!suppressed) return;
+
+        event.setCancelled(true);
+        consumeOneFromMainHand(player);
+        applyMorphControllerEffects(player, target);
     }
 
     /** 每次成功触发全知之眼后从主手扣除 1 个（堆叠则减数量，最后一个则清空）。 */
@@ -108,13 +137,13 @@ public class MagicItemListener implements Listener {
         }
     }
 
-    private LivingEntity raycastTarget(Player player) {
+    private static LivingEntity raycastTarget(Player player, double maxDistance) {
         Location eye = player.getEyeLocation();
         Vector dir = eye.getDirection();
         World world = player.getWorld();
 
         RayTraceResult result = world.rayTraceEntities(
-                eye, dir, RAY_DISTANCE, RAY_SIZE,
+                eye, dir, maxDistance, RAY_SIZE,
                 e -> e instanceof LivingEntity && e != player
         );
         if (result == null) return null;
@@ -135,7 +164,7 @@ public class MagicItemListener implements Listener {
         var affixes = mobState.getProfile().getAffixes();
         Component skillsComponent = Component.empty();
         for (int i = 0; i < affixes.size(); i++) {
-            if (i > 0) skillsComponent = skillsComponent.append(Component.text(", "));
+            if (i > 0) skillsComponent = skillsComponent.append(Component.text(" "));
             var affix = affixes.get(i);
             SkillConfig sc = configLoader.getSkillConfig(affix.getSkillId());
             String display = configLoader.getSkillDisplay(affix.getSkillId(), sc);
@@ -191,22 +220,20 @@ public class MagicItemListener implements Listener {
         ItemStack hand = player.getInventory().getItemInMainHand();
         if (!isMorphController(hand)) return;
 
-        // 确认是炒鸡怪且有 morph 词条后才取消默认交互
         boolean suppressed = combatService.suppressMorphAffix(target);
         if (!suppressed) return;
 
         event.setCancelled(true);
-
-        // 消耗 1 个 morph_controller
         consumeOne(hand);
+        applyMorphControllerEffects(player, target);
+    }
 
-        // 粒子效果
+    private void applyMorphControllerEffects(Player player, LivingEntity target) {
         String particleKey = "TRIAL_OMEN";
         com.infernalmobs.config.SkillConfig sc = configLoader.getSkillConfig("morph");
         if (sc != null) particleKey = sc.getString("suppress-particle", "TRIAL_OMEN");
         DualMorphSkill.spawnSuppressParticles(target, plugin, particleKey);
 
-        // 音效在玩家位置播放
         String soundKey = "BLOCK_VAULT_REJECT_REWARDED_PLAYER";
         float pitch = 1.4f;
         if (sc != null) {

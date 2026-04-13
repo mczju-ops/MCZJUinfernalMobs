@@ -41,8 +41,8 @@ public class DualArcherSkill implements Skill {
         double chance = config.getDouble("chance", 0.5);
         if (Math.random() >= chance) return;
 
-        int count = config.getInt("arrow-count", 3);
-        count = ctx.isWeakened() ? 1 : Math.max(1, Math.min(count, 8));  // 削弱: 只射一只箭
+        int count = Math.max(1, Math.min(config.getInt("arrow-count", 3), 8));
+        if (ctx.isWeakened()) count = Math.max(1, count / 2);
         float speed = (float) config.getDouble("speed", 1.0);
         float arrowSpread = (float) config.getDouble("spread-config", 6.0);
 

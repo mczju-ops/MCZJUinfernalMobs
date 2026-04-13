@@ -10,11 +10,62 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 词条抽取服务。
- * 词条数量：count-formula=level 时 n级n条；否则用 tier 公式。
- * 技能池：区域有 skill-pool 则用区域，否则用全局。
+ * 璇嶆潯鎶藉彇鏈嶅姟銆?
+ * 璇嶆潯鏁伴噺锛歝ount-formula=level 鏃?n绾鏉★紱鍚﹀垯鐢?tier 鍏紡銆?
+ * 鎶?鑳芥睜锛氬尯鍩熸湁 skill-pool 鍒欑敤鍖哄煙锛屽惁鍒欑敤鍏ㄥ眬銆?
  */
 public class AffixRollService {
+
+    /** 璇嶆潯闅惧害鍒嗙骇锛?=绠?鍗?1=涓瓑 2=鍥伴毦锛涙湭鏀跺綍鐨勯粯璁ゅ綊绠?鍗曪紙0锛夈??*/
+    private static final Map<String, Integer> DIFFICULTY = Map.ofEntries(
+            // 绠?鍗?
+            Map.entry("1up",         0),
+            Map.entry("archer",      0),
+            Map.entry("armoured",    0),
+            Map.entry("blinding",    0),
+            Map.entry("bullwark",    0),
+            Map.entry("cloaked",     0),
+            Map.entry("confusing",   0),
+            Map.entry("ender",       0),
+            Map.entry("firework",    0),
+            Map.entry("ghastly",     0),
+            Map.entry("ghost",       0),
+            Map.entry("lifesteal",   0),
+            Map.entry("molten",      0),
+            Map.entry("necromancer", 0),
+            Map.entry("poisonous",   0),
+            Map.entry("quicksand",   0),
+            Map.entry("sapper",      0),
+            Map.entry("sprint",      0),
+            Map.entry("webber",      0),
+            Map.entry("withering",   0),
+            // 涓瓑
+            Map.entry("berserk",     1),
+            Map.entry("gravity",     1),
+            Map.entry("mama",        1),
+            Map.entry("morph",       1),
+            Map.entry("mounted",     1),
+            Map.entry("refrigerate", 1),
+            Map.entry("storm",       1),
+            Map.entry("thief",       1),
+            Map.entry("tosser",      1),
+            Map.entry("vengeance",   1),
+            Map.entry("weakness",    1),
+            // 鍥伴毦
+            Map.entry("rust",        2),
+            Map.entry("swap",        2),
+            Map.entry("vexsummoner", 2),
+            Map.entry("wardenwrath", 2)
+    );
+
+    /** 鎸夐毦搴︼紙绠?鍗曗啋鍥伴毦锛夊啀鎸?ID 瀛楁瘝搴忓璇嶆潯鍒楄〃鎺掑簭锛岃繑鍥炴柊鍒楄〃銆?*/
+    public static List<Affix> sorted(List<Affix> affixes) {
+        return affixes.stream()
+                .sorted(Comparator
+                        .comparingInt((Affix a) -> DIFFICULTY.getOrDefault(a.getSkillId(), 0))
+                        .thenComparing(Affix::getSkillId))
+                .collect(java.util.stream.Collectors.toList());
+    }
 
     private final ConfigLoader config;
 
@@ -23,8 +74,8 @@ public class AffixRollService {
     }
 
     /**
-     * 根据等级与区域计算词条数量。
-     * "level" = n 级 n 条；"tier" = min + floor(level/tier-threshold)。
+     * 鏍规嵁绛夌骇涓庡尯鍩熻绠楄瘝鏉℃暟閲忋??
+     * "level" = n 绾?n 鏉★紱"tier" = min + floor(level/tier-threshold)銆?
      */
     public int computeAffixCount(int level, RegionConfig region) {
         String formula = config.getAffixCountFormula();
@@ -37,9 +88,9 @@ public class AffixRollService {
     }
 
     /**
-     * 从技能池中抽取指定数量的词条。
-     * region 有 skillPool 则用区域池，否则用全局 skillWeights。
-     * 保证：同一只怪物内不重复（n 级最多 n 个不同词条，受全局 max 与池大小限制）。
+     * 浠庢妧鑳芥睜涓娊鍙栨寚瀹氭暟閲忕殑璇嶆潯銆?
+     * region 鏈?skillPool 鍒欑敤鍖哄煙姹狅紝鍚﹀垯鐢ㄥ叏灞? skillWeights銆?
+     * 淇濊瘉锛氬悓涓?鍙?墿鍐呬笉閲嶅锛坣 绾ф渶澶?n 涓笉鍚岃瘝鏉★紝鍙楀叏灞? max 涓庢睜澶у皬闄愬埗锛夈??
      */
     public List<Affix> rollAffixes(int level, int count, RegionConfig region) {
         Map<String, Integer> weights = region != null && !region.getSkillPool().isEmpty()
@@ -47,7 +98,7 @@ public class AffixRollService {
                 : config.getSkillWeights();
         if (weights.isEmpty()) return Collections.emptyList();
 
-        // 构建可用技能池
+        // 鏋勫缓鍙敤鎶?鑳芥睜
         List<String> ids = new ArrayList<>();
         List<Integer> weightList = new ArrayList<>();
         for (String id : weights.keySet()) {
@@ -58,7 +109,7 @@ public class AffixRollService {
         }
         if (ids.isEmpty()) return Collections.emptyList();
 
-        // 实际数量不能超过池中可用技能数，避免重复
+        // 瀹為檯鏁伴噺涓嶈兘瓒呰繃姹犱腑鍙敤鎶?鑳芥暟锛岄伩鍏嶉噸澶?
         int actualCount = Math.min(count, ids.size());
 
         List<Affix> result = new ArrayList<>();
@@ -68,7 +119,7 @@ public class AffixRollService {
             if (skill == null) continue;
             result.add(new Affix(skillId, skill));
 
-            // 不再允许选到同一个技能：移除该条目，实现“无放回抽取”
+            // 涓嶅啀鍏佽閫夊埌鍚屼竴涓妧鑳斤細绉婚櫎璇ユ潯鐩紝瀹炵幇鈥滄棤鏀惧洖鎶藉彇鈥?
             int idx = ids.indexOf(skillId);
             if (idx >= 0) {
                 ids.remove(idx);
@@ -77,11 +128,11 @@ public class AffixRollService {
 
             if (ids.isEmpty()) break;
         }
-        return result;
+        return sorted(result);
     }
 
     /**
-     * 从技能 ID 列表构建固定词条（用于召唤物等）。
+     * 浠庢妧鑳?ID 鍒楄〃鏋勫缓鍥哄畾璇嶆潯锛堢敤浜庡彫鍞ょ墿绛夛級銆?
      */
     public List<Affix> buildAffixesFromIds(java.util.List<String> skillIds) {
         if (skillIds == null || skillIds.isEmpty()) return Collections.emptyList();
@@ -90,13 +141,13 @@ public class AffixRollService {
             Skill skill = SkillRegistry.get(id);
             if (skill != null) result.add(new Affix(id, skill));
         }
-        return result;
+        return sorted(result);
     }
 
     /**
-     * 抽取词条，结果中一定包含指定的技能 ID。
+     * 鎶藉彇璇嶆潯锛岀粨鏋滀腑涓?瀹氬寘鍚寚瀹氱殑鎶?鑳?ID銆?
      *
-     * @param requiredSkillIds 必须包含的技能 ID，无效或重复的会被忽略
+     * @param requiredSkillIds 蹇呴』鍖呭惈鐨勬妧鑳?ID锛屾棤鏁堟垨閲嶅鐨勪細琚拷鐣?
      */
     public List<Affix> rollAffixesWithRequired(int level, int count, RegionConfig region, List<String> requiredSkillIds) {
         List<Affix> result = new ArrayList<>();
@@ -143,13 +194,13 @@ public class AffixRollService {
             }
             if (ids.isEmpty()) break;
         }
-        return result;
+        return sorted(result);
     }
 
     /**
-     * 抽取词条，结果中一定不包含指定的技能 ID。
+     * 鎶藉彇璇嶆潯锛岀粨鏋滀腑涓?瀹氫笉鍖呭惈鎸囧畾鐨勬妧鑳?ID銆?
      *
-     * @param excludedSkillIds 必须排除的技能 ID
+     * @param excludedSkillIds 蹇呴』鎺掗櫎鐨勬妧鑳?ID
      */
     public List<Affix> rollAffixesWithExcluded(int level, int count, RegionConfig region, List<String> excludedSkillIds) {
         Set<String> excluded = excludedSkillIds != null && !excludedSkillIds.isEmpty()
@@ -185,11 +236,11 @@ public class AffixRollService {
             }
             if (ids.isEmpty()) break;
         }
-        return result;
+        return sorted(result);
     }
 
     /**
-     * 从预设构建固定词条列表。
+     * 浠庨璁炬瀯寤哄浐瀹氳瘝鏉″垪琛ㄣ??
      */
     public List<Affix> fromPreset(com.infernalmobs.config.PresetConfig preset) {
         List<Affix> result = new ArrayList<>();
@@ -198,7 +249,7 @@ public class AffixRollService {
             if (skill == null) continue;
             result.add(new Affix(e.getId(), skill));
         }
-        return result;
+        return sorted(result);
     }
 
     private String rollOne(List<String> ids, List<Integer> weights) {

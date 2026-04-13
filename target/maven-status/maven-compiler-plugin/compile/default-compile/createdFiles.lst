@@ -39,11 +39,13 @@ com\infernalmobs\config\ProtectedAnimalsConfig.class
 com\infernalmobs\skill\impl\PassiveVexSummonerSkill.class
 com\infernalmobs\skill\impl\PassiveQuicksandSkill.class
 com\infernalmobs\skill\impl\PassiveMamaSkill.class
+com\infernalmobs\config\RegionConfig$LevelRange.class
 com\infernalmobs\skill\impl\PassiveVengeanceSkill.class
 com\infernalmobs\skill\impl\DualMorphSkill$1.class
 com\infernalmobs\skill\impl\DualThiefSkill$1.class
 com\infernalmobs\config\GuaranteedLootConfig$GuaranteedRule.class
 com\infernalmobs\service\RegionService.class
+com\infernalmobs\skill\impl\DualWebberSkill$2.class
 com\infernalmobs\skill\impl\DeathGhostSkill.class
 com\infernalmobs\config\LootConfig.class
 com\infernalmobs\controller\listener\MagicItemListener.class
@@ -89,3 +91,4 @@ com\infernalmobs\config\LootConfig$DropTimesRule.class
 com\infernalmobs\controller\listener\CombatListener.class
 com\infernalmobs\service\KillStatsService.class
 com\infernalmobs\skill\impl\RangeGhastlySkill.class
+com\infernalmobs\service\CombatService$3.class

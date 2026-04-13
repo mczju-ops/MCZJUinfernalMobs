@@ -34,8 +34,9 @@ public class PassiveQuicksandSkill implements Skill {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
 
-        int durationTicks = ctx.isWeakened() ? 60 : config.getInt("duration-ticks", 180);  // 削弱: 3s
-        int amplifier = ctx.isWeakened() ? 1 : config.getInt("amplifier", 1);  // 削弱: 缓慢II
+        int durationTicks = config.getInt("duration-ticks", 180);
+        int amplifier = config.getInt("amplifier", 1);
+        if (ctx.isWeakened()) durationTicks = Math.max(1, durationTicks / 2);
 
         ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
                 PotionEffectType.SLOWNESS, durationTicks, amplifier, false, true));

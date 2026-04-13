@@ -177,6 +177,7 @@ public class LootConfig {
         cache.clear();
     }
 
+
     /**
      * 校验 loot 与 special_loot 中的物品 id：
      * - 缺少 id（兼容 id/item_id/item-id）会告警
@@ -223,7 +224,8 @@ public class LootConfig {
     public static final class RewardEntry {
         public final String id;
         public final int amount;
-        public final int weight;
+        /** 抽取权重，支持小数（如 0.8）；与整型权重共用同一套加权随机。 */
+        public final double weight;
         public final List<String> commands;
         /** 掉落此条时是否向全服广播 */
         public final boolean broadcast;
@@ -235,7 +237,7 @@ public class LootConfig {
          */
         public final java.util.Set<Integer> rotationSets;
 
-        public RewardEntry(String id, int amount, int weight, List<String> commands,
+        public RewardEntry(String id, int amount, double weight, List<String> commands,
                            boolean broadcast, String broadcastMessage,
                            java.util.Set<Integer> rotationSets) {
             this.id = id != null ? id : "";
@@ -394,7 +396,8 @@ public class LootConfig {
 
     private static RewardEntry parseRewardEntry(Object o) {
         String id = "";
-        int amount = 1, weight = 10;
+        int amount = 1;
+        double weight = 10;
         List<String> commands = new ArrayList<>();
         boolean broadcast = false;
         String broadcastMessage = "";
@@ -402,7 +405,7 @@ public class LootConfig {
         if (o instanceof ConfigurationSection sec) {
             id = getStringWithAliases(sec, "id", "item_id", "item-id");
             amount = sec.getInt("amount", 1);
-            weight = sec.getInt("weight", 10);
+            weight = sec.getDouble("weight", 10);
             broadcast = sec.getBoolean("broadcast", false);
             broadcastMessage = sec.getString("broadcast-message", "");
             if (sec.contains("commands")) {
@@ -416,7 +419,7 @@ public class LootConfig {
         if (o instanceof java.util.Map<?, ?> map) {
             id = getStringWithAliases(map, "id", "item_id", "item-id");
             amount = getIntFromMap(map, "amount", 1);
-            weight = getIntFromMap(map, "weight", 10);
+            weight = getDoubleFromMap(map, "weight", 10);
             Object brObj = map.get("broadcast");
             if (brObj instanceof Boolean b) broadcast = b;
             else if (brObj != null) broadcast = "true".equalsIgnoreCase(brObj.toString()) || "1".equals(brObj.toString());
@@ -516,6 +519,13 @@ public class LootConfig {
         Object v = map.get(key);
         if (v instanceof Number) return ((Number) v).intValue();
         if (v != null) try { return Integer.parseInt(v.toString()); } catch (NumberFormatException ignored) {}
+        return def;
+    }
+
+    private static double getDoubleFromMap(java.util.Map<?, ?> map, String key, double def) {
+        Object v = map.get(key);
+        if (v instanceof Number) return ((Number) v).doubleValue();
+        if (v != null) try { return Double.parseDouble(v.toString().trim()); } catch (NumberFormatException ignored) {}
         return def;
     }
 }
