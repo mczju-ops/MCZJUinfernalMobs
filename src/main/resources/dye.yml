@@ -1,0 +1,23 @@
+# InfernalMobs 本地 dye 回退配置
+# 外部 Dye 插件在线时，优先使用其 requestScheme/resolveDropItemId。
+# 外部 Dye 插件离线或未返回时，才使用本文件。
+
+death:
+  chance: 0.35
+  amount: 1
+
+fallback:
+  item-id: "infernal_dye"
+  hex: "#FFFFFF"
+
+pool:
+  - item-id: "infernal_dye_red"
+    hex: "#FF5555"
+    weight: 1.0
+  - item-id: "infernal_dye_blue"
+    hex: "#5555FF"
+    weight: 1.0
+  - item-id: "infernal_dye_green"
+    hex: "#55FF55"
+    weight: 1.0
+

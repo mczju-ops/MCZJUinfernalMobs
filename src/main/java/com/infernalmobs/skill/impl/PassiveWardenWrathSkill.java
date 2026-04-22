@@ -4,9 +4,12 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.DisplacementImmunityHelper;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
 
 /**
@@ -62,14 +65,45 @@ public class PassiveWardenWrathSkill implements Skill {
         double decayMultiplier = 1.0 - (distance / maxRange) * (1.0 - minMultiplier);
         debugLog(ctx, "生效 distance=" + String.format("%.1f", distance) + " decay=" + String.format("%.2f", decayMultiplier));
 
+        boolean displacementImmune = DisplacementImmunityHelper.isImmuneAndCleanup(player, ctx.getCurrentTick());
+        debugLog(ctx, "位移免疫判定 tick=" + ctx.getCurrentTick() + " immune=" + displacementImmune
+                + " velBefore=" + formatVec(player.getVelocity()));
         double damage = config.getDouble("damage", 10) * decayMultiplier;
-        if (damage > 0.01) player.damage(damage, ctx.getEntity());
+        if (damage > 0.01) {
+            if (displacementImmune) {
+                // 免疫位移时避免携带攻击者来源，减少原版受击方向击退
+                player.damage(damage);
+                debugLog(ctx, "位移免疫: 以无来源伤害结算 damage=" + String.format("%.2f", damage));
+            } else {
+                player.damage(damage, ctx.getEntity());
+                debugLog(ctx, "普通结算: 以攻击者来源伤害 damage=" + String.format("%.2f", damage));
+            }
+        }
 
-        Vector dir = player.getLocation().toVector().subtract(ctx.getEntity().getLocation().toVector()).normalize();
-        double knockbackH = config.getDouble("knockback-horizontal", 2.5) * decayMultiplier;
-        double knockbackV = config.getDouble("knockback-vertical", 0.5) * decayMultiplier;
-        Vector kb = dir.multiply(knockbackH).setY(knockbackV);
-        player.setVelocity(player.getVelocity().add(kb));
+        if (displacementImmune) {
+            debugLog(ctx, "跳过击退: 目标位移免疫生效");
+        } else {
+            Vector dir = ctx.getEntity().getLocation().toVector().subtract(player.getLocation().toVector());
+            if (dir.lengthSquared() < 1.0e-6) {
+                // 重叠时兜底使用怪物朝向，避免零向量导致无击退
+                dir = ctx.getEntity().getLocation().getDirection().setY(0);
+            }
+            if (dir.lengthSquared() > 1.0e-6) {
+                dir.normalize();
+                double knockbackStrength = config.getDouble("knockback-horizontal", 2.5) * decayMultiplier;
+                player.knockback(knockbackStrength, dir.getX(), dir.getZ());
+                debugLog(ctx, "已应用原版击退 strength=" + String.format("%.2f", knockbackStrength));
+            } else {
+                debugLog(ctx, "跳过击退: 无有效方向向量");
+            }
+        }
+        debugLog(ctx, "触发结束 velAfter=" + formatVec(player.getVelocity()));
+        Plugin plugin = ctx.getPlugin();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (player.isOnline()) {
+                debugLog(ctx, "下一tick vel=" + formatVec(player.getVelocity()) + " loc=" + formatLoc(player.getLocation()));
+            }
+        });
 
         Location mobLoc = ctx.getEntity().getEyeLocation();
         Location playerLoc = player.getLocation().add(0, player.getHeight() * 0.5, 0);
@@ -106,5 +140,9 @@ public class PassiveWardenWrathSkill implements Skill {
 
     private static String formatLoc(Location loc) {
         return loc == null ? "null" : String.format("(%.1f,%.1f,%.1f)", loc.getX(), loc.getY(), loc.getZ());
+    }
+
+    private static String formatVec(Vector vec) {
+        return vec == null ? "null" : String.format("(%.3f,%.3f,%.3f)", vec.getX(), vec.getY(), vec.getZ());
     }
 }

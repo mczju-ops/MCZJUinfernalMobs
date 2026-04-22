@@ -43,6 +43,7 @@ public class SkillRegistry {
         register(new com.infernalmobs.skill.impl.RangeNecromancerSkill());
         register(new com.infernalmobs.skill.impl.ActiveFireworkSkill());
         register(new com.infernalmobs.skill.impl.DeathGhostSkill());
+        register(new com.infernalmobs.skill.impl.DeathDyeSkill());
         register(new com.infernalmobs.skill.impl.PassiveConfusingSkill());
         register(new com.infernalmobs.skill.impl.DualThiefSkill());
         register(new com.infernalmobs.skill.impl.RangeTosserSkill());

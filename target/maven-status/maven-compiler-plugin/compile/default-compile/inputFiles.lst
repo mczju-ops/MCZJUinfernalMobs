@@ -3,7 +3,10 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveConf
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveWitheringSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\GuaranteedLootConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\DeathMessageService.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\api\dye\DyeSchemeRequest.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DeathDyeSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\particle\ParticleSource.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\api\dye\InfernalDyeApi.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\controller\listener\CreeperExplodeListener.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveSwapSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\StatMountedSkill.java
@@ -30,6 +33,7 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\service\MobLevelServic
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveRustSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\MobRegistryConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\SkillType.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\util\DisplacementImmunityHelper.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\ConfigLoader.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\SkillConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualRefrigerateSkill.java
@@ -39,6 +43,7 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\RegionConfig.ja
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\SkillContext.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualWebberSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\util\MiniMessageHelper.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\config\DyeConfig.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\RangeTosserSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassivePoisonousSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\particle\ParticleEffect.java
@@ -55,6 +60,7 @@ D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\PassiveWard
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\RangeNecromancerSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\RangeGhastlySkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\InfernalMobsPlugin.java
+D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\api\dye\DyeSchemeResult.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\factory\MobFactory.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\DualEnderSkill.java
 D:\MCZJU\MCZJUinfernalMobs\src\main\java\com\infernalmobs\skill\impl\StatSprintSkill.java
