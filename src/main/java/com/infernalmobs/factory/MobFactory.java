@@ -100,11 +100,14 @@ public class MobFactory {
         String presetStr = preset != null ? preset.getId() : "-";
         int affixCount = affixes != null ? affixes.size() : 0;
         boolean hasMounted = affixes != null && affixes.stream().anyMatch(a -> "mounted".equalsIgnoreCase(a.getSkillId()));
+        String affixIds = affixes != null
+                ? affixes.stream().map(Affix::getSkillId).collect(java.util.stream.Collectors.joining(","))
+                : "";
         plugin.getLogger().info(String.format(
-                "[InfernalMobs:debug:mechanize] path=%s type=%s world=%s world-enabled=%s block=%d,%d,%d region=%s preset=%s final-level=%d affixes=%d has-mounted=%s",
+                "[InfernalMobs:debug:mechanize] path=%s type=%s world=%s world-enabled=%s block=%d,%d,%d region=%s preset=%s final-level=%d affixes=%d has-mounted=%s affix-ids=[%s]",
                 path, entity.getType(), world, worldOk,
                 loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(),
-                regionStr, presetStr, level, affixCount, hasMounted));
+                regionStr, presetStr, level, affixCount, hasMounted, affixIds));
     }
 
     /**

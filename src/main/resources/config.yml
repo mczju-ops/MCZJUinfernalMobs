@@ -289,6 +289,7 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
+      dye: 10
       confusing: 10
       # 黄色词条
       thief: 1
@@ -396,6 +397,7 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
+      dye: 10
       confusing: 10
       # 黄色词条
       thief: 10
@@ -505,6 +507,7 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
+      dye: 10
       confusing: 10
       # 黄色词条
       thief: 10

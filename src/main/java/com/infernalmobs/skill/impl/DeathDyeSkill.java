@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
  */
 public class DeathDyeSkill implements Skill {
     private static final String DEFAULT_ITEM_ID = "infernal_dye";
+    private static final String DEBUG_PREFIX = "[InfernalMobs:debug:dye] ";
 
     @Override
     public String getId() {
@@ -45,24 +46,42 @@ public class DeathDyeSkill implements Skill {
     public void onEquip(SkillContext ctx, SkillConfig config) {
         if (ctx == null || ctx.getEntity() == null || config == null) return;
 
+        debug(ctx, "onEquip start entity=" + entityTag(ctx) + " level=" + levelOf(ctx));
         InfernalDyeApi dyeApi = resolveDyeApi(ctx);
         if (dyeApi != null) {
+            debug(ctx, "requestScheme trigger entity=" + entityTag(ctx)
+                    + " level=" + levelOf(ctx)
+                    + " affixes=" + affixIdsOf(ctx)
+                    + " provider=" + dyeApi.getClass().getName());
             Optional<DyeSchemeResult> opt = dyeApi.requestScheme(buildRequest(ctx));
             if (opt.isPresent()) {
                 storeScheme(ctx, opt.get());
+                var pdc = ctx.getEntity().getPersistentDataContainer();
+                debug(ctx, "requestScheme hit schemeId=" + pdc.get(Keys.IM_DYE_SCHEME_ID, PersistentDataType.STRING)
+                        + " dropItemId=" + pdc.get(Keys.IM_DYE_DROP_ITEM_ID, PersistentDataType.STRING)
+                        + " hex=" + pdc.get(Keys.IM_DYE_HEX, PersistentDataType.STRING));
+                debug(ctx, "note: leather render is owned by external Dye plugin, InfernalMobs only stores scheme/id.");
                 return;
             }
+            debug(ctx, "requestScheme empty -> fallback to local pool");
+        } else {
+            debug(ctx, "dyeApi missing -> fallback to local pool");
         }
 
         // 回退：Dye 插件不可用/未返回时，使用本地 pool
         DyeConfig dyeConfig = resolveDyeConfig(ctx);
         LocalDyeEntry local = pickLocal(config, dyeConfig);
-        if (local == null || local.itemId.isBlank()) return;
+        if (local == null || local.itemId.isBlank()) {
+            debug(ctx, "local fallback failed: no valid itemId");
+            return;
+        }
         ctx.getEntity().getPersistentDataContainer().set(Keys.IM_DYE_ID, PersistentDataType.STRING, local.itemId);
         ctx.getEntity().getPersistentDataContainer().set(Keys.IM_DYE_DROP_ITEM_ID, PersistentDataType.STRING, local.itemId);
         if (!local.hexColor.isBlank()) {
             ctx.getEntity().getPersistentDataContainer().set(Keys.IM_DYE_HEX, PersistentDataType.STRING, local.hexColor);
         }
+        debug(ctx, "local fallback selected itemId=" + local.itemId + " hex=" + local.hexColor);
+        debug(ctx, "note: local fallback does not render armor by itself; external Dye renderer is still required.");
     }
 
     @Override
@@ -73,6 +92,9 @@ public class DeathDyeSkill implements Skill {
         InfernalDyeApi dyeApi = resolveDyeApi(ctx);
         if (dyeApi != null) {
             dyeApi.unbindEntity(ctx.getEntity().getUniqueId());
+            debug(ctx, "onUnequip unbindEntity schemeId=" + schemeId + " entity=" + entityTag(ctx));
+        } else {
+            debug(ctx, "onUnequip skip unbind: dyeApi missing schemeId=" + schemeId + " entity=" + entityTag(ctx));
         }
     }
 
@@ -82,23 +104,40 @@ public class DeathDyeSkill implements Skill {
 
         DyeConfig dyeCfg = resolveDyeConfig(ctx);
         double chance = dyeCfg != null ? dyeCfg.deathChance() : config.getDouble("chance", 1.0);
-        if (chance <= 0 || Math.random() >= chance) return;
+        double roll = Math.random();
+        if (chance <= 0 || roll >= chance) {
+            debug(ctx, "onTrigger skip by chance chance=" + chance + " roll=" + roll + " entity=" + entityTag(ctx));
+            return;
+        }
 
         String itemId = resolveDropItemId(ctx, config, dyeCfg);
         int amount = dyeCfg != null ? dyeCfg.dropAmount() : Math.max(1, config.getInt("amount", 1));
-        if (itemId == null || itemId.isBlank()) return;
+        if (itemId == null || itemId.isBlank()) {
+            debug(ctx, "onTrigger abort: resolved empty itemId entity=" + entityTag(ctx));
+            return;
+        }
 
         ItemCreatorApi ica = resolveItemCreatorApi(ctx);
-        if (ica == null) return;
+        if (ica == null) {
+            debug(ctx, "onTrigger abort: ItemCreatorApi missing itemId=" + itemId + " entity=" + entityTag(ctx));
+            return;
+        }
         Optional<ItemStack> opt = ica.createItem(itemId, amount);
-        if (opt == null || opt.isEmpty()) return;
+        if (opt == null || opt.isEmpty()) {
+            debug(ctx, "onTrigger abort: ICA createItem empty itemId=" + itemId + " amount=" + amount);
+            return;
+        }
 
         ItemStack stack = opt.get().clone();
-        if (stack.getType().isAir() || stack.getAmount() <= 0) return;
+        if (stack.getType().isAir() || stack.getAmount() <= 0) {
+            debug(ctx, "onTrigger abort: invalid stack type=" + stack.getType() + " amount=" + stack.getAmount());
+            return;
+        }
         ensureMagicItemId(stack, itemId);
 
         Item drop = ctx.getEntity().getWorld().dropItemNaturally(ctx.getEntity().getLocation(), stack);
         if (drop != null) drop.setInvulnerable(true);
+        debug(ctx, "onTrigger drop success itemId=" + itemId + " amount=" + stack.getAmount() + " entity=" + entityTag(ctx));
     }
 
     private static DyeSchemeRequest buildRequest(SkillContext ctx) {
@@ -128,23 +167,38 @@ public class DeathDyeSkill implements Skill {
     private static String resolveDropItemId(SkillContext ctx, SkillConfig config, DyeConfig dyeCfg) {
         var pdc = ctx.getEntity().getPersistentDataContainer();
         String direct = pdc.get(Keys.IM_DYE_DROP_ITEM_ID, PersistentDataType.STRING);
-        if (direct != null && !direct.isBlank()) return direct;
+        if (direct != null && !direct.isBlank()) {
+            debug(ctx, "resolveDropItemId from pdc.dropItemId=" + direct);
+            return direct;
+        }
 
         String schemeId = pdc.get(Keys.IM_DYE_SCHEME_ID, PersistentDataType.STRING);
         if (schemeId != null && !schemeId.isBlank()) {
             InfernalDyeApi dyeApi = resolveDyeApi(ctx);
             if (dyeApi != null) {
                 Optional<String> resolved = dyeApi.resolveDropItemId(schemeId, ctx.getEntity().getUniqueId());
-                if (resolved.isPresent() && !resolved.get().isBlank()) return resolved.get();
+                if (resolved.isPresent() && !resolved.get().isBlank()) {
+                    debug(ctx, "resolveDropItemId from dyeApi schemeId=" + schemeId + " itemId=" + resolved.get());
+                    return resolved.get();
+                }
+                debug(ctx, "resolveDropItemId dyeApi miss schemeId=" + schemeId);
+            } else {
+                debug(ctx, "resolveDropItemId skip dyeApi: provider missing schemeId=" + schemeId);
             }
         }
 
         String old = pdc.get(Keys.IM_DYE_ID, PersistentDataType.STRING);
-        if (old != null && !old.isBlank()) return old;
+        if (old != null && !old.isBlank()) {
+            debug(ctx, "resolveDropItemId from legacy pdc.im_dye_id=" + old);
+            return old;
+        }
         if (dyeCfg != null && dyeCfg.fallbackItemId() != null && !dyeCfg.fallbackItemId().isBlank()) {
+            debug(ctx, "resolveDropItemId from dye.yml fallback=" + dyeCfg.fallbackItemId());
             return dyeCfg.fallbackItemId();
         }
-        return config.getString("item-id", DEFAULT_ITEM_ID);
+        String fromSkillConfig = config.getString("item-id", DEFAULT_ITEM_ID);
+        debug(ctx, "resolveDropItemId from skills.dye.item-id=" + fromSkillConfig);
+        return fromSkillConfig;
     }
 
     private static LocalDyeEntry pickLocal(SkillConfig config, DyeConfig dyeCfg) {
@@ -233,6 +287,28 @@ public class DeathDyeSkill implements Skill {
             return im.getDyeConfig();
         }
         return null;
+    }
+
+    private static void debug(SkillContext ctx, String msg) {
+        if (!(ctx != null && ctx.getPlugin() instanceof InfernalMobsPlugin im)) return;
+        if (!im.getConfigLoader().isDebug()) return;
+        im.getLogger().info(DEBUG_PREFIX + msg);
+    }
+
+    private static String entityTag(SkillContext ctx) {
+        if (ctx == null || ctx.getEntity() == null) return "null";
+        return ctx.getEntity().getType() + "@" + ctx.getEntity().getUniqueId();
+    }
+
+    private static int levelOf(SkillContext ctx) {
+        return ctx != null && ctx.getMobState() != null ? ctx.getMobState().getProfile().getLevel() : -1;
+    }
+
+    private static List<String> affixIdsOf(SkillContext ctx) {
+        if (ctx == null || ctx.getMobState() == null || ctx.getMobState().getProfile() == null) return List.of();
+        return ctx.getMobState().getProfile().getAffixes().stream()
+                .map(a -> a.getSkillId())
+                .collect(Collectors.toList());
     }
 
     private static final class LocalDyeEntry {

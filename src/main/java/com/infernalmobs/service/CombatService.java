@@ -8,6 +8,7 @@ import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -394,6 +395,10 @@ public class CombatService {
                     if (currentTick % 20 == 0) {
                         tickRangeSkills(entity, e.getValue());
                     }
+                    // dye 词条视觉：低频紫色 portal 粒子环绕
+                    if (currentTick % 10 == 0) {
+                        tickDyeAura(entity, e.getValue());
+                    }
                     tickLifesteal(entity, e.getValue());
                 }
             }
@@ -464,6 +469,32 @@ public class CombatService {
         if (attr == null) return;
         double ceiling = healCeiling(entity, state);
         entity.setHealth(Math.min(ceiling, entity.getHealth() + amount));
+    }
+
+    /** dye 词条：给怪物周身添加紫色 portal 粒子。 */
+    private void tickDyeAura(LivingEntity entity, MobState state) {
+        boolean hasDye = false;
+        for (Affix affix : state.getProfile().getAffixes()) {
+            if ("dye".equals(affix.getSkillId())) {
+                hasDye = true;
+                break;
+            }
+        }
+        if (!hasDye) return;
+
+        Location base = entity.getLocation();
+        double h = Math.max(0.8, entity.getHeight() * 0.5);
+        entity.getWorld().spawnParticle(
+                Particle.PORTAL,
+                base.getX(),
+                base.getY() + h,
+                base.getZ(),
+                16,
+                0.35,
+                0.45,
+                0.35,
+                0.15
+        );
     }
 
     /** 范围技能：玩家在范围内时按概率触发 */
