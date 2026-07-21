@@ -12,7 +12,7 @@
     <description>炒鸡怪 - 丰富原版怪物战斗的 Infernal 风格插件</description>
 
     <properties>
-        <java.version>17</java.version>
+        <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <itemcreator.groupId>com.github.tozero0</itemcreator.groupId>
         <itemcreator.artifactId>itemcreator-api</itemcreator.artifactId>
@@ -31,7 +31,7 @@
     </repositories>
 
     <dependencies>
-        <!-- 1.20.5+ 含 Attribute.GENERIC_SCALE，mama 技能体型缩放需此版本 -->
+        <!-- Paper 26.2 (Minecraft 1.21.4) → 新版本号体系；含 Attribute.SCALE 等 API -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
@@ -72,8 +72,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <release>21</release>
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>

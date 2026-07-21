@@ -17,6 +17,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.EntityEquipment;
@@ -256,7 +257,7 @@ public class CombatService {
     public void onMobAttack(EntityDamageByEntityEvent event, LivingEntity damager, Player victim, MobState mobState) {
         double damageBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.DAMAGE_BONUS);
         if (damageBonus > 0) {
-            event.setDamage(event.getDamage() + damageBonus);
+            event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) + damageBonus);
         }
         triggerActiveSkills(damager, victim, mobState);
         triggerDualSkills(damager, victim, mobState);
@@ -288,7 +289,7 @@ public class CombatService {
 
             if (!state.useOneTimeIfNotUsed("1up")) continue;
 
-            event.setDamage(0);
+            event.setDamage(DamageModifier.BASE, 0);
             if (affix.getSkill() instanceof com.infernalmobs.skill.impl.Stat1upSkill skill) {
                 skill.trigger(victim, sc, state);
             }
@@ -372,7 +373,7 @@ public class CombatService {
         if (mob == null || !mob.isValid()) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
         event.setCancelled(true);
-        victim.damage(event.getDamage(), mob);
+        victim.damage(event.getFinalDamage(), mob);
     }
 
     private volatile long currentTick = 0;

@@ -11,6 +11,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Ageable;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashSet;
@@ -21,7 +22,10 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * 母体：受击时概率生成多只同类型炒鸡怪。
  * - 数量按档位：初级(1-3级)1只、中级(4-6)2只、高级(7-9)3只、炒鸡(10+)4只。
- * - 子怪等级按档位区间；无 baby 形态的怪用体型缩放 0.5 模拟“小只”。
+ * - 子怪优先使用原生幼年形态（IsBaby 数据标签）；不支持幼年形态的实体用体型缩放模拟。
+ *
+ * Paper 26.2 中，僵尸族（僵尸/尸壳/溺尸/僵尸村民/僵尸猪灵等）共通拥有 IsBaby 数据标签，
+ * 通过 Ageable 接口暴露。本实现优先通过 Ageable 设置幼年，回退到 SCALE 属性缩放。
  */
 public class PassiveMamaSkill implements Skill {
 
@@ -149,17 +153,20 @@ public class PassiveMamaSkill implements Skill {
                 debugLog(ctx, "延迟任务执行: 开始生成 " + effCount + " 只 " + parentType + " 于 " + loc);
                 for (int i = 0; i < effCount; i++) {
                     LivingEntity child = (LivingEntity) loc.getWorld().spawnEntity(loc, parentType);
-                    boolean needScale = false;
+                    boolean useScale = false;
                     if (baby) {
-                        if (child instanceof Ageable ageable) {
-                            ageable.setBaby();
+                        // Paper 26.2: 优先检查实体是否具备 IsBaby 数据能力（Ageable 接口）
+                        if (hasBabyCapability(child)) {
+                            ((Ageable) child).setBaby();
+                            debugLog(ctx, "子怪 " + parentType + " 使用幼年形态 (IsBaby)");
                         } else {
-                            needScale = true;
+                            useScale = true;
+                            debugLog(ctx, "子怪 " + parentType + " 不支持幼年形态，回退到 SCALE 缩放");
                         }
                     }
                     int childLevel = effMin + ThreadLocalRandom.current().nextInt(effMax - effMin + 1);
                     factory.mechanizeWithExcludedAffixes(child, loc, childLevel, List.of("mama"));
-                    if (needScale) applyScale(ctx, child, noBabyScale);
+                    if (useScale) applyScale(ctx, child, noBabyScale);
                 }
                 try {
                     loc.getWorld().playSound(loc, org.bukkit.Sound.ENTITY_ZOMBIE_INFECT, 0.8f, 0.8f);
@@ -178,6 +185,31 @@ public class PassiveMamaSkill implements Skill {
         } else {
             debugLog(ctx, "applyScale: 实体无 SCALE 属性，实体=" + entity.getType());
         }
+    }
+
+    /**
+     * 检查实体是否具备幼年形态（IsBaby 数据标签）。
+     * Paper 26.2 中僵尸族（僵尸/尸壳/溺尸/僵尸村民/僵尸猪灵等）共通拥有 IsBaby，
+     * 通过 Bukkit 的 Ageable 接口暴露。
+     * 注意：部分实现 Ageable 的实体（如某些模组实体）可能无视觉幼年形态，
+     * 此时 setBaby() 仍会设置数据但外观不变，回退到 scale 是安全的。
+     */
+    private static boolean hasBabyCapability(LivingEntity entity) {
+        if (entity instanceof Ageable) {
+            // 额外过滤：排除已知无幼年视觉形态的 Ageable 实体
+            EntityType type = entity.getType();
+            if (type == EntityType.WANDERING_TRADER) {
+                return false; // 流浪商人虽有 Ageable 但无幼年外观
+            }
+            return true;
+        }
+        // 部分实体虽未实现 Ageable 但仍可能有幼年形态（罕见）
+        // 此处通过 Mob 间接判断（Armadillo 等在 1.21+ 有 AgeableMob）
+        if (entity instanceof Mob mob) {
+            // 如果实体是 Breedable 的子类，通常支持幼年
+            return mob instanceof org.bukkit.entity.Breedable;
+        }
+        return false;
     }
 
     private Set<EntityType> parseAllowedTypes(SkillConfig config) {
