@@ -2,12 +2,12 @@ package com.infernalmobs;
 
 import com.infernalmobs.command.InfernalMobCommand;
 import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.DyeConfig;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
 import com.infernalmobs.controller.listener.MagicItemListener;
 import com.infernalmobs.controller.listener.MobSpawnListener;
-import io.mczju.mczjuitemcreator.api.ItemCreatorApi;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.service.AffixRollService;
 import com.infernalmobs.service.CombatService;
@@ -20,6 +20,7 @@ import com.infernalmobs.service.MagicKingArmorService;
 import com.infernalmobs.service.MobLevelService;
 import com.infernalmobs.service.RegionService;
 import com.infernalmobs.service.SkillService;
+import com.infernalmobs.util.ItemCreatorBridge;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -27,7 +28,6 @@ import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
-import java.util.Optional;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -45,6 +45,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
     private LootConfig lootConfig;
     private LootService lootService;
     private MobFactory mobFactory;
+    private DyeConfig dyeConfig = DyeConfig.defaults();
 
     @Override
     public void onEnable() {
@@ -56,10 +57,12 @@ public class InfernalMobsPlugin extends JavaPlugin {
         if (!new File(getDataFolder(), "loot_name.yml").exists()) saveResource("loot_name.yml", false);
         if (!new File(getDataFolder(), "special_loot.yml").exists()) saveResource("special_loot.yml", false);
         if (!new File(getDataFolder(), "guaranteed_loot.yml").exists()) saveResource("guaranteed_loot.yml", false);
+        if (!new File(getDataFolder(), "dye.yml").exists()) saveResource("dye.yml", false);
         File lootDir = new File(getDataFolder(), "loot");
         if (!lootDir.exists()) lootDir.mkdirs();
         saveDefaultLootFiles(lootDir);
         reloadLootConfig();
+        reloadDyeConfig();
 
         MobLevelService levelService = new MobLevelService(configLoader);
         AffixRollService affixRollService = new AffixRollService(configLoader);
@@ -80,7 +83,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         getCommand("im").setExecutor(imCmd);
         getCommand("im").setTabCompleter(imCmd);
 
-        getServer().getPluginManager().registerEvents(new MobSpawnListener(configLoader, mobFactory), this);
+        getServer().getPluginManager().registerEvents(new MobSpawnListener(configLoader, mobFactory, combatService, this), this);
         getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService), this);
         getServer().getPluginManager().registerEvents(new MagicItemListener(this, configLoader, combatService), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
@@ -130,13 +133,11 @@ public class InfernalMobsPlugin extends JavaPlugin {
         }
     }
 
-    /** 加载或重载 loot 配置（loot.yml + loot/ 下各等级文件），并重新挂接 ItemCreatorApi。 */
+    /** 加载或重载 loot 配置（loot.yml + loot/ 下各等级文件），并尝试挂接可选 ItemCreator。 */
     public void reloadLootConfig() {
         lootConfig = LootConfig.load(getDataFolder());
-        ItemCreatorApi api = null;
-        var rsp = getServer().getServicesManager().getRegistration(ItemCreatorApi.class);
-        if (rsp != null) {
-            api = rsp.getProvider();
+        boolean itemCreatorAvailable = ItemCreatorBridge.isAvailable(this);
+        if (itemCreatorAvailable) {
             getLogger().info("已挂接 ItemCreator，炒鸡怪特殊掉落启用");
         } else if (lootConfig.isEnable()) {
             org.bukkit.plugin.Plugin ic = getServer().getPluginManager().getPlugin("MCZJUItemCreator");
@@ -147,12 +148,12 @@ public class InfernalMobsPlugin extends JavaPlugin {
             }
         }
 
-        final ItemCreatorApi apiRef = api;
-        if (apiRef != null) {
-            lootConfig.validateEntries(msg -> getLogger().warning(msg), id -> isItemDefined(apiRef, id));
+        if (itemCreatorAvailable) {
+            lootConfig.validateEntries(msg -> getLogger().warning(msg), id ->
+                    ItemCreatorBridge.createItem(this, id, 1).isPresent());
         }
 
-        lootService = new LootService(this, lootConfig, api);
+        lootService = new LootService(this, lootConfig, itemCreatorAvailable);
         guaranteedLootService = new GuaranteedLootService(this);
         guaranteedLootService.load();
         guaranteedLootService.setConfig(GuaranteedLootConfig.load(getDataFolder()));
@@ -165,24 +166,11 @@ public class InfernalMobsPlugin extends JavaPlugin {
             mobFactory.reloadRuntimeConfig();
         }
         reloadLootConfig();
+        reloadDyeConfig();
     }
 
-    private boolean isItemDefined(ItemCreatorApi api, String itemId) {
-        if (itemId == null || itemId.isBlank()) return false;
-        if (api == null) return false;
-        try {
-            var m = api.getClass().getMethod("hasItem", String.class);
-            Object ret = m.invoke(api, itemId);
-            if (ret instanceof Boolean b) return b;
-        } catch (Exception ignored) {
-            // ????? hasItem ???? API???? createItem(1) ???????
-        }
-        try {
-            Optional<?> opt = api.createItem(itemId, 1);
-            return opt != null && opt.isPresent();
-        } catch (Exception ignored) {
-            return false;
-        }
+    public void reloadDyeConfig() {
+        dyeConfig = DyeConfig.load(getDataFolder());
     }
 
     @Override
@@ -215,5 +203,9 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
     public GuaranteedLootService getGuaranteedLootService() {
         return guaranteedLootService;
+    }
+
+    public DyeConfig getDyeConfig() {
+        return dyeConfig;
     }
 }

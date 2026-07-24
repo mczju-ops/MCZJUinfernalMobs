@@ -28,6 +28,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -100,11 +101,14 @@ public class MobFactory {
         String presetStr = preset != null ? preset.getId() : "-";
         int affixCount = affixes != null ? affixes.size() : 0;
         boolean hasMounted = affixes != null && affixes.stream().anyMatch(a -> "mounted".equalsIgnoreCase(a.getSkillId()));
+        String affixIds = affixes != null
+                ? affixes.stream().map(Affix::getSkillId).collect(java.util.stream.Collectors.joining(","))
+                : "";
         plugin.getLogger().info(String.format(
-                "[InfernalMobs:debug:mechanize] path=%s type=%s world=%s world-enabled=%s block=%d,%d,%d region=%s preset=%s final-level=%d affixes=%d has-mounted=%s",
+                "[InfernalMobs:debug:mechanize] path=%s type=%s world=%s world-enabled=%s block=%d,%d,%d region=%s preset=%s final-level=%d affixes=%d has-mounted=%s affix-ids=[%s]",
                 path, entity.getType(), world, worldOk,
                 loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(),
-                regionStr, presetStr, level, affixCount, hasMounted));
+                regionStr, presetStr, level, affixCount, hasMounted, affixIds));
     }
 
     /**
@@ -143,7 +147,12 @@ public class MobFactory {
         } else {
             level = levelService.computeLevel(spawnLocation, region);
             int affixCount = affixRollService.computeAffixCount(level, region);
-            affixes = affixRollService.rollAffixes(level, affixCount, region);
+            List<String> excluded = getSkillExclusionsFor(entity.getType());
+            if (excluded.isEmpty()) {
+                affixes = affixRollService.rollAffixes(level, affixCount, region);
+            } else {
+                affixes = affixRollService.rollAffixesWithExcluded(level, affixCount, region, excluded);
+            }
         }
 
         logMechanizeDebug("natural", entity, spawnLocation, region, preset, level, affixes);
@@ -179,7 +188,13 @@ public class MobFactory {
     private void doMechanizeWithLevel(LivingEntity entity, Location spawnLocation, int fixedLevel, RegionConfig region) {
         List<EntityType> morphTargets = region != null ? region.getMorphTargetTypes() : null;
         int affixCount = affixRollService.computeAffixCount(fixedLevel, region);
-        List<Affix> affixes = affixRollService.rollAffixes(fixedLevel, affixCount, region);
+        List<String> excluded = getSkillExclusionsFor(entity.getType());
+        List<Affix> affixes;
+        if (excluded.isEmpty()) {
+            affixes = affixRollService.rollAffixes(fixedLevel, affixCount, region);
+        } else {
+            affixes = affixRollService.rollAffixesWithExcluded(fixedLevel, affixCount, region, excluded);
+        }
 
         logMechanizeDebug("fixed-level", entity, spawnLocation, region, null, fixedLevel, affixes);
 
@@ -241,6 +256,25 @@ public class MobFactory {
         setMobDisplayName(entity, mobState);
         setImLevelTag(entity, level);
         combatService.registerMob(entity.getUniqueId(), mobState);
+    }
+
+    private List<String> getSkillExclusionsFor(EntityType type) {
+        List<String> excluded = new ArrayList<>();
+        SkillConfig spearConfig = configLoader.getSkillConfig("spear");
+        if (spearConfig != null) {
+            List<String> holders = spearConfig.getStringList("enabled-holders");
+            if (!holders.isEmpty()) {
+                boolean eligible = holders.stream()
+                        .map(String::trim)
+                        .map(String::toUpperCase)
+                        .anyMatch(h -> h.equals(type.name()));
+                if (!eligible || type.getEntityClass() == null
+                        || !LivingEntity.class.isAssignableFrom(type.getEntityClass())) {
+                    excluded.add("spear");
+                }
+            }
+        }
+        return excluded;
     }
 
     /**

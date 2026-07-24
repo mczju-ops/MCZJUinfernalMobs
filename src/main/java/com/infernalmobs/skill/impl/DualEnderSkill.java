@@ -4,9 +4,11 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.Keys;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 
 /**
@@ -35,6 +37,12 @@ public class DualEnderSkill implements Skill {
         if (ctx.getEntity() == null || !ctx.getEntity().isValid()) return;
         Player target = ctx.getTargetPlayer();
         if (target == null || !target.isOnline()) return;
+        Integer suppressedExpiresAt = ctx.getEntity().getPersistentDataContainer()
+                .get(Keys.IM_ENDER_SUPPRESSED_EXPIRES_AT, PersistentDataType.INTEGER);
+        if (suppressedExpiresAt != null) {
+            if (ctx.getCurrentTick() < suppressedExpiresAt) return;
+            ctx.getEntity().getPersistentDataContainer().remove(Keys.IM_ENDER_SUPPRESSED_EXPIRES_AT);
+        }
 
         double chance = config.getDouble("chance", 1.0);
         if (chance < 1.0 && Math.random() >= chance) return;

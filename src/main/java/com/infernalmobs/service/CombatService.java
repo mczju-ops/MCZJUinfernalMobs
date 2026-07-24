@@ -8,6 +8,7 @@ import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -16,6 +17,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.EntityEquipment;
@@ -255,7 +257,7 @@ public class CombatService {
     public void onMobAttack(EntityDamageByEntityEvent event, LivingEntity damager, Player victim, MobState mobState) {
         double damageBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.DAMAGE_BONUS);
         if (damageBonus > 0) {
-            event.setDamage(event.getDamage() + damageBonus);
+            event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) + damageBonus);
         }
         triggerActiveSkills(damager, victim, mobState);
         triggerDualSkills(damager, victim, mobState);
@@ -287,7 +289,7 @@ public class CombatService {
 
             if (!state.useOneTimeIfNotUsed("1up")) continue;
 
-            event.setDamage(0);
+            event.setDamage(DamageModifier.BASE, 0);
             if (affix.getSkill() instanceof com.infernalmobs.skill.impl.Stat1upSkill skill) {
                 skill.trigger(victim, sc, state);
             }
@@ -371,7 +373,7 @@ public class CombatService {
         if (mob == null || !mob.isValid()) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
         event.setCancelled(true);
-        victim.damage(event.getDamage(), mob);
+        victim.damage(event.getFinalDamage(), mob);
     }
 
     private volatile long currentTick = 0;
@@ -393,6 +395,10 @@ public class CombatService {
                     // 范围技能降频：每 20 tick（1 秒）检测一次，降低高频扫描开销
                     if (currentTick % 20 == 0) {
                         tickRangeSkills(entity, e.getValue());
+                    }
+                    // dye 词条视觉：低频紫色 portal 粒子环绕
+                    if (currentTick % 10 == 0) {
+                        tickDyeAura(entity, e.getValue());
                     }
                     tickLifesteal(entity, e.getValue());
                 }
@@ -464,6 +470,32 @@ public class CombatService {
         if (attr == null) return;
         double ceiling = healCeiling(entity, state);
         entity.setHealth(Math.min(ceiling, entity.getHealth() + amount));
+    }
+
+    /** dye 词条：给怪物周身添加紫色 portal 粒子。 */
+    private void tickDyeAura(LivingEntity entity, MobState state) {
+        boolean hasDye = false;
+        for (Affix affix : state.getProfile().getAffixes()) {
+            if ("dye".equals(affix.getSkillId())) {
+                hasDye = true;
+                break;
+            }
+        }
+        if (!hasDye) return;
+
+        Location base = entity.getLocation();
+        double h = Math.max(0.8, entity.getHeight() * 0.5);
+        entity.getWorld().spawnParticle(
+                Particle.PORTAL,
+                base.getX(),
+                base.getY() + h,
+                base.getZ(),
+                16,
+                0.35,
+                0.45,
+                0.35,
+                0.15
+        );
     }
 
     /** 范围技能：玩家在范围内时按概率触发 */

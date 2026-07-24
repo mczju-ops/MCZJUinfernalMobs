@@ -3,6 +3,7 @@ package com.infernalmobs.command;
 import com.infernalmobs.InfernalMobsPlugin;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.factory.MobFactory;
+import com.infernalmobs.registry.SkillRegistry;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.util.MiniMessageHelper;
@@ -254,11 +255,18 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private List<String> validateSkillIds(List<String> ids) {
         if (ids.isEmpty()) return List.of();
         var configs = configLoader.getSkillConfigs();
-        return ids.stream().filter(id -> !configs.containsKey(id)).collect(Collectors.toList());
+        return ids.stream()
+                .filter(id -> !SkillRegistry.has(id) || !configs.containsKey(id))
+                .collect(Collectors.toList());
     }
 
     private List<String> getAllSkillIds() {
-        return new ArrayList<>(configLoader.getSkillConfigs().keySet());
+        var configs = configLoader.getSkillConfigs();
+        return SkillRegistry.getAll().stream()
+                .map(com.infernalmobs.skill.Skill::getId)
+                .filter(configs::containsKey)
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     private Location getSpawnLocation(Player player) {

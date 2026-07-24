@@ -26,6 +26,16 @@ public final class Keys {
     public static final NamespacedKey IM_THIEF_RESISTANCE = key("im_thief_resistance");
     /** 位移免疫过期 tick，Integer（Bukkit#getCurrentTick 基准） */
     public static final NamespacedKey IM_DISPLACEMENT_IMMUNITY_EXPIRES_AT = key("displacement_immunity_expires_at");
+    /** ender 技能禁用过期 tick，Integer（Bukkit#getCurrentTick 基准） */
+    public static final NamespacedKey IM_ENDER_SUPPRESSED_EXPIRES_AT = key("ender_suppressed_expires_at");
+    /** dye 词条抽中的染料 ID，String */
+    public static final NamespacedKey IM_DYE_ID = key("im_dye_id");
+    /** dye 词条抽中的方案 ID，String（由外部 Dye 插件分配） */
+    public static final NamespacedKey IM_DYE_SCHEME_ID = key("im_dye_scheme_id");
+    /** dye 词条死亡掉落物品 ID，String（用于 ICA createItem） */
+    public static final NamespacedKey IM_DYE_DROP_ITEM_ID = key("im_dye_drop_item_id");
+    /** dye 词条抽中的颜色十六进制（如 #55FFAA），String */
+    public static final NamespacedKey IM_DYE_HEX = key("im_dye_hex");
 
     // === MCZJUMagicItems 数据 ===
     /** 内置 ID，String，ItemCreator 的 magicItemId 写入此键 */

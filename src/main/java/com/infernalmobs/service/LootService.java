@@ -5,7 +5,7 @@ import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;
 import com.infernalmobs.config.SpecialLootConfig;
 import com.infernalmobs.util.MiniMessageHelper;
-import io.mczju.mczjuitemcreator.api.ItemCreatorApi;
+import com.infernalmobs.util.ItemCreatorBridge;
 import com.infernalmobs.model.MobState;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -24,23 +24,23 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 炒鸡怪特殊掉落：按 loot.yml 的等级区间 + rewards（id/amount/weight/commands），权重抽取后调用 ItemCreatorApi.createItem 发放。
+ * 炒鸡怪特殊掉落：按 loot.yml 的等级区间 + rewards（id/amount/weight/commands），权重抽取后调用可选 ItemCreator 发放。
  * 难打怪物额外掉落：按 config special-loot 配置，概率 = rates × 等级，可大于 1 表示保底+概率额外。
  */
 public class LootService {
 
     private final JavaPlugin plugin;
     private final LootConfig config;
-    private final ItemCreatorApi itemCreatorApi;
+    private final boolean itemCreatorAvailable;
 
-    public LootService(JavaPlugin plugin, LootConfig config, ItemCreatorApi itemCreatorApi) {
+    public LootService(JavaPlugin plugin, LootConfig config, boolean itemCreatorAvailable) {
         this.plugin = plugin;
         this.config = config;
-        this.itemCreatorApi = itemCreatorApi;
+        this.itemCreatorAvailable = itemCreatorAvailable;
     }
 
     public boolean isEnabled() {
-        return config != null && config.isEnable() && itemCreatorApi != null;
+        return config != null && config.isEnable() && itemCreatorAvailable;
     }
 
     /**
@@ -81,7 +81,7 @@ public class LootService {
                         if (chosen == null) break;
 
                         ItemStack toDrop = null;
-                        Optional<ItemStack> opt = itemCreatorApi.createItem(chosen.id, chosen.amount);
+                        Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, chosen.id, chosen.amount);
                         if (opt != null && opt.isPresent() && !opt.get().getType().isAir()) {
                             toDrop = opt.get().clone();
                         }
@@ -145,11 +145,9 @@ public class LootService {
 
     private ItemStack createSpecialLootItem(String id, int amount) {
         if (id == null || id.isEmpty() || amount < 1) return null;
-        if (itemCreatorApi != null) {
-            Optional<ItemStack> opt = itemCreatorApi.createItem(id, amount);
-            if (opt != null && opt.isPresent() && !opt.get().getType().isAir()) {
-                return opt.get();
-            }
+        Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, id, amount);
+        if (opt.isPresent() && !opt.get().getType().isAir()) {
+            return opt.get();
         }
         return null;
     }
@@ -178,8 +176,7 @@ public class LootService {
      */
     public void processGuaranteedDrop(GuaranteedLootConfig.GuaranteedRule rule,
                                       LivingEntity entity, Player killer, int level) {
-        if (itemCreatorApi == null) return;
-        Optional<ItemStack> opt = itemCreatorApi.createItem(rule.itemId, rule.itemAmount);
+        Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, rule.itemId, rule.itemAmount);
         if (opt == null || opt.isEmpty() || opt.get().getType().isAir()) return;
 
         ItemStack toDrop = opt.get().clone();
