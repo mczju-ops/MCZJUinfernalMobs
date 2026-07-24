@@ -86,6 +86,10 @@ public class StatMountedSkill implements Skill {
                 .filter(EntityType::isSpawnable)
                 .filter(t -> t.getEntityClass() != null && LivingEntity.class.isAssignableFrom(t.getEntityClass()))
                 .toList();
+        List<EntityType> riderPool = enabledRiders.stream()
+            .filter(EntityType::isSpawnable)
+            .filter(t -> t.getEntityClass() != null && LivingEntity.class.isAssignableFrom(t.getEntityClass()))
+            .toList();
 
         List<EntityType> mountPool = new ArrayList<>();
         mountPool.addAll(infernalPool);
@@ -123,6 +127,7 @@ public class StatMountedSkill implements Skill {
                     boolean mounted = mount.addPassenger(rider);
                     debugLog(ctx, "尝试坐骑 type=" + type + " infernal=" + infernalPool.contains(type) + " addPassenger=" + mounted);
                     if (mounted) {
+                        addInfernalCamelPassenger(ctx, mount, loc, riderPool);
                         debugLog(ctx, "挂载成功 rider=" + rider.getType() + " mount=" + type);
                         return;
                     }
@@ -132,6 +137,51 @@ public class StatMountedSkill implements Skill {
                 debugLog(ctx, "所有候选坐骑尝试失败 rider=" + rider.getType());
             }
         }.runTask(ctx.getPlugin());
+    }
+
+    private void addInfernalCamelPassenger(SkillContext ctx, Entity mount, Location loc,
+                                           List<EntityType> riderPool) {
+        if (mount.getType() != EntityType.CAMEL_HUSK) return;
+
+        List<Entity> passengers = mount.getPassengers();
+        if (passengers.size() >= 2) {
+            Entity secondPassenger = passengers.get(1);
+            if (secondPassenger instanceof LivingEntity passengerEntity) {
+                mechanizePassenger(ctx, passengerEntity, loc);
+                debugLog(ctx, "骆驼尸壳已有第二乘客，已炒鸡化 type=" + secondPassenger.getType());
+            }
+            return;
+        }
+
+        if (riderPool.isEmpty()) {
+            debugLog(ctx, "骆驼尸壳缺少第二乘客，且骑手白名单为空");
+            return;
+        }
+
+        List<EntityType> attempts = new ArrayList<>(riderPool);
+        Collections.shuffle(attempts, ThreadLocalRandom.current());
+        for (EntityType type : attempts) {
+            Entity passenger = mount.getWorld().spawnEntity(loc, type);
+            if (!(passenger instanceof LivingEntity passengerEntity)) {
+                passenger.remove();
+                continue;
+            }
+
+            mechanizePassenger(ctx, passengerEntity, loc);
+            boolean added = mount.addPassenger(passenger);
+                debugLog(ctx, "骆驼尸壳从骑手白名单生成第二乘客 type=" + type
+                    + " infernal=true addPassenger=" + added);
+            if (added) return;
+            passenger.remove();
+        }
+        debugLog(ctx, "骆驼尸壳所有炒鸡池候选均无法作为第二乘客");
+    }
+
+    private void mechanizePassenger(SkillContext ctx, LivingEntity passenger, Location loc) {
+        MobFactory factory = ctx.getMobFactory();
+        if (factory != null) {
+            factory.mechanizeWithLevelForced(passenger, loc, factory.computeLevelAt(loc));
+        }
     }
 
     @Override

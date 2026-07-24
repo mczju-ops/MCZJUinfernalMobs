@@ -844,6 +844,45 @@ skills:
     level-min: 1
     level-max: 10
 
+  spear:
+    type: RANGE
+    display: "&6Spear"
+    range: 10
+    chance: 0.25
+    cooldown-ticks: 100
+    charge-ticks: 48
+    lunge-ticks: 30
+    lunge-speed-amplifier: 4
+    damage: 8.0
+    hit-radius: 1.5
+    item: NETHERITE_SPEAR
+    enabled-holders:
+      - ZOMBIE
+      - HUSK
+      - DROWNED
+      - ZOMBIE_VILLAGER
+      - SKELETON
+      - STRAY
+      - WITHER_SKELETON
+      - PIGLIN
+      - PIGLIN_BRUTE
+      - ZOMBIFIED_PIGLIN
+      - VINDICATOR
+      - EVOKER
+
+  sulfur:
+    type: PASSIVE
+    display: "&eSulfur"
+    chance: 0.25
+    cooldown-ticks: 0
+    warn-ticks: 20
+    radius: 1.0
+    upward: 1.15
+    column-height: 2.5
+    sound-volume: 2.0
+    warn-sound: "BLOCK_BUBBLE_COLUMN_WHIRLPOOL_AMBIENT"
+    erupt-sound: "BLOCK_BUBBLE_COLUMN_UPWARDS_INSIDE"
+
   morph:
     type: DUAL
     display: "&5Morph"

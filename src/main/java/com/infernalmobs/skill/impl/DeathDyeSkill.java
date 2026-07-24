@@ -10,7 +10,7 @@ import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.util.Keys;
-import io.mczju.mczjuitemcreator.api.ItemCreatorApi;
+import com.infernalmobs.util.ItemCreatorBridge;
 import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -117,13 +117,12 @@ public class DeathDyeSkill implements Skill {
             return;
         }
 
-        ItemCreatorApi ica = resolveItemCreatorApi(ctx);
-        if (ica == null) {
+        if (!ItemCreatorBridge.isAvailable(ctx.getPlugin())) {
             debug(ctx, "onTrigger abort: ItemCreatorApi missing itemId=" + itemId + " entity=" + entityTag(ctx));
             return;
         }
-        Optional<ItemStack> opt = ica.createItem(itemId, amount);
-        if (opt == null || opt.isEmpty()) {
+        Optional<ItemStack> opt = ItemCreatorBridge.createItem(ctx.getPlugin(), itemId, amount);
+        if (opt.isEmpty()) {
             debug(ctx, "onTrigger abort: ICA createItem empty itemId=" + itemId + " amount=" + amount);
             return;
         }
@@ -267,12 +266,6 @@ public class DeathDyeSkill implements Skill {
             pdc.set(Keys.MI_ID, PersistentDataType.STRING, itemId);
             stack.setItemMeta(meta);
         }
-    }
-
-    private static ItemCreatorApi resolveItemCreatorApi(SkillContext ctx) {
-        if (ctx == null || ctx.getPlugin() == null) return null;
-        var rsp = ctx.getPlugin().getServer().getServicesManager().getRegistration(ItemCreatorApi.class);
-        return rsp != null ? rsp.getProvider() : null;
     }
 
     private static InfernalDyeApi resolveDyeApi(SkillContext ctx) {

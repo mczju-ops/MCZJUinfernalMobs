@@ -31,11 +31,11 @@
     </repositories>
 
     <dependencies>
-        <!-- Paper 26.2 (Minecraft 1.21.4) → 新版本号体系；含 Attribute.SCALE 等 API -->
+        <!-- Paper 26.2 API，与运行服务器 paper-26.2.jar 对齐。 -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.4-R0.1-SNAPSHOT</version>
+            <version>26.2.build.63-beta</version>
             <scope>provided</scope>
         </dependency>
         <!-- ItemCreator API：仅编译期依赖(provided)，运行时由 MCZJUItemCreator 插件通过 ServicesManager 提供。

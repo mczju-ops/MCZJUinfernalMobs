@@ -40,5 +40,15 @@ public final class HotbarCharmHelper {
         double chance = count == 2 ? 0.60 : 0.30;
         return ThreadLocalRandom.current().nextDouble() < chance;
     }
+
+    /**
+     * 重力护符力度衰减系数：无护符=1.0，1个=0.7，2个=0.4，3个=0.0。
+     */
+    public static double getGravityCharmResistanceFactor(Player player) {
+        int count = countHotbarByMiId(player, "gravity_charm");
+        if (count <= 0) return 1.0;
+        if (count >= 3) return 0.0;
+        return count == 2 ? 0.4 : 0.7;
+    }
 }
 
