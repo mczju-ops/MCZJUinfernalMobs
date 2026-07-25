@@ -308,7 +308,11 @@ public class CombatService {
             int cooldownTicks = sc.getInt("cooldown-ticks", affix.getSkill().getType() == SkillType.DUAL ? 60 : 0);
             if (cooldownTicks > 0) {
                 if (mobState.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-                mobState.setCooldown(affix.getSkillId(), currentTick + cooldownTicks);
+                // PASSIVE 技能自己管理冷却（如 sulfur 内置了完整的冷却逻辑），
+                // 不在外层预设置，避免先设冷却后技能内部检查冷却直接 return，导致技能永远无法触发
+                if (affix.getSkill().getType() != SkillType.PASSIVE) {
+                    mobState.setCooldown(affix.getSkillId(), currentTick + cooldownTicks);
+                }
             }
             SkillContext ctx = new SkillContext(plugin, victim, mobState);
             ctx.setTargetPlayer(damager);

@@ -7,12 +7,15 @@ import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.GameMode;
 import org.bukkit.Sound;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -51,6 +54,7 @@ public class RangeSpearSkill implements Skill {
         LivingEntity mob = ctx.getEntity();
         Player target = ctx.getTargetPlayer();
         if (mob == null || !mob.isValid() || target == null || !target.isOnline()) return;
+        if (target.getGameMode() == GameMode.CREATIVE || target.getGameMode() == GameMode.SPECTATOR) return;
 
         Set<EntityType> holders = parseEntityTypeSet(config, "enabled-holders");
         if (!holders.isEmpty() && !holders.contains(mob.getType())) return;
@@ -66,15 +70,15 @@ public class RangeSpearSkill implements Skill {
         int chargeTicks = Math.max(1, config.getInt("charge-ticks", 48));
         int lungeTicks = Math.max(1, config.getInt("lunge-ticks", 30));
         int speedAmplifier = config.getInt("lunge-speed-amplifier", 4);
-        double damage = config.getDouble("damage", 8.0);
+        int sharpnessLevel = Math.max(0, config.getInt("sharpness-level", 5));
         double hitRadius = config.getDouble("hit-radius", 1.5);
 
-        ItemStack spearItem = createSpearItem(config.getString("item", "NETHERITE_SPEAR"));
+        ItemStack spearItem = createSpearItem(config.getString("item", "NETHERITE_SPEAR"), sharpnessLevel);
         ItemStack savedHand = equip.getItemInMainHand();
         equip.setItemInMainHand(spearItem);
         equip.setItemInMainHandDropChance(0f);
 
-        mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_AMBIENT, 1.0f, 1.1f);
+        mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_STUNNED, 1.0f, 2.0f);
 
         new BukkitRunnable() {
             private int tick;
@@ -103,7 +107,7 @@ public class RangeSpearSkill implements Skill {
                         mob.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, ringLoc, 1, 0, 0, 0, 0);
                     }
                     if (tick == chargeTicks / 2) {
-                        mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_AMBIENT, 0.9f, 0.9f);
+                        mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_STUNNED, 1.0f, 2.0f);
                     }
                     tick++;
                     return;
@@ -112,7 +116,7 @@ public class RangeSpearSkill implements Skill {
                 if (!lunged) {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, lungeTicks, speedAmplifier,
                             false, false, true));
-                    mob.getWorld().playSound(mob.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_3, 1.2f, 1.0f);
+                    mob.getWorld().playSound(mob.getLocation(), Sound.ITEM_SPEAR_LUNGE_3, 1.0f, 2.0f);
                     lunged = true;
                 }
 
@@ -123,7 +127,7 @@ public class RangeSpearSkill implements Skill {
                 mob.getWorld().spawnParticle(Particle.CRIT, trailLoc, 2, 0.15, 0.1, 0.15, 0.02);
 
                 if (!hit && mob.getLocation().distanceSquared(target.getLocation()) <= hitRadius * hitRadius) {
-                    target.damage(damage, mob);
+                    target.damage(8.0, mob);
                     hit = true;
                 }
 
@@ -141,10 +145,20 @@ public class RangeSpearSkill implements Skill {
         }.runTaskTimer(ctx.getPlugin(), 0L, 1L);
     }
 
-    private ItemStack createSpearItem(String itemName) {
+    private ItemStack createSpearItem(String itemName, int sharpnessLevel) {
         try {
             Material material = Material.valueOf(itemName.trim().toUpperCase());
-            if (material.isItem()) return new ItemStack(material);
+            if (material.isItem()) {
+                ItemStack item = new ItemStack(material);
+                if (sharpnessLevel > 0) {
+                    ItemMeta meta = item.getItemMeta();
+                    if (meta != null) {
+                        meta.addEnchant(Enchantment.SHARPNESS, sharpnessLevel, true);
+                        item.setItemMeta(meta);
+                    }
+                }
+                return item;
+            }
         } catch (IllegalArgumentException | NullPointerException ignored) {
         }
         return new ItemStack(Material.NETHERITE_SPEAR);

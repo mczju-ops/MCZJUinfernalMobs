@@ -853,7 +853,7 @@ skills:
     charge-ticks: 48
     lunge-ticks: 30
     lunge-speed-amplifier: 4
-    damage: 8.0
+    sharpness-level: 5
     hit-radius: 1.5
     item: NETHERITE_SPEAR
     enabled-holders:
