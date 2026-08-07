@@ -92,7 +92,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         combatService.startTickTask();
 
         // 注册对外 API，供 MagicItems 等插件通过 ServicesManager 获取
-        infernalMobsApi = new InfernalMobsApiImpl(combatService);
+        infernalMobsApi = new InfernalMobsApiImpl(combatService, mobFactory);
         getServer().getServicesManager().register(InfernalMobsApi.class, infernalMobsApi, this, ServicePriority.Normal);
 
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {

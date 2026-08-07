@@ -2,10 +2,14 @@ package com.infernalmobs.api.impl;
 
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.InfernalMobsApi;
+import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
+import org.bukkit.Location;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -14,9 +18,11 @@ import java.util.Optional;
 public class InfernalMobsApiImpl implements InfernalMobsApi {
 
     private final CombatService combatService;
+    private final MobFactory mobFactory;
 
-    public InfernalMobsApiImpl(CombatService combatService) {
+    public InfernalMobsApiImpl(CombatService combatService, MobFactory mobFactory) {
         this.combatService = combatService;
+        this.mobFactory = mobFactory;
     }
 
     @Override
@@ -31,5 +37,14 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return Optional.empty();
         return Optional.of(new InfernalMobHandle(entity, state));
+    }
+
+    @Override
+    public LivingEntity spawnInfernalMob(EntityType type, Location location, int level, List<String> affixSkillIds) {
+        if (type == null || location == null || location.getWorld() == null) return null;
+        if (!(location.getWorld().spawnEntity(location, type) instanceof LivingEntity entity)) return null;
+        mobFactory.mechanizeWithAffixes(entity, location, level, affixSkillIds);
+        // 词条全无效或被生成事件取消时会保持普通怪，返回 null 表示未成功生成炒鸡怪
+        return combatService.getMobState(entity.getUniqueId()) != null ? entity : null;
     }
 }

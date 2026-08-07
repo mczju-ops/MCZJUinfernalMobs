@@ -10,8 +10,8 @@ import java.util.List;
  */
 public class MobProfile {
 
-    private final int level;
-    private final List<Affix> affixes;
+    private int level;
+    private List<Affix> affixes;
 
     public MobProfile(int level, List<Affix> affixes) {
         this.level = level;
@@ -24,5 +24,15 @@ public class MobProfile {
 
     public List<Affix> getAffixes() {
         return affixes;
+    }
+
+    /** 生成事件编辑等级时调用（装配前）。 */
+    public void setLevel(int level) {
+        this.level = level;
+    }
+
+    /** 生成事件编辑词条时调用（装配前）。 */
+    public void setAffixes(List<Affix> affixes) {
+        this.affixes = new ArrayList<>(affixes);
     }
 }
