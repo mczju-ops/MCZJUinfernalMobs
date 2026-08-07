@@ -570,8 +570,11 @@ public class CombatService {
 
     /**
      * 怪物死亡时触发 DEATH（亡语）技能。
+     *
+     * @param collectTo 非 null 时产出掉落类技能改为收集到此列表（聚合掉落事件用），否则直接掉落
      */
-    public void onMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState) {
+    public void onMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState,
+                           List<ItemStack> collectTo) {
         Player killer = entity.getKiller();
         for (Affix affix : mobState.getProfile().getAffixes()) {
             if (affix.getSkill().getType() != SkillType.DEATH) continue;
@@ -582,6 +585,7 @@ public class CombatService {
             ctx.setTriggerEvent(event);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
+            ctx.setCollectTo(collectTo);
             if (!fireAffixTriggerEvent(affix, sc, ctx, entity, killer, mobState)) continue;
             affix.getSkill().onTrigger(ctx, sc);
         }

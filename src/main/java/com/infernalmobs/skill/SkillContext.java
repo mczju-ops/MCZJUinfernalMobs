@@ -4,9 +4,11 @@ import com.infernalmobs.model.MobState;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -116,5 +118,21 @@ public class SkillContext {
         Object v = paramOverrides.get(key);
         if (v instanceof Number n) return n.doubleValue();
         return def;
+    }
+
+    // === 死亡掉落收集（InfernalMobDropEvent 聚合用）===
+
+    /**
+     * 死亡掉落的收集目标列表。非 null 时，产出掉落类技能（如 dye）改为加入此列表而非直接掉落到世界，
+     * 由 LootService 聚合后统一触发掉落事件再落世界。
+     */
+    private List<ItemStack> collectTo;
+
+    public List<ItemStack> getCollectTo() {
+        return collectTo;
+    }
+
+    public void setCollectTo(List<ItemStack> collectTo) {
+        this.collectTo = collectTo;
     }
 }
