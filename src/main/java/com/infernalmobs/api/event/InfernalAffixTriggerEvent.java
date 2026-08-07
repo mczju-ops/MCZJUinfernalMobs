@@ -6,6 +6,8 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -59,26 +61,31 @@ public class InfernalAffixTriggerEvent extends Event implements Cancellable {
     }
 
     /** 触发的词条 skillId（如 "gravity"）。 */
+    @NotNull
     public String getAffixId() {
         return affixId;
     }
 
     /** 词条技能类型。 */
+    @NotNull
     public SkillType getSkillType() {
         return skillType;
     }
 
     /** 触发技能的炒鸡怪实体。 */
+    @NotNull
     public LivingEntity getMob() {
         return mob;
     }
 
     /** 效果作用目标（玩家等）；死亡类技能可能是击杀者，可能为 null。 */
+    @Nullable
     public LivingEntity getTarget() {
         return target;
     }
 
     /** 炒鸡怪门面句柄（只读）。 */
+    @NotNull
     public InfernalMobHandle getHandle() {
         return handle;
     }
@@ -90,27 +97,29 @@ public class InfernalAffixTriggerEvent extends Event implements Cancellable {
 
     // === 参数袋 ===
 
-    public Object getParam(String key) {
+    @Nullable
+    public Object getParam(@NotNull String key) {
         return parameters.get(key);
     }
 
     /** 带默认值的参数读取；值为 null 或不存在时返回默认值。 */
     @SuppressWarnings("unchecked")
-    public <T> T getParam(String key, T def) {
+    public <T> T getParam(@NotNull String key, @NotNull T def) {
         Object v = parameters.get(key);
         return v != null ? (T) v : def;
     }
 
-    public boolean hasParam(String key) {
+    public boolean hasParam(@NotNull String key) {
         return parameters.containsKey(key);
     }
 
     /** 覆盖/修改参数。值需与该词条技能在 config.yml 中的参数类型一致（int / double / String 等）。 */
-    public void setParam(String key, Object value) {
+    public void setParam(@NotNull String key, @Nullable Object value) {
         parameters.put(key, value);
     }
 
     /** 参数袋只读视图。 */
+    @NotNull
     public Map<String, Object> getParams() {
         return Collections.unmodifiableMap(parameters);
     }

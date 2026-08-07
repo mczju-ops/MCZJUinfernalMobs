@@ -7,6 +7,8 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -41,11 +43,13 @@ public class InfernalMobDropEvent extends Event implements Cancellable {
     }
 
     /** 死亡的炒鸡怪实体。 */
+    @NotNull
     public LivingEntity getEntity() {
         return entity;
     }
 
     /** 门面句柄（只读：等级 / 词条）。 */
+    @NotNull
     public InfernalMobHandle getHandle() {
         return handle;
     }
@@ -56,11 +60,13 @@ public class InfernalMobDropEvent extends Event implements Cancellable {
     }
 
     /** 击杀玩家（环境杀等场景可能为 null）。 */
+    @Nullable
     public Player getKiller() {
         return killer;
     }
 
     /** 聚合后的插件掉落表（可变，追加 / 删除 / 替换物品）。 */
+    @NotNull
     public List<ItemStack> getDrops() {
         return drops;
     }

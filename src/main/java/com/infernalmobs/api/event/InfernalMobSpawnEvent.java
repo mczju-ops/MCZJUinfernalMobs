@@ -6,6 +6,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * 炒鸡怪生成事件：在某实体被炒鸡化时触发，时机在「等级/词条已计算」之后、
@@ -35,16 +36,19 @@ public class InfernalMobSpawnEvent extends Event implements Cancellable {
     }
 
     /** 被炒鸡化的实体。 */
+    @NotNull
     public LivingEntity getEntity() {
         return entity;
     }
 
     /** 门面句柄（可编辑等级 / 词条 / 显示名）。 */
+    @NotNull
     public InfernalMobHandle getHandle() {
         return handle;
     }
 
     /** 生成位置。 */
+    @NotNull
     public Location getLocation() {
         return location;
     }
