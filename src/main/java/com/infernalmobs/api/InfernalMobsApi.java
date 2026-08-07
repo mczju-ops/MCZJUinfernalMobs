@@ -3,6 +3,8 @@ package com.infernalmobs.api;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.util.Vector;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +39,19 @@ public interface InfernalMobsApi {
      * @return 成功生成并炒鸡化的实体；类型无效、位置无效、词条全无效或生成事件被取消时返回 null
      */
     LivingEntity spawnInfernalMob(EntityType type, Location location, int level, List<String> affixSkillIds);
+
+    /**
+     * 在指定位置生成一只指定类型 / 等级 / 词条的炒鸡怪，并施加初始速度（如钓海怪时上钩弹射）。
+     *
+     * @param type          实体类型
+     * @param location      生成位置
+     * @param level         等级
+     * @param affixSkillIds 词条 skillId 列表（应非空；无效 ID 会被忽略）
+     * @param velocity      初始速度；null 表示不施加
+     * @return 成功生成并炒鸡化的实体；类型无效、位置无效、词条全无效或生成事件被取消时返回 null
+     */
+    LivingEntity spawnInfernalMob(EntityType type, Location location, int level, List<String> affixSkillIds,
+                                  @Nullable Vector velocity);
 
     /** API 版本，供依赖方做兼容判断。 */
     default int apiVersion() {

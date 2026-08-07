@@ -8,6 +8,7 @@ import com.infernalmobs.service.CombatService;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.util.Vector;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,10 +42,20 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
 
     @Override
     public LivingEntity spawnInfernalMob(EntityType type, Location location, int level, List<String> affixSkillIds) {
+        return spawnInfernalMob(type, location, level, affixSkillIds, null);
+    }
+
+    @Override
+    public LivingEntity spawnInfernalMob(EntityType type, Location location, int level, List<String> affixSkillIds,
+                                         Vector velocity) {
         if (type == null || location == null || location.getWorld() == null) return null;
         if (!(location.getWorld().spawnEntity(location, type) instanceof LivingEntity entity)) return null;
         mobFactory.mechanizeWithAffixes(entity, location, level, affixSkillIds);
         // 词条全无效或被生成事件取消时会保持普通怪，返回 null 表示未成功生成炒鸡怪
-        return combatService.getMobState(entity.getUniqueId()) != null ? entity : null;
+        boolean infernal = combatService.getMobState(entity.getUniqueId()) != null;
+        if (infernal && velocity != null) {
+            entity.setVelocity(velocity);
+        }
+        return infernal ? entity : null;
     }
 }
