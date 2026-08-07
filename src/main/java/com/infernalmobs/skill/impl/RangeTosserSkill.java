@@ -5,7 +5,6 @@ import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.util.DisplacementImmunityHelper;
-import com.infernalmobs.util.HotbarCharmHelper;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -51,9 +50,7 @@ public class RangeTosserSkill implements Skill {
             force *= 0.5;
             up *= 0.5;
         }
-        // 快捷栏 gravity_charm 抵抗：1/2/3 个 = 30%/60%/100%
-        // 放在后面，优先让便宜判定（在线/模式/潜行/距离/削弱随机）先过滤
-        if (HotbarCharmHelper.resistedByGravityCharm(player)) return;
+        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixTriggerEvent(affixId=tosser) 接管
 
         player.setVelocity(toMob.multiply(force).setY(up));
 

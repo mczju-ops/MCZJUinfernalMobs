@@ -1,5 +1,7 @@
 package com.infernalmobs;
 
+import com.infernalmobs.api.InfernalMobsApi;
+import com.infernalmobs.api.impl.InfernalMobsApiImpl;
 import com.infernalmobs.command.InfernalMobCommand;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.DyeConfig;
@@ -16,11 +18,11 @@ import com.infernalmobs.config.GuaranteedLootConfig;
 import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.KillStatsService;
-import com.infernalmobs.service.MagicKingArmorService;
 import com.infernalmobs.service.MobLevelService;
 import com.infernalmobs.service.RegionService;
 import com.infernalmobs.service.SkillService;
 import com.infernalmobs.util.ItemCreatorBridge;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -39,12 +41,13 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
     private ConfigLoader configLoader;
     private CombatService combatService;
-    private MagicKingArmorService magicKingArmorService;
     private KillStatsService killStatsService;
     private GuaranteedLootService guaranteedLootService;
     private LootConfig lootConfig;
     private LootService lootService;
     private MobFactory mobFactory;
+    private SkillService skillService;
+    private InfernalMobsApi infernalMobsApi;
     private DyeConfig dyeConfig = DyeConfig.defaults();
 
     @Override
@@ -66,10 +69,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
         MobLevelService levelService = new MobLevelService(configLoader);
         AffixRollService affixRollService = new AffixRollService(configLoader);
-        SkillService skillService = new SkillService(this, configLoader);
-        magicKingArmorService = new MagicKingArmorService();
+        skillService = new SkillService(this, configLoader);
         combatService = new CombatService(this, configLoader);
-        combatService.setMagicKingArmorService(magicKingArmorService);
         killStatsService = new KillStatsService(this);
         killStatsService.load();
         DeathMessageService deathMessageService = new DeathMessageService(configLoader);
@@ -89,6 +90,10 @@ public class InfernalMobsPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
 
         combatService.startTickTask();
+
+        // 注册对外 API，供 MagicItems 等插件通过 ServicesManager 获取
+        infernalMobsApi = new InfernalMobsApiImpl(combatService);
+        getServer().getServicesManager().register(InfernalMobsApi.class, infernalMobsApi, this, ServicePriority.Normal);
 
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
             killStatsService.saveIfDirty();
@@ -189,10 +194,6 @@ public class InfernalMobsPlugin extends JavaPlugin {
         return combatService;
     }
 
-    public MagicKingArmorService getMagicKingArmorService() {
-        return magicKingArmorService;
-    }
-
     public LootService getLootService() {
         return lootService;
     }
@@ -207,5 +208,18 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
     public DyeConfig getDyeConfig() {
         return dyeConfig;
+    }
+
+    public MobFactory getMobFactory() {
+        return mobFactory;
+    }
+
+    public SkillService getSkillService() {
+        return skillService;
+    }
+
+    /** 对外 API（已注册到 ServicesManager）。 */
+    public InfernalMobsApi getInfernalMobsApi() {
+        return infernalMobsApi;
     }
 }

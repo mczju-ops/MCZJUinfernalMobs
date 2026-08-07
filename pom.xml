@@ -74,6 +74,9 @@
                 <configuration>
                     <release>21</release>
                     <encoding>UTF-8</encoding>
+                    <!-- JDK 25 下 plexus-compiler 进程内编译(javax.tools)会抛 ConcurrentModificationException；
+                         改用 fork 出进程 javac 编译以规避（见 JavaxToolsCompiler.compileInProcess 已知问题）。 -->
+                    <fork>true</fork>
                 </configuration>
             </plugin>
         </plugins>

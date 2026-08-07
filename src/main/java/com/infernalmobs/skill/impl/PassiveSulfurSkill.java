@@ -5,7 +5,6 @@ import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.util.DisplacementImmunityHelper;
-import com.infernalmobs.util.HotbarCharmHelper;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -96,9 +95,7 @@ public class PassiveSulfurSkill implements Skill {
                         if (!p.isOnline() || p.isDead()) continue;
                         if (p.equals(target)
                                 && DisplacementImmunityHelper.isImmuneAndCleanup(p, ctx.getCurrentTick())) continue;
-                        double factor = p.equals(target)
-                                ? HotbarCharmHelper.getGravityCharmResistanceFactor(p)
-                                : 1.0;
+                        double factor = 1.0;
                         if (ctx.isWeakened() && p.equals(target)) factor *= 0.5;
                         double up = upward * factor;
                         if (up > 0.01) {

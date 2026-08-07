@@ -4,7 +4,6 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import com.infernalmobs.util.HotbarCharmHelper;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -36,12 +35,11 @@ public class RangeGravitySkill implements Skill {
         if (target == null || !target.isOnline()) return;
         if (target.hasPotionEffect(PotionEffectType.LEVITATION)) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        // 快捷栏 gravity_charm 抵抗：1/2/3 个 = 30%/60%/100%
-        // 放在后面，先用便宜判定（在线/已有漂浮/削弱随机）过滤，减少背包扫描频率
-        if (HotbarCharmHelper.resistedByGravityCharm(target)) return;
+        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixTriggerEvent(affixId=gravity) 接管
 
-        int duration = config.getInt("duration-ticks", 60);
-        int amplifier = config.getInt("amplifier", 0);
+        // 从事件覆盖参数读取（监听器可改 duration-ticks / amplifier），未覆盖则回退 config
+        int duration = ctx.getIntParam("duration-ticks", config.getInt("duration-ticks", 60));
+        int amplifier = ctx.getIntParam("amplifier", config.getInt("amplifier", 0));
 
         target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, duration, amplifier, false, true));
 
