@@ -66,7 +66,7 @@
 <dependency>
     <groupId>com.github.mczju-ops</groupId>
     <artifactId>MCZJUinfernalMobs</artifactId>
-    <version>1.0.0</version>   <!-- 发布 tag；开发期可用 beta~event-api-rework-SNAPSHOT 或 commit hash -->
+    <version>1.0.1</version>   <!-- 发布 tag；开发期可用 beta~event-api-rework-SNAPSHOT 或 commit hash -->
     <scope>provided</scope>
 </dependency>
 ```
