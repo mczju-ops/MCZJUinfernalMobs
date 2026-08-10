@@ -1,0 +1,6 @@
+# JitPack 构建配置
+# 注意：paper-api 26.2 的 class 文件为 Java 25（major version 69）编译，
+# 编译期读取该 jar 必须使用 JDK 25+（JDK 21 会报 bad class file）。
+# JitPack 默认 JDK 为 8，必须显式指定。
+jdk:
+  - openjdk25

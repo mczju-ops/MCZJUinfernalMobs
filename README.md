@@ -8,6 +8,7 @@
 
 - [环境要求](#环境要求)
 - [快速开始](#快速开始)
+- [开发者对接（JitPack API）](#开发者对接jitpack-api)
 - [功能概览](#功能概览)
 - [词条（技能）一览](#词条技能一览)
 - [特殊道具](#特殊道具)
@@ -41,6 +42,36 @@
 2. 启动服务器，插件会自动在 `plugins/MCZJUinfernalMobs/` 生成所有配置文件。
 3. 编辑 `config.yml`，至少确认 `enabled-worlds` 中包含你的目标世界。
 4. 执行 `/im reload` 使配置生效。
+
+---
+
+## 开发者对接（JitPack API）
+
+本插件通过 **JitPack** 发布公开 API，其他插件（如 MagicItems、异色炒鸡、炒鸡渔夫）只需在 `pom.xml` 声明依赖即可编译，无需在本地手动部署 jar。
+
+1. 添加 JitPack 仓库：
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+```
+
+2. 添加依赖（`provided` 作用域即可，运行时由 InfernalMobs 插件本体提供实现）：
+
+```xml
+<dependency>
+    <groupId>com.github.mczju-ops</groupId>
+    <artifactId>MCZJUinfernalMobs</artifactId>
+    <version>1.0.1</version>   <!-- 发布 tag；开发期可用 beta~event-api-rework-SNAPSHOT 或 commit hash -->
+    <scope>provided</scope>
+</dependency>
+```
+
+3. 具体对接方式见 [docs/api.md](docs/api.md)：软依赖 + `ServicesManager` 获取 `InfernalMobsApi`。
 
 ---
 
