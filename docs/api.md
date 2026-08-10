@@ -12,7 +12,7 @@
 
 ### 1.1 编译期依赖（JitPack 发布）
 
-炒鸡插件 API 已发布到 JitPack，其他插件只需在 `pom.xml` 声明依赖（无需本地部署 jar）：
+对外 API 独立发布在 **MCZJUInfernalMobs-API** 项目（仅接口 / 事件 / 枚举），其他插件只需在 `pom.xml` 声明依赖（无需本地部署 jar）。插件本体在打包时已将 API shade 进自身 jar，因此运行时由插件本体提供实现、对接插件无需打包 API：
 
 ```xml
 <repositories>
@@ -25,8 +25,8 @@
 <dependencies>
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
-        <artifactId>MCZJUinfernalMobs</artifactId>
-        <version>1.0.1</version>   <!-- 发布 tag；开发期可用 beta~event-api-rework-SNAPSHOT 或 commit hash -->
+        <artifactId>MCZJUInfernalMobs-API</artifactId>
+        <version>1.0.0</version>   <!-- 发布 tag；开发期可用 master-SNAPSHOT 或 commit hash -->
         <scope>provided</scope>
     </dependency>
 </dependencies>

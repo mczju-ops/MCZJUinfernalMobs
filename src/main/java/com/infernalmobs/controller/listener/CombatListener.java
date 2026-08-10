@@ -130,7 +130,8 @@ public class CombatListener implements Listener {
                         killStatsService.addKill(uuid, pname, state.getProfile().getLevel());
                         deathMessageService.broadcastIfEnabled(entity, state, killer);
                         // 击杀事件（不可取消）：供自定义进度/成就插件监听（如「击杀带 xx+yy 词条的炒鸡怪」）
-                        InfernalMobHandle killHandle = new InfernalMobHandle(entity, state);
+                        InfernalMobHandle killHandle = new InfernalMobHandle(entity,
+                                state.getProfile().getLevel(), state.getProfile().getAffixIds());
                         InfernalMobKillEvent killEvent = new InfernalMobKillEvent(
                                 entity, killHandle, killer, state.getProfile().getLevel(), entity.getLocation());
                         plugin.getServer().getPluginManager().callEvent(killEvent);

@@ -26,6 +26,11 @@ public class MobProfile {
         return affixes;
     }
 
+    /** 词条 skillId 列表（供 API 门面等使用）。 */
+    public List<String> getAffixIds() {
+        return affixes.stream().map(Affix::getSkillId).toList();
+    }
+
     /** 生成事件编辑等级时调用（装配前）。 */
     public void setLevel(int level) {
         this.level = level;

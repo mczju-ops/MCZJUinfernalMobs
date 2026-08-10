@@ -599,7 +599,8 @@ public class CombatService {
     private boolean fireAffixTriggerEvent(Affix affix, SkillConfig sc, SkillContext ctx,
                                           LivingEntity mob, LivingEntity target, MobState state) {
         if (plugin == null) return true;
-        InfernalMobHandle handle = new InfernalMobHandle(mob, state);
+        InfernalMobHandle handle = new InfernalMobHandle(mob,
+                state.getProfile().getLevel(), state.getProfile().getAffixIds());
         InfernalAffixTriggerEvent event = new InfernalAffixTriggerEvent(
                 affix.getSkillId(), affix.getSkill().getType(), mob, target, handle,
                 state.getProfile().getLevel());

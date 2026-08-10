@@ -1,6 +1,5 @@
 package com.infernalmobs.api.impl;
 
-import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.InfernalMobsApi;
 import com.infernalmobs.factory.MobFactory;
@@ -38,7 +37,8 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         if (entity == null) return Optional.empty();
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return Optional.empty();
-        return Optional.of(new InfernalMobHandle(entity, state));
+        return Optional.of(new InfernalMobHandle(entity,
+                state.getProfile().getLevel(), state.getProfile().getAffixIds()));
     }
 
     @Override
@@ -46,9 +46,7 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         if (entity == null) return List.of();
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return List.of();
-        return state.getProfile().getAffixes().stream()
-                .map(Affix::getSkillId)
-                .toList();
+        return state.getProfile().getAffixIds();
     }
 
     @Override

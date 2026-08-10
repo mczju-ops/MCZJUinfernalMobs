@@ -276,7 +276,8 @@ public class MobFactory {
         MobProfile profile = new MobProfile(level, affixes);
         MobState mobState = new MobState(entity.getUniqueId(), profile, morphTargets);
 
-        InfernalMobHandle handle = new InfernalMobHandle(entity, mobState);
+        InfernalMobHandle handle = new InfernalMobHandle(entity,
+                mobState.getProfile().getLevel(), mobState.getProfile().getAffixIds());
         InfernalMobSpawnEvent spawnEvent = new InfernalMobSpawnEvent(entity, handle, loc, level);
         plugin.getServer().getPluginManager().callEvent(spawnEvent);
         if (spawnEvent.isCancelled()) return;
