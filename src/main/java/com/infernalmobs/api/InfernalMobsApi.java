@@ -30,6 +30,12 @@ public interface InfernalMobsApi {
     Optional<InfernalMobHandle> getHandle(LivingEntity entity);
 
     /**
+     * 直接查询炒鸡怪词条 skillId 列表；实体未炒鸡化时返回空列表
+     * （等价于 {@code getHandle(entity).map(InfernalMobHandle::getAffixIds).orElse(List.of())}）。
+     */
+    List<String> getAffixIds(LivingEntity entity);
+
+    /**
      * 在指定位置生成一只指定类型 / 等级 / 词条的炒鸡怪（同样会触发 {@code InfernalMobSpawnEvent}）。
      *
      * @param type          实体类型
