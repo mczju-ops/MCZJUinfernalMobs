@@ -10,7 +10,29 @@
 
 ## 1. 依赖与获取 API
 
-### 1.1 plugin.yml
+### 1.1 编译期依赖（JitPack 发布）
+
+炒鸡插件 API 已发布到 JitPack，其他插件只需在 `pom.xml` 声明依赖（无需本地部署 jar）：
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>com.github.mczju-ops</groupId>
+        <artifactId>MCZJUinfernalMobs</artifactId>
+        <version>1.0.0</version>   <!-- 发布 tag；开发期可用 beta~event-api-rework-SNAPSHOT 或 commit hash -->
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+```
+
+### 1.2 运行时 plugin.yml（软依赖）
 
 ```yaml
 name: MyPlugin
@@ -20,7 +42,7 @@ softdepend:
   - InfernalMobs        # 炒鸡插件 name
 ```
 
-### 1.2 获取 InfernalMobsApi
+### 1.3 获取 InfernalMobsApi
 
 炒鸡插件在 `onEnable` 通过 `ServicesManager` 注册了 `InfernalMobsApi`：
 
@@ -253,7 +275,7 @@ public void onFish(ProjectileHitEvent e) {
     if (hook.getHookedEntity() == null && hook.getShooter() instanceof Player) {
         // 上钩瞬间：把战利品置空并换成炒鸡怪（这里简化，实际按你的钓鱼流程）
         Location loc = hook.getLocation();
-        InfernalMobsApi api = ...; // 见 §1.2
+        InfernalMobsApi api = ...; // 见 §1.3
         if (api == null) return;
         api.spawnInfernalMob(
                 EntityType.GUARDIAN, loc, 12,

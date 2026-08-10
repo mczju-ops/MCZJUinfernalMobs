@@ -1,0 +1,5 @@
+# JitPack 构建配置
+# 本项目使用 Java 21（pom.xml 中 <release>21</release>），而 JitPack 默认 JDK 为 8，
+# 必须显式指定 openjdk21，否则编译失败。
+jdk:
+  - openjdk21
