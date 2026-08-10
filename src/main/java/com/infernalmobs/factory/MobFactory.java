@@ -1,6 +1,8 @@
 package com.infernalmobs.factory;
 
 import com.infernalmobs.affix.Affix;
+import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.api.event.InfernalMobSpawnEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.DeathMessageConfig;
 import com.infernalmobs.config.PresetConfig;
@@ -157,14 +159,7 @@ public class MobFactory {
 
         logMechanizeDebug("natural", entity, spawnLocation, region, preset, level, affixes);
 
-        MobProfile profile = new MobProfile(level, affixes);
-        MobState mobState = new MobState(entity.getUniqueId(), profile, morphTargets);
-
-        skillService.equip(entity, mobState, affixes, this);
-        combatService.applyStats(entity, mobState);
-        setMobDisplayName(entity, mobState);
-        setImLevelTag(entity, level);
-        combatService.registerMob(entity.getUniqueId(), mobState);
+        completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
     }
 
     /**
@@ -198,14 +193,7 @@ public class MobFactory {
 
         logMechanizeDebug("fixed-level", entity, spawnLocation, region, null, fixedLevel, affixes);
 
-        MobProfile profile = new MobProfile(fixedLevel, affixes);
-        MobState mobState = new MobState(entity.getUniqueId(), profile, morphTargets);
-
-        skillService.equip(entity, mobState, affixes, this);
-        combatService.applyStats(entity, mobState);
-        setMobDisplayName(entity, mobState);
-        setImLevelTag(entity, fixedLevel);
-        combatService.registerMob(entity.getUniqueId(), mobState);
+        completeMechanize(entity, spawnLocation, fixedLevel, affixes, morphTargets);
     }
 
     /**
@@ -223,14 +211,7 @@ public class MobFactory {
 
         logMechanizeDebug("required-affixes", entity, spawnLocation, region, null, level, affixes);
 
-        MobProfile profile = new MobProfile(level, affixes);
-        MobState mobState = new MobState(entity.getUniqueId(), profile, morphTargets);
-
-        skillService.equip(entity, mobState, affixes, this);
-        combatService.applyStats(entity, mobState);
-        setMobDisplayName(entity, mobState);
-        setImLevelTag(entity, level);
-        combatService.registerMob(entity.getUniqueId(), mobState);
+        completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
     }
 
     /**
@@ -248,14 +229,7 @@ public class MobFactory {
 
         logMechanizeDebug("excluded-affixes", entity, spawnLocation, region, null, level, affixes);
 
-        MobProfile profile = new MobProfile(level, affixes);
-        MobState mobState = new MobState(entity.getUniqueId(), profile, morphTargets);
-
-        skillService.equip(entity, mobState, affixes, this);
-        combatService.applyStats(entity, mobState);
-        setMobDisplayName(entity, mobState);
-        setImLevelTag(entity, level);
-        combatService.registerMob(entity.getUniqueId(), mobState);
+        completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
     }
 
     private List<String> getSkillExclusionsFor(EntityType type) {
@@ -289,13 +263,37 @@ public class MobFactory {
 
         logMechanizeDebug("fixed-affix-ids", entity, spawnLocation, region, null, level, affixes);
 
+        completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
+    }
+
+    /**
+     * 炒鸡怪化收尾：在「等级/词条已计算」之后、装配/数值/命名/注册之前广播
+     * {@link InfernalMobSpawnEvent}。监听器可取消（阻止炒鸡化，实体保持普通怪），
+     * 或通过 handle 修改等级 / 词条 / 显示名——修改会在后续装配与数值计算中生效。
+     */
+    private void completeMechanize(LivingEntity entity, Location loc, int level, List<Affix> affixes,
+                                   List<EntityType> morphTargets) {
         MobProfile profile = new MobProfile(level, affixes);
         MobState mobState = new MobState(entity.getUniqueId(), profile, morphTargets);
 
-        skillService.equip(entity, mobState, affixes, this);
+        InfernalMobHandle handle = new InfernalMobHandle(entity, mobState);
+        InfernalMobSpawnEvent spawnEvent = new InfernalMobSpawnEvent(entity, handle, loc, level);
+        plugin.getServer().getPluginManager().callEvent(spawnEvent);
+        if (spawnEvent.isCancelled()) return;
+
+        // 应用监听器修改（buildAffixesFromIds 与 roll 结果同样按难度+ID 排序，未编辑时顺序不变）
+        profile.setLevel(handle.getLevel());
+        profile.setAffixes(affixRollService.buildAffixesFromIds(handle.getAffixIds()));
+
+        skillService.equip(entity, mobState, profile.getAffixes(), this);
         combatService.applyStats(entity, mobState);
-        setMobDisplayName(entity, mobState);
-        setImLevelTag(entity, level);
+        if (handle.getDisplayName() != null) {
+            entity.customName(MiniMessageHelper.deserialize(handle.getDisplayName()));
+            entity.setCustomNameVisible(true);
+        } else {
+            setMobDisplayName(entity, mobState);
+        }
+        setImLevelTag(entity, profile.getLevel());
         combatService.registerMob(entity.getUniqueId(), mobState);
     }
 

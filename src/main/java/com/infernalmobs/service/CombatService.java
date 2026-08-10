@@ -1,6 +1,8 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
+import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.api.event.InfernalAffixTriggerEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
@@ -48,16 +50,11 @@ public class CombatService {
     /** 炒鸡怪捡起的物品（用于 replace-vanilla-drops 时恢复到死亡掉落） */
     private final Map<UUID, List<ItemStack>> pickedUpItems = new ConcurrentHashMap<>();
     private com.infernalmobs.factory.MobFactory mobFactory;
-    private MagicKingArmorService magicKingArmorService;
     private BukkitRunnable cleanupTask;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.config = config;
-    }
-
-    public void setMagicKingArmorService(MagicKingArmorService service) {
-        this.magicKingArmorService = service;
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
@@ -278,11 +275,6 @@ public class CombatService {
             if (sc == null) continue;
 
             double threshold = sc.getDouble("hp-threshold", 8);
-            if (magicKingArmorService != null && event instanceof EntityDamageByEntityEvent edbe) {
-                org.bukkit.entity.Entity damager = edbe.getDamager();
-                if (damager instanceof org.bukkit.entity.Projectile proj && proj.getShooter() instanceof org.bukkit.entity.Player p) damager = p;
-                if (damager instanceof Player p && magicKingArmorService.isWeakened(p, "1up")) threshold = threshold / 2.0;
-            }
             double healthAfter = victim.getHealth() - event.getFinalDamage();
             if (healthAfter > threshold) continue;   // 还在阈值以上，不触发
             if (healthAfter <= 0) continue;          // 致命一击，不拦截，让怪直接死亡
@@ -319,7 +311,7 @@ public class CombatService {
             ctx.setTriggerEvent(event);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(damager, affix.getSkillId()));
+            if (!fireAffixTriggerEvent(affix, sc, ctx, victim, damager, mobState)) continue;
             affix.getSkill().onTrigger(ctx, sc);
 
             // lifesteal: 受击后设置回血 buff（削弱时 50% 概率不触发）
@@ -533,7 +525,7 @@ public class CombatService {
             ctx.setTargetPlayer(target);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(target, affix.getSkillId()));
+            if (!fireAffixTriggerEvent(affix, sc, ctx, entity, target, state)) continue;
             affix.getSkill().onTrigger(ctx, sc);
         }
     }
@@ -553,7 +545,7 @@ public class CombatService {
             ctx.setTargetPlayer(victim);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(victim, affix.getSkillId()));
+            if (!fireAffixTriggerEvent(affix, sc, ctx, damager, victim, state)) continue;
             affix.getSkill().onTrigger(ctx, sc);
         }
     }
@@ -571,15 +563,18 @@ public class CombatService {
             ctx.setTargetPlayer(victim);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (magicKingArmorService != null) ctx.setWeakened(magicKingArmorService.isWeakened(victim, affix.getSkillId()));
+            if (!fireAffixTriggerEvent(affix, sc, ctx, damager, victim, state)) continue;
             affix.getSkill().onTrigger(ctx, sc);
         }
     }
 
     /**
      * 怪物死亡时触发 DEATH（亡语）技能。
+     *
+     * @param collectTo 非 null 时产出掉落类技能改为收集到此列表（聚合掉落事件用），否则直接掉落
      */
-    public void onMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState) {
+    public void onMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState,
+                           List<ItemStack> collectTo) {
         Player killer = entity.getKiller();
         for (Affix affix : mobState.getProfile().getAffixes()) {
             if (affix.getSkill().getType() != SkillType.DEATH) continue;
@@ -590,8 +585,33 @@ public class CombatService {
             ctx.setTriggerEvent(event);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
+            ctx.setCollectTo(collectTo);
+            if (!fireAffixTriggerEvent(affix, sc, ctx, entity, killer, mobState)) continue;
             affix.getSkill().onTrigger(ctx, sc);
         }
+    }
+
+    /**
+     * 在词条技能真正生效前触发 {@link InfernalAffixTriggerEvent}。
+     * 返回 false 表示事件被取消（本次技能触发应被跳过）。
+     * 参数袋以技能配置为初始值；若监听器修改了参数，则写入上下文供技能在应用效果时读取。
+     */
+    private boolean fireAffixTriggerEvent(Affix affix, SkillConfig sc, SkillContext ctx,
+                                          LivingEntity mob, LivingEntity target, MobState state) {
+        if (plugin == null) return true;
+        InfernalMobHandle handle = new InfernalMobHandle(mob, state);
+        InfernalAffixTriggerEvent event = new InfernalAffixTriggerEvent(
+                affix.getSkillId(), affix.getSkill().getType(), mob, target, handle,
+                state.getProfile().getLevel());
+        if (sc != null && sc.getSection() != null) {
+            for (String key : sc.getSection().getKeys(false)) {
+                event.setParam(key, sc.getSection().get(key));
+            }
+        }
+        plugin.getServer().getPluginManager().callEvent(event);
+        if (event.isCancelled()) return false;
+        ctx.setParamOverrides(event.getParams());
+        return true;
     }
 
     /**

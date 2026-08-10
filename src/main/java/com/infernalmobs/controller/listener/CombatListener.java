@@ -1,6 +1,8 @@
 package com.infernalmobs.controller.listener;
 
 import com.infernalmobs.InfernalMobsPlugin;
+import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.api.event.InfernalMobKillEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.ProtectedAnimalsConfig;
 import com.infernalmobs.model.MobState;
@@ -31,6 +33,9 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.world.EntitiesUnloadEvent;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 战斗事件监听，将事件委托给 CombatService 处理。
@@ -87,7 +92,10 @@ public class CombatListener implements Listener {
             LivingEntity entity = (LivingEntity) event.getEntity();
             MobState state = combatService.getMobState(entity.getUniqueId());
             if (state != null) {
-                combatService.onMobDeath(event, entity, state);
+                // 玩家击杀时才聚合死亡掉落（染料/等级池/special/保底）到一张表，统一触发 InfernalMobDropEvent 后落世界
+                Player killer = entity.getKiller();
+                List<ItemStack> pluginDrops = new ArrayList<>();
+                combatService.onMobDeath(event, entity, state, killer != null ? pluginDrops : null);
                 ProtectedAnimalsConfig protectedAnimalsConfig = null;
                 if (plugin instanceof InfernalMobsPlugin im) {
                     protectedAnimalsConfig = im.getConfigLoader().getProtectedAnimalsConfig();
@@ -106,7 +114,6 @@ public class CombatListener implements Listener {
                     broadcastProtectedAnimalWarning(entity, protectedAnimalsConfig);
                 } else {
                     // 与原版一致：getKiller() 为「最近对该实体造成伤害的玩家」记名（几秒内参与过即可），不要求最后一击是玩家（如摔死、环境杀）
-                    Player killer = entity.getKiller();
                     if (killer != null) {
                         // 玩家击杀：经验缩放、战利品、统计、保底、播报
                         if (plugin instanceof InfernalMobsPlugin im) {
@@ -122,6 +129,11 @@ public class CombatListener implements Listener {
                         String pname = killer.getName();
                         killStatsService.addKill(uuid, pname, state.getProfile().getLevel());
                         deathMessageService.broadcastIfEnabled(entity, state, killer);
+                        // 击杀事件（不可取消）：供自定义进度/成就插件监听（如「击杀带 xx+yy 词条的炒鸡怪」）
+                        InfernalMobHandle killHandle = new InfernalMobHandle(entity, state);
+                        InfernalMobKillEvent killEvent = new InfernalMobKillEvent(
+                                entity, killHandle, killer, state.getProfile().getLevel(), entity.getLocation());
+                        plugin.getServer().getPluginManager().callEvent(killEvent);
                         LootService loot = plugin instanceof InfernalMobsPlugin im ? im.getLootService() : null;
                         // 保底掉落：先于常规抽取，以 dropItemNaturally 掉落在地并触发命令/广播
                         GuaranteedLootService guaranteedLootService = plugin instanceof InfernalMobsPlugin im
@@ -132,13 +144,13 @@ public class CombatListener implements Listener {
                         if (guaranteedLootService != null && loot != null) {
                             for (com.infernalmobs.config.GuaranteedLootConfig.GuaranteedRule rule
                                     : guaranteedLootService.collectTriggered(uuid, pname, mobLevel, deathLootRolls)) {
-                                loot.processGuaranteedDrop(rule, entity, killer, mobLevel);
+                                loot.processGuaranteedDrop(rule, entity, killer, mobLevel, pluginDrops);
                             }
                         }
                         // 常规等级池抽取（与保底共用同一次 drop-times roll）
                         boolean vanillaDropsCleared = false;
                         if (loot != null) {
-                            vanillaDropsCleared = loot.onInfernalMobDeath(event, entity, state, deathLootRolls);
+                            vanillaDropsCleared = loot.onInfernalMobDeath(event, entity, state, deathLootRolls, pluginDrops);
                         }
                         // 若开启了 replace-vanilla-drops 清空原版掉落，则补回「当前仍装备」且本插件记录过的拾取物（不含已扔掉的）
                         if (vanillaDropsCleared) {
@@ -147,6 +159,10 @@ public class CombatListener implements Listener {
                                     event.getDrops().add(picked);
                                 }
                             }
+                        }
+                        // 聚合的插件掉落：触发掉落事件（可追加/删除/取消）后统一落世界
+                        if (loot != null) {
+                            loot.flushDeathDrops(entity, state, killer, pluginDrops);
                         }
                     } else {
                         // 非玩家击杀：清空炒鸡经验加成与原版掉落，仅播报抢人头

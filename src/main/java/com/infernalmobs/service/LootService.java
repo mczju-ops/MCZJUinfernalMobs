@@ -1,5 +1,7 @@
 package com.infernalmobs.service;
 
+import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.api.event.InfernalMobDropEvent;
 import com.infernalmobs.config.GuaranteedLootConfig;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;
@@ -60,8 +62,10 @@ public class LootService {
      * 炒鸡怪死亡时：按等级表权重抽一条掉落；难打怪（ravager/warden 等）再额外掉落 special_loot。
      *
      * @param preRolledDropTimes 已由 {@link #rollDeathLootTimes(int)} 与保底共用的一次结果；传入 -1 则在内部单独 roll（不推荐）
+     * @param collect            非 null 时改为收集到该列表（聚合掉落事件），否则直接掉落
      */
-    public boolean onInfernalMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState, int preRolledDropTimes) {
+    public boolean onInfernalMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState,
+                                      int preRolledDropTimes, List<ItemStack> collect) {
         boolean vanillaDropsCleared = false;
         // 1. 等级表按权重掉落（与普通炒鸡怪相同）
         if (isEnabled()) {
@@ -87,7 +91,7 @@ public class LootService {
                         }
 
                         if (toDrop != null && !toDrop.getType().isAir()) {
-                            dropInvulnerable(entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop));
+                            collectDrop(collect, entity, toDrop);
                             for (String cmd : chosen.commands) {
                                 if (cmd == null || cmd.isEmpty()) continue;
                                 String run = cmd.replace("{player}", playerName);
@@ -103,12 +107,13 @@ public class LootService {
         }
 
         // 2. 难打怪物额外特殊战利品（独立于等级池，仅部分实体类型）
-        dropSpecialLootIfApplicable(event, entity, mobState);
+        dropSpecialLootIfApplicable(event, entity, mobState, collect);
         return vanillaDropsCleared;
     }
 
     /** 难打怪物额外特殊战利品：概率 = rate × 等级，可 >1 表示保底+小数概率额外。 */
-    private void dropSpecialLootIfApplicable(EntityDeathEvent event, LivingEntity entity, MobState mobState) {
+    private void dropSpecialLootIfApplicable(EntityDeathEvent event, LivingEntity entity, MobState mobState,
+                                             List<ItemStack> collect) {
         SpecialLootConfig slc = config.getSpecialLootConfig();
         if (slc == null || !slc.enable() || slc.rates().isEmpty()) return;
         double rate = slc.getRate(entity.getType().name());
@@ -119,7 +124,33 @@ public class LootService {
         if (amount <= 0) return;
         ItemStack toDrop = createSpecialLootItem(slc.itemId(), amount);
         if (toDrop != null && !toDrop.getType().isAir()) {
-            dropInvulnerable(entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop));
+            collectDrop(collect, entity, toDrop);
+        }
+    }
+
+    /** 聚合时加入掉落表，否则直接以无敌实体掉落在世界。 */
+    private static void collectDrop(List<ItemStack> collect, LivingEntity entity, ItemStack stack) {
+        if (collect != null) {
+            collect.add(stack);
+        } else {
+            dropInvulnerable(entity.getWorld().dropItemNaturally(entity.getLocation(), stack));
+        }
+    }
+
+    /**
+     * 聚合的死亡掉落统一落世界：先广播 {@link InfernalMobDropEvent}（监听器可追加 / 删除 / 取消），
+     * 未被取消则逐个以无敌实体掉落在怪物位置。
+     */
+    public void flushDeathDrops(LivingEntity entity, MobState mobState, Player killer, List<ItemStack> drops) {
+        if (drops == null || drops.isEmpty()) return;
+        InfernalMobHandle handle = new InfernalMobHandle(entity, mobState);
+        InfernalMobDropEvent dropEvent = new InfernalMobDropEvent(
+                entity, handle, mobState.getProfile().getLevel(), killer, drops);
+        plugin.getServer().getPluginManager().callEvent(dropEvent);
+        if (dropEvent.isCancelled()) return;
+        for (ItemStack stack : dropEvent.getDrops()) {
+            if (stack == null || stack.getType().isAir() || stack.getAmount() <= 0) continue;
+            dropInvulnerable(entity.getWorld().dropItemNaturally(entity.getLocation(), stack));
         }
     }
 
@@ -175,12 +206,13 @@ public class LootService {
      * @param level    怪物等级（用于广播模板）
      */
     public void processGuaranteedDrop(GuaranteedLootConfig.GuaranteedRule rule,
-                                      LivingEntity entity, Player killer, int level) {
+                                      LivingEntity entity, Player killer, int level,
+                                      List<ItemStack> collect) {
         Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, rule.itemId, rule.itemAmount);
         if (opt == null || opt.isEmpty() || opt.get().getType().isAir()) return;
 
         ItemStack toDrop = opt.get().clone();
-        dropInvulnerable(entity.getWorld().dropItemNaturally(entity.getLocation(), toDrop));
+        collectDrop(collect, entity, toDrop);
 
         // 在当前怪等级的 loot 池里查找同名条目，获取命令和广播配置
         if (config != null) {

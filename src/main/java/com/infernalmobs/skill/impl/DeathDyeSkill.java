@@ -134,8 +134,14 @@ public class DeathDyeSkill implements Skill {
         }
         ensureMagicItemId(stack, itemId);
 
-        Item drop = ctx.getEntity().getWorld().dropItemNaturally(ctx.getEntity().getLocation(), stack);
-        if (drop != null) drop.setInvulnerable(true);
+        // 玩家击杀且正在聚合掉落时，收集进掉落表（由 InfernalMobDropEvent 统一落世界）；否则直接掉落
+        java.util.List<ItemStack> collect = ctx.getCollectTo();
+        if (collect != null) {
+            collect.add(stack);
+        } else {
+            Item drop = ctx.getEntity().getWorld().dropItemNaturally(ctx.getEntity().getLocation(), stack);
+            if (drop != null) drop.setInvulnerable(true);
+        }
         debug(ctx, "onTrigger drop success itemId=" + itemId + " amount=" + stack.getAmount() + " entity=" + entityTag(ctx));
     }
 
