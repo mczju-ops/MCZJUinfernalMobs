@@ -82,6 +82,9 @@ public final class MyPlugin extends JavaPlugin {
 | `boolean isInfernal(LivingEntity entity)` | 实体是否已被炒鸡化 |
 | `Optional<InfernalMobHandle> getHandle(LivingEntity entity)` | 获取炒鸡怪门面句柄（未炒鸡化为空） |
 | `List<String> getAffixIds(LivingEntity entity)` | 直接查询炒鸡怪词条 skillId 列表（未炒鸡化为空列表） |
+| `boolean isAffixSuppressed(LivingEntity entity, String skillId)` | 查询某个词条是否被禁用（未炒鸡化返回 `false`） |
+| `void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed)` | 设定词条禁用状态（未炒鸡化无效） |
+| `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条 |
 | `String getAffixDisplayName(String affixId)` | 查询词条显示名（优先 `skill_name.yml`，否则 `config.yml` 的 `display`，再退回英文 `id`） |
 | `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名 |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`） |
@@ -90,7 +93,7 @@ public final class MyPlugin extends JavaPlugin {
 
 `spawnInfernalMob` 返回 `null` 表示生成失败（类型/位置无效、词条全无效、或生成事件被取消）。
 
-**示例：查询生物是否为炒鸡、带哪些词条（异色炒鸡 / MagicItems 可用）**
+**示例：查询生物是否为炒鸡、带哪些词条，并判断是否被禁用（异色炒鸡 / MagicItems 可用）**
 ```java
 // 是不是炒鸡
 if (!api.isInfernal(mob)) return;
@@ -101,6 +104,13 @@ if (affixIds.contains(InfernalAffix.WITHERING.id())) {
     // 带 withering 词条
 }
 
+boolean suppressed = api.isAffixSuppressed(mob, InfernalAffix.WITHERING.id());
+if (suppressed) {
+    // 该词条当前被插件禁用
+}
+
+api.setAffixSuppressed(mob, InfernalAffix.WITHERING.id(), true);
+
 String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 // 例如："<dark_purple>凋零</dark_purple>" 或 "withering"
 
@@ -108,6 +118,8 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 api.getHandle(mob).ifPresent(handle -> {
     int level = handle.getLevel();
     List<String> ids = handle.getAffixIds();
+    boolean isSuppressed = handle.isAffixSuppressed(InfernalAffix.WITHERING.id());
+    handle.setAffixSuppressed(InfernalAffix.WITHERING.id(), false);
 });
 ```
 
@@ -121,6 +133,9 @@ public final class InfernalMobHandle {
     List<String> getAffixIds();                // 词条 skillId 列表（只读）
     void setAffixes(List<String> skillIds);    // 覆盖词条
     boolean hasAffix(String skillId);          // 是否含某词条（忽略大小写）
+    boolean isAffixSuppressed(String skillId); // 是否被禁用（忽略大小写）
+    void setAffixSuppressed(String skillId, boolean suppressed); // 更新禁用状态
+    void setAffixSuppressed(String skillId);   // 便捷：直接禁用
     String getDisplayName();                   // 自定义显示名（MiniMessage），null=默认
     void setDisplayName(String miniMessage);   // 设置自定义显示名
 }

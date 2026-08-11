@@ -41,8 +41,12 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         if (entity == null) return Optional.empty();
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return Optional.empty();
-        return Optional.of(new InfernalMobHandle(entity,
-                state.getProfile().getLevel(), state.getProfile().getAffixIds()));
+        return Optional.of(new InfernalMobHandle(
+                entity,
+                state.getProfile().getLevel(),
+                state.getProfile().getAffixIds(),
+                state.getSuppressedAffixes()
+        ));
     }
 
     @Override
@@ -51,6 +55,22 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return List.of();
         return state.getProfile().getAffixIds();
+    }
+
+    @Override
+    public boolean isAffixSuppressed(LivingEntity entity, String skillId) {
+        if (entity == null || skillId == null) return false;
+        MobState state = combatService.getMobState(entity.getUniqueId());
+        return state != null && state.isAffixSuppressed(skillId);
+    }
+
+    @Override
+    public void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed) {
+        if (entity == null || skillId == null) return;
+        MobState state = combatService.getMobState(entity.getUniqueId());
+        if (state == null) return;
+        if (suppressed) state.suppressAffix(skillId);
+        else state.unsuppressAffix(skillId);
     }
 
     @Override
