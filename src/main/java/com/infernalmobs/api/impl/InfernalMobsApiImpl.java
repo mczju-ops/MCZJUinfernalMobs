@@ -2,6 +2,8 @@ package com.infernalmobs.api.impl;
 
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.InfernalMobsApi;
+import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
@@ -20,10 +22,12 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
 
     private final CombatService combatService;
     private final MobFactory mobFactory;
+    private final ConfigLoader configLoader;
 
-    public InfernalMobsApiImpl(CombatService combatService, MobFactory mobFactory) {
+    public InfernalMobsApiImpl(CombatService combatService, MobFactory mobFactory, ConfigLoader configLoader) {
         this.combatService = combatService;
         this.mobFactory = mobFactory;
+        this.configLoader = configLoader;
     }
 
     @Override
@@ -47,6 +51,20 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return List.of();
         return state.getProfile().getAffixIds();
+    }
+
+    @Override
+    public String getAffixDisplayName(String affixId) {
+        if (affixId == null || affixId.isBlank()) return "";
+        if (configLoader == null) return affixId;
+        SkillConfig skillConfig = configLoader.getSkillConfig(affixId);
+        String display = configLoader.getSkillDisplay(affixId, skillConfig);
+        return display == null || display.isBlank() ? affixId : display;
+    }
+
+    @Override
+    public String getSkillDisplayName(String skillId) {
+        return getAffixDisplayName(skillId);
     }
 
     @Override

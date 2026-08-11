@@ -82,6 +82,8 @@ public final class MyPlugin extends JavaPlugin {
 | `boolean isInfernal(LivingEntity entity)` | 实体是否已被炒鸡化 |
 | `Optional<InfernalMobHandle> getHandle(LivingEntity entity)` | 获取炒鸡怪门面句柄（未炒鸡化为空） |
 | `List<String> getAffixIds(LivingEntity entity)` | 直接查询炒鸡怪词条 skillId 列表（未炒鸡化为空列表） |
+| `String getAffixDisplayName(String affixId)` | 查询词条显示名（优先 `skill_name.yml`，否则 `config.yml` 的 `display`，再退回英文 `id`） |
+| `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名 |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`） |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射） |
 | `int apiVersion()` | API 版本（当前 1） |
@@ -98,6 +100,9 @@ List<String> affixIds = api.getAffixIds(mob);
 if (affixIds.contains(InfernalAffix.WITHERING.id())) {
     // 带 withering 词条
 }
+
+String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
+// 例如："<dark_purple>凋零</dark_purple>" 或 "withering"
 
 // 或走门面句柄，顺带拿等级
 api.getHandle(mob).ifPresent(handle -> {

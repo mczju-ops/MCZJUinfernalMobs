@@ -73,6 +73,24 @@
 
 3. 具体对接方式见 [docs/api.md](docs/api.md)：软依赖 + `ServicesManager` 获取 `InfernalMobsApi`。
 
+示例：
+
+```java
+import com.infernalmobs.api.InfernalAffix;
+import com.infernalmobs.api.InfernalMobsApi;
+
+if (api == null) return;
+
+List<String> affixIds = api.getAffixIds(mob);
+if (affixIds.contains(InfernalAffix.WITHERING.id())) {
+    // 这是带凋零词条的炒鸡怪
+}
+
+String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
+// 优先返回 skill_name.yml 中配置的值；否则 config.yml 的 display；再退回英文 id
+// 例："<dark_purple>凋零</dark_purple>"
+```
+
 ---
 
 ## 功能概览
