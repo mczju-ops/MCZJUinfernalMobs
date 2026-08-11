@@ -17,7 +17,7 @@
         <itemcreator.groupId>com.github.tozero0</itemcreator.groupId>
         <itemcreator.artifactId>itemcreator-api</itemcreator.artifactId>
         <itemcreator.version>1.0.0</itemcreator.version>
-        <infernalapi.version>1.0.0</infernalapi.version>
+        <infernalapi.version>1.1.0</infernalapi.version>
     </properties>
 
     <repositories>
