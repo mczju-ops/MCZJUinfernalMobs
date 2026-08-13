@@ -71,6 +71,8 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         if (state == null) return;
         if (suppressed) state.suppressAffix(skillId);
         else state.unsuppressAffix(skillId);
+        // 刷新头顶名：被禁词条在悬停中显示删除线，保证外部插件（如 MagicItems）通过 API 禁用词条时视觉一致
+        if (mobFactory != null) mobFactory.refreshDisplayName(entity, state);
     }
 
     @Override

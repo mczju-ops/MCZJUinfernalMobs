@@ -37,6 +37,7 @@ public class DualWeaknessSkill implements Skill {
         int duration = config.getInt("duration-ticks", 500);
         int amplifier = config.getInt("amplifier", 1);
         if (ctx.isWeakened()) duration = Math.max(1, duration / 2);
+        ctx.setTriggered(true);  // 无概率判定，每次进入都视为已触发，保留 cooldown 节流
 
         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, duration, amplifier, false, true));
     }

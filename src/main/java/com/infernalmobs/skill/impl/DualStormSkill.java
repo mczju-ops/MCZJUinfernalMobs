@@ -36,6 +36,7 @@ public class DualStormSkill implements Skill {
         double chance = config.getDouble("chance", 0.22);
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
+        ctx.setTriggered(true);
 
         target.getWorld().strikeLightning(target.getLocation());
     }
