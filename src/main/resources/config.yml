@@ -12,15 +12,6 @@ debug: false
 # 设为 0 则不修改原版经验；设为 1.0 表示每 1 级经验翻 1 倍（例：15 级怪 × 1.0 = 15 倍经验）
 exp-multiplier: 5
 
-# 全知之眼的射线判定距离（格），默认 20
-infernal-eye:
-  range: 20
-
-# 幻形之锁（morph_controller，ItemCreator mi_id）：右键空气/方块时按准星射线延伸距离（格），便于略超原版右键实体距离。
-# 设为 0 则关闭射线，仅能通过原版近距离右键实体使用。不影响已成功右键实体时的行为。
-morph-controller:
-  ray-range: 8
-
 # 启用炒鸡怪刷怪的世界名称列表（无区域配置时的全局开关）
 enabled-worlds:
   - SuperResource

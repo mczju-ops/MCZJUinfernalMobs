@@ -17,6 +17,7 @@
         <itemcreator.groupId>com.github.tozero0</itemcreator.groupId>
         <itemcreator.artifactId>itemcreator-api</itemcreator.artifactId>
         <itemcreator.version>1.0.0</itemcreator.version>
+        <infernalapi.version>1.1.0</infernalapi.version>
     </properties>
 
     <repositories>
@@ -45,6 +46,13 @@
             <artifactId>${itemcreator.artifactId}</artifactId>
             <version>${itemcreator.version}</version>
             <scope>provided</scope>
+        </dependency>
+        <!-- InfernalMobs 对外 API：编译期依赖（独立项目 MCZJUInfernalMobs-API 发布到 JitPack），打包时 shade 进插件 jar。 -->
+        <dependency>
+            <groupId>com.github.mczju-ops</groupId>
+            <artifactId>MCZJUInfernalMobs-API</artifactId>
+            <version>${infernalapi.version}</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
@@ -78,6 +86,39 @@
                          改用 fork 出进程 javac 编译以规避（见 JavaxToolsCompiler.compileInProcess 已知问题）。 -->
                     <fork>true</fork>
                 </configuration>
+            </plugin>
+            <!-- 将对外 API（MCZJUInfernalMobs-API 中的 com.infernalmobs.api.** 与 SkillType）shade 进插件 jar，
+                 使插件本体在运行时提供这些类，外部插件 softdepend 本插件即可访问。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <includes>
+                                    <include>com.github.mczju-ops:MCZJUInfernalMobs-API</include>
+                                </includes>
+                            </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

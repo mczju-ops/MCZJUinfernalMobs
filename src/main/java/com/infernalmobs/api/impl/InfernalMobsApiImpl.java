@@ -1,8 +1,9 @@
 package com.infernalmobs.api.impl;
 
-import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.InfernalMobsApi;
+import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
@@ -21,10 +22,12 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
 
     private final CombatService combatService;
     private final MobFactory mobFactory;
+    private final ConfigLoader configLoader;
 
-    public InfernalMobsApiImpl(CombatService combatService, MobFactory mobFactory) {
+    public InfernalMobsApiImpl(CombatService combatService, MobFactory mobFactory, ConfigLoader configLoader) {
         this.combatService = combatService;
         this.mobFactory = mobFactory;
+        this.configLoader = configLoader;
     }
 
     @Override
@@ -38,7 +41,12 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         if (entity == null) return Optional.empty();
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return Optional.empty();
-        return Optional.of(new InfernalMobHandle(entity, state));
+        return Optional.of(new InfernalMobHandle(
+                entity,
+                state.getProfile().getLevel(),
+                state.getProfile().getAffixIds(),
+                state.getSuppressedAffixes()
+        ));
     }
 
     @Override
@@ -46,9 +54,39 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         if (entity == null) return List.of();
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return List.of();
-        return state.getProfile().getAffixes().stream()
-                .map(Affix::getSkillId)
-                .toList();
+        return state.getProfile().getAffixIds();
+    }
+
+    @Override
+    public boolean isAffixSuppressed(LivingEntity entity, String skillId) {
+        if (entity == null || skillId == null) return false;
+        MobState state = combatService.getMobState(entity.getUniqueId());
+        return state != null && state.isAffixSuppressed(skillId);
+    }
+
+    @Override
+    public void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed) {
+        if (entity == null || skillId == null) return;
+        MobState state = combatService.getMobState(entity.getUniqueId());
+        if (state == null) return;
+        if (suppressed) state.suppressAffix(skillId);
+        else state.unsuppressAffix(skillId);
+        // 刷新头顶名：被禁词条在悬停中显示删除线，保证外部插件（如 MagicItems）通过 API 禁用词条时视觉一致
+        if (mobFactory != null) mobFactory.refreshDisplayName(entity, state);
+    }
+
+    @Override
+    public String getAffixDisplayName(String affixId) {
+        if (affixId == null || affixId.isBlank()) return "";
+        if (configLoader == null) return affixId;
+        SkillConfig skillConfig = configLoader.getSkillConfig(affixId);
+        String display = configLoader.getSkillDisplay(affixId, skillConfig);
+        return display == null || display.isBlank() ? affixId : display;
+    }
+
+    @Override
+    public String getSkillDisplayName(String skillId) {
+        return getAffixDisplayName(skillId);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.controller.listener.ThiefResistanceListener;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
@@ -48,14 +49,15 @@ public class DualThiefSkill implements Skill {
         // 触发前存主手（延迟后再对比：主手消失则不缴械）
         ItemStack mainBefore = player.getInventory().getItemInMainHand().clone();
         if (mainBefore.getType().isAir()) return;
-        // 主手携带免疫缴械标记时，直接取消本次缴械
-        if (hasThiefResistance(mainBefore)) return;
-        // 按物品类型分别取概率：炒鸡物品用 infernal-steal-chance，普通物品用 steal-chance
+        // 免疫缴械（PDC im_thief_resistance）已由 ThiefResistanceListener 在事件层取消，此处不再重复判定
+        // 按物品类型分别取概率：优先读取特定键，缺省回退到通用的 "chance"
+        double baseChance = config.getDouble("chance", 0.10);
         double chance = isInfernalItem(mainBefore)
-                ? config.getDouble("infernal-steal-chance", 0.10)
-                : config.getDouble("steal-chance", 0.10);
+            ? config.getDouble("infernal-steal-chance", baseChance)
+            : config.getDouble("steal-chance", baseChance);
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率再减小50%
+        ctx.setTriggered(true);  // 概率判定通过：告知框架“已触发”，冷却改为成功后才扣
 
         // 掉落坐标用触发时怪物位置，延迟任务内不再用 ctx.getEntity()。这样与变身同时触发时，原实体被移除、新实体同位置生成，掉落仍落在“怪物处”正确位置
         Location mobLoc = ctx.getEntity().getLocation().clone();
@@ -76,7 +78,7 @@ public class DualThiefSkill implements Skill {
                 // 对比：主手物品消失了（被消耗/破损）则不执行缴械；主手还在则照常缴械
                 if (mainNow.getType().isAir()) return;
                 // 延迟到执行时再次判断，避免玩家在 1 tick 内换上了免疫物品
-                if (hasThiefResistance(mainNow)) return;
+                if (ThiefResistanceListener.isResistant(mainNow)) return;
                 // 主手物品还在，照常缴械（dropAt 基于触发时保存的 mobLoc，与是否变身无关）
                 Location dropAt = mobLoc.clone().add(0, 0.5, 0);
 
@@ -117,26 +119,14 @@ public class DualThiefSkill implements Skill {
     }
 
     /**
-     * 炒鸡物品判定：PDC mczju:im_rarity 存在即视为炒鸡物品，不可缴械。
+     * 炒鸡物品判定：PDC mczju:im_rarity 存在即视为炒鸡物品。
+     * 注意：炒鸡物品并非“不可缴械”，只是走更高的 infernal-steal-chance 概率。
      */
     private static boolean isInfernalItem(ItemStack stack) {
         if (stack == null || stack.getType().isAir()) return false;
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) return false;
         return meta.getPersistentDataContainer().has(Keys.IM_RARITY, PersistentDataType.STRING);
-    }
-
-    /**
-     * 免疫缴械标记：PDC mczju:im_thief_resistance = 1b/true。
-     */
-    private static boolean hasThiefResistance(ItemStack stack) {
-        if (stack == null || stack.getType().isAir()) return false;
-        ItemMeta meta = stack.getItemMeta();
-        if (meta == null) return false;
-        Byte b = meta.getPersistentDataContainer().get(Keys.IM_THIEF_RESISTANCE, PersistentDataType.BYTE);
-        if (b != null) return b != 0;
-        String s = meta.getPersistentDataContainer().get(Keys.IM_THIEF_RESISTANCE, PersistentDataType.STRING);
-        return s != null && ("1".equals(s) || "true".equalsIgnoreCase(s));
     }
 
     private static boolean hasThiefCounter(ItemStack stack) {

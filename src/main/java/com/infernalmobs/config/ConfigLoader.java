@@ -41,10 +41,6 @@ public class ConfigLoader {
     private boolean debug;
     /** 炒鸡怪经验倍率：最终经验 = 原版经验 × 等级 × expMultiplier，0 表示不修改。 */
     private double expMultiplier;
-    /** 全知之眼射线判定距离（格），默认 20。 */
-    private double infernalEyeRange = 20.0;
-    /** 幻形之锁（morph_controller）右键空气/方块时准星射线距离（格），0 表示禁用射线仅保留原版右键实体。 */
-    private double morphControllerRayRange = 8.0;
     /** 全局默认单级权重表（level-chances），无区域时使用。空则退回 fallbackMin/fallbackMax 均匀随机。 */
     private Map<Integer, Integer> globalLevelChances = Collections.emptyMap();
     private Set<org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason> infernalSpawnReasons = Set.of(
@@ -71,8 +67,6 @@ public class ConfigLoader {
 
         debug = config.getBoolean("debug", false);
         expMultiplier = config.getDouble("exp-multiplier", 1.0);
-        infernalEyeRange = config.getDouble("infernal-eye.range", 20.0);
-        morphControllerRayRange = config.getDouble("morph-controller.ray-range", 8.0);
         enabledWorlds = config.getStringList("enabled-worlds");
         infernalSpawnReasons = loadSpawnReasons();
         if (config.contains("defaults")) {
@@ -570,9 +564,6 @@ public class ConfigLoader {
     public ProtectedAnimalsConfig getProtectedAnimalsConfig() { return protectedAnimalsConfig; }
     public MobRegistryConfig getMobRegistryConfig() { return mobRegistryConfig; }
     public double getExpMultiplier() { return expMultiplier; }
-    public double getInfernalEyeRange() { return infernalEyeRange; }
-
-    public double getMorphControllerRayRange() { return morphControllerRayRange; }
     public FileConfiguration getRaw() { return config; }
     public Set<org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason> getInfernalSpawnReasons() { return infernalSpawnReasons; }
 

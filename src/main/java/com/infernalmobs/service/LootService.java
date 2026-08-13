@@ -143,7 +143,8 @@ public class LootService {
      */
     public void flushDeathDrops(LivingEntity entity, MobState mobState, Player killer, List<ItemStack> drops) {
         if (drops == null || drops.isEmpty()) return;
-        InfernalMobHandle handle = new InfernalMobHandle(entity, mobState);
+        InfernalMobHandle handle = new InfernalMobHandle(entity,
+                mobState.getProfile().getLevel(), mobState.getProfile().getAffixIds());
         InfernalMobDropEvent dropEvent = new InfernalMobDropEvent(
                 entity, handle, mobState.getProfile().getLevel(), killer, drops);
         plugin.getServer().getPluginManager().callEvent(dropEvent);

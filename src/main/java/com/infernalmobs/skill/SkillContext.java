@@ -89,6 +89,17 @@ public class SkillContext {
         this.currentTick = currentTick;
     }
 
+    /** 本次 onTrigger 是否真正触发了技能效果（由技能在通过概率判定后标记，用于“成功后冷却”） */
+    private boolean triggered = false;
+
+    public boolean isTriggered() {
+        return triggered;
+    }
+
+    public void setTriggered(boolean triggered) {
+        this.triggered = triggered;
+    }
+
     // === 参数覆盖（由 InfernalAffixTriggerEvent 修改后写入）===
 
     /** 整体替换参数覆盖（事件触发后由 CombatService 调用）。 */

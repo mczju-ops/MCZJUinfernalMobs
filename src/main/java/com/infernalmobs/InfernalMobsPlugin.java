@@ -8,8 +8,9 @@ import com.infernalmobs.config.DyeConfig;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
-import com.infernalmobs.controller.listener.MagicItemListener;
 import com.infernalmobs.controller.listener.MobSpawnListener;
+import com.infernalmobs.controller.listener.MorphSuppressListener;
+import com.infernalmobs.controller.listener.ThiefResistanceListener;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.service.AffixRollService;
 import com.infernalmobs.service.CombatService;
@@ -86,13 +87,14 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new MobSpawnListener(configLoader, mobFactory, combatService, this), this);
         getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService), this);
-        getServer().getPluginManager().registerEvents(new MagicItemListener(this, configLoader, combatService), this);
+        getServer().getPluginManager().registerEvents(new MorphSuppressListener(), this);
+        getServer().getPluginManager().registerEvents(new ThiefResistanceListener(), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
 
         combatService.startTickTask();
 
         // 注册对外 API，供 MagicItems 等插件通过 ServicesManager 获取
-        infernalMobsApi = new InfernalMobsApiImpl(combatService, mobFactory);
+        infernalMobsApi = new InfernalMobsApiImpl(combatService, mobFactory, configLoader);
         getServer().getServicesManager().register(InfernalMobsApi.class, infernalMobsApi, this, ServicePriority.Normal);
 
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {

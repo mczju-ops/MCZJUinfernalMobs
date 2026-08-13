@@ -298,14 +298,10 @@ public class CombatService {
             SkillConfig sc = config.getSkillConfig(affix.getSkillId());
             if (sc == null) continue;
             int cooldownTicks = sc.getInt("cooldown-ticks", affix.getSkill().getType() == SkillType.DUAL ? 60 : 0);
-            if (cooldownTicks > 0) {
-                if (mobState.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-                // PASSIVE 技能自己管理冷却（如 sulfur 内置了完整的冷却逻辑），
-                // 不在外层预设置，避免先设冷却后技能内部检查冷却直接 return，导致技能永远无法触发
-                if (affix.getSkill().getType() != SkillType.PASSIVE) {
-                    mobState.setCooldown(affix.getSkillId(), currentTick + cooldownTicks);
-                }
-            }
+            // PASSIVE 技能自己管理冷却（如 sulfur 内置了完整的冷却逻辑），不在外层预扣。
+            // DUAL 技能同样不预扣：冷却改为“触发成功后才扣”（onTrigger 后按 ctx.isTriggered() 判定），
+            // 否则失败的概率 roll 也会吃掉冷却，导致每个冷却窗口只判定一次、实测概率远低于配置值。
+            if (cooldownTicks > 0 && mobState.isOnCooldown(affix.getSkillId(), currentTick)) continue;
             SkillContext ctx = new SkillContext(plugin, victim, mobState);
             ctx.setTargetPlayer(damager);
             ctx.setTriggerEvent(event);
@@ -313,6 +309,9 @@ public class CombatService {
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             if (!fireAffixTriggerEvent(affix, sc, ctx, victim, damager, mobState)) continue;
             affix.getSkill().onTrigger(ctx, sc);
+            if (affix.getSkill().getType() == SkillType.DUAL && cooldownTicks > 0 && ctx.isTriggered()) {
+                mobState.setCooldown(affix.getSkillId(), currentTick + cooldownTicks);
+            }
 
             // lifesteal: 受击后设置回血 buff（削弱时 50% 概率不触发）
             if ("lifesteal".equals(affix.getSkillId()) && affix.getSkill() instanceof com.infernalmobs.skill.impl.PassiveLifestealSkill ls) {
@@ -323,21 +322,6 @@ public class CombatService {
                 }
             }
         }
-    }
-
-    /**
-     * 玩家右键使用 morph_controller 时调用：禁用目标炒鸡怪的 morph 词条并刷新头顶名。
-     * 返回 true 表示成功禁用（已禁用 / 无该词条 / 非炒鸡怪 → false）。
-     */
-    public boolean suppressMorphAffix(LivingEntity entity) {
-        MobState state = getMobState(entity.getUniqueId());
-        if (state == null) return false;
-        boolean hasMorph = state.getProfile().getAffixes().stream()
-                .anyMatch(a -> "morph".equalsIgnoreCase(a.getSkillId()));
-        if (!hasMorph || state.isAffixSuppressed("morph")) return false;
-        state.suppressAffix("morph");
-        if (mobFactory != null) mobFactory.refreshDisplayName(entity, state);
-        return true;
     }
 
     /**
@@ -557,14 +541,17 @@ public class CombatService {
             SkillConfig sc = config.getSkillConfig(affix.getSkillId());
             if (sc == null) continue;
             int cooldown = sc.getInt("cooldown-ticks", 60);
-            if (state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-            state.setCooldown(affix.getSkillId(), currentTick + cooldown);
+            // 冷却改为“触发成功后才扣”，失败的概率 roll 不消耗冷却（否则每冷却窗口只判定一次）
+            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
             SkillContext ctx = new SkillContext(plugin, damager, state);
             ctx.setTargetPlayer(victim);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             if (!fireAffixTriggerEvent(affix, sc, ctx, damager, victim, state)) continue;
             affix.getSkill().onTrigger(ctx, sc);
+            if (cooldown > 0 && ctx.isTriggered()) {
+                state.setCooldown(affix.getSkillId(), currentTick + cooldown);
+            }
         }
     }
 
@@ -599,7 +586,9 @@ public class CombatService {
     private boolean fireAffixTriggerEvent(Affix affix, SkillConfig sc, SkillContext ctx,
                                           LivingEntity mob, LivingEntity target, MobState state) {
         if (plugin == null) return true;
-        InfernalMobHandle handle = new InfernalMobHandle(mob, state);
+        InfernalMobHandle handle = new InfernalMobHandle(mob,
+                state.getProfile().getLevel(), state.getProfile().getAffixIds(),
+                state.getSuppressedAffixes());
         InfernalAffixTriggerEvent event = new InfernalAffixTriggerEvent(
                 affix.getSkillId(), affix.getSkill().getType(), mob, target, handle,
                 state.getProfile().getLevel());

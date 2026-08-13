@@ -8,7 +8,7 @@
 
 - [环境要求](#环境要求)
 - [快速开始](#快速开始)
-- [开发者对接（JitPack API）](#开发者对接jitpack-api)
+- [开发者对接（MCZJUInfernalMobs-API）](#开发者对接mczjuinfernalmobs-api)
 - [功能概览](#功能概览)
 - [词条（技能）一览](#词条技能一览)
 - [特殊道具](#特殊道具)
@@ -45,9 +45,9 @@
 
 ---
 
-## 开发者对接（JitPack API）
+## 开发者对接（MCZJUInfernalMobs-API）
 
-本插件通过 **JitPack** 发布公开 API，其他插件（如 MagicItems、异色炒鸡、炒鸡渔夫）只需在 `pom.xml` 声明依赖即可编译，无需在本地手动部署 jar。
+对外 API 独立发布在 **MCZJUInfernalMobs-API** 项目（仅接口 / 事件 / 枚举），通过 JitPack 获取。插件本体（MCZJUInfernalMobs）在打包时已将 API shade 进自身 jar，因此运行时由插件本体提供 API 实现，对接插件无需打包 API。
 
 1. 添加 JitPack 仓库：
 
@@ -60,18 +60,36 @@
 </repositories>
 ```
 
-2. 添加依赖（`provided` 作用域即可，运行时由 InfernalMobs 插件本体提供实现）：
+2. 添加 API 依赖（`provided` 作用域即可，运行时由 InfernalMobs 插件本体提供实现）：
 
 ```xml
 <dependency>
     <groupId>com.github.mczju-ops</groupId>
-    <artifactId>MCZJUinfernalMobs</artifactId>
-    <version>1.0.1</version>   <!-- 发布 tag；开发期可用 beta~event-api-rework-SNAPSHOT 或 commit hash -->
+    <artifactId>MCZJUInfernalMobs-API</artifactId>
+    <version>1.1.0</version>   <!-- 发布 tag；开发期可用 master-SNAPSHOT 或 commit hash -->
     <scope>provided</scope>
 </dependency>
 ```
 
 3. 具体对接方式见 [docs/api.md](docs/api.md)：软依赖 + `ServicesManager` 获取 `InfernalMobsApi`。
+
+示例：
+
+```java
+import com.infernalmobs.api.InfernalAffix;
+import com.infernalmobs.api.InfernalMobsApi;
+
+if (api == null) return;
+
+List<String> affixIds = api.getAffixIds(mob);
+if (affixIds.contains(InfernalAffix.WITHERING.id())) {
+    // 这是带凋零词条的炒鸡怪
+}
+
+String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
+// 优先返回 skill_name.yml 中配置的值；否则 config.yml 的 display；再退回英文 id
+// 例："<dark_purple>凋零</dark_purple>"
+```
 
 ---
 
