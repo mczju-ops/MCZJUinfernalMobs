@@ -3,6 +3,7 @@ package com.infernalmobs.skill.impl;
 import com.infernalmobs.api.dye.DyeSchemeRequest;
 import com.infernalmobs.api.dye.DyeSchemeResult;
 import com.infernalmobs.api.dye.InfernalDyeApi;
+import com.infernalmobs.api.event.InfernalMobDyeEvent;
 import com.infernalmobs.InfernalMobsPlugin;
 import com.infernalmobs.config.DyeConfig;
 import com.infernalmobs.config.SkillConfig;
@@ -109,6 +110,7 @@ public class DeathDyeSkill implements Skill {
             debug(ctx, "onTrigger skip by chance chance=" + chance + " roll=" + roll + " entity=" + entityTag(ctx));
             return;
         }
+        if (!ctx.fire(new InfernalMobDyeEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
 
         String itemId = resolveDropItemId(ctx, config, dyeCfg);
         int amount = dyeCfg != null ? dyeCfg.dropAmount() : Math.max(1, config.getInt("amount", 1));

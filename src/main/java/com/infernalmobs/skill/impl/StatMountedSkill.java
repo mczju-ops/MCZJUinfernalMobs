@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobMountedEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.InfernalMobsPlugin;
@@ -53,6 +54,7 @@ public class StatMountedSkill implements Skill {
         if (ctx == null) {
             return;
         }
+        if (!ctx.fire(new InfernalMobMountedEvent(ctx.getEntity(), null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         debugLog(ctx, "进入 onEquip（入口）");
 
         LivingEntity rider = ctx.getEntity();

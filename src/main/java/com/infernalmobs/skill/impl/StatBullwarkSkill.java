@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobBullwarkEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -24,6 +25,7 @@ public class StatBullwarkSkill implements Skill {
 
     @Override
     public void onEquip(SkillContext ctx, SkillConfig config) {
+        if (!ctx.fire(new InfernalMobBullwarkEvent(ctx.getEntity(), null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         int duration = config.getDurationTicks("duration-ticks", -1);
         int amplifier = config.getInt("amplifier", 2);  // III
         ctx.getEntity().addPotionEffect(new PotionEffect(

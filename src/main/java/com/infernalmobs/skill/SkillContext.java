@@ -113,6 +113,17 @@ public class SkillContext {
         this.handle = handle;
     }
 
+    /** 惰性构造 handle（onEquip 阶段尚无 handle 时，从 mobState 构建）。 */
+    public InfernalMobHandle getOrCreateHandle() {
+        if (handle == null && mobState != null && entity != null) {
+            handle = new InfernalMobHandle(entity,
+                    mobState.getProfile().getLevel(),
+                    mobState.getProfile().getAffixIds(),
+                    mobState.getSuppressedAffixes());
+        }
+        return handle;
+    }
+
     /**
      * 触发一个事件，返回 false 表示该事件被取消（Cancellable）。
      * 供技能在“真正触发”时 call 各自的 Post 事件。

@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobArmouredEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -29,6 +30,7 @@ public class StatArmouredSkill implements Skill {
 
     @Override
     public void onEquip(SkillContext ctx, SkillConfig config) {
+        if (!ctx.fire(new InfernalMobArmouredEvent(ctx.getEntity(), null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         if (ctx.getEntity() instanceof Mob mob && mob.getEquipment() != null) {
             int tier = Math.min(config.getInt("armor-tier", 3), 4); // 0=皮革 1=金 2=铁 3=钻石 4=下界合金
             int level = ctx.getMobState() != null ? ctx.getMobState().getProfile().getLevel() : 1;

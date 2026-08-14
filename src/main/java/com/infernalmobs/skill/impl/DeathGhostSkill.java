@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobGhostEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
@@ -50,6 +51,7 @@ public class DeathGhostSkill implements Skill {
     public void onTrigger(SkillContext ctx, SkillConfig config) {
         Location loc = ctx.getEntity().getLocation();
         if (loc.getWorld() == null) return;
+        if (!ctx.fire(new InfernalMobGhostEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
 
         boolean evil = new Random().nextInt(3) == 1;
 

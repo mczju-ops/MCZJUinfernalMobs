@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobCloakedEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -27,6 +28,7 @@ public class StatCloakedSkill implements Skill {
 
     @Override
     public void onEquip(SkillContext ctx, SkillConfig config) {
+        if (!ctx.fire(new InfernalMobCloakedEvent(ctx.getEntity(), null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         int duration = config.getDurationTicks("duration-ticks", -1);
         ctx.getEntity().addPotionEffect(new PotionEffect(
                 PotionEffectType.INVISIBILITY, duration, 0, false, true));
