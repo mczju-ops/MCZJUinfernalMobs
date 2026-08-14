@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobMorphEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
@@ -59,6 +60,10 @@ public class DualMorphSkill implements Skill {
         EntityType current = entity.getType();
         EntityType target = pickTarget(pool, current);
         if (target == null) return;
+
+        InfernalMobMorphEvent ev = new InfernalMobMorphEvent(entity, ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel(), target);
+        if (!ctx.fire(ev)) return;
+        target = ev.getTargetType();
 
         double currentHealth = entity.getHealth();
         org.bukkit.Location soundLoc = entity.getLocation().clone();

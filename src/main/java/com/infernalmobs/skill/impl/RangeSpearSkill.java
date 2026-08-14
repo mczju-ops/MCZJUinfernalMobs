@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobSpearEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -73,6 +74,7 @@ public class RangeSpearSkill implements Skill {
         int sharpnessLevel = Math.max(0, config.getInt("sharpness-level", 5));
         double hitRadius = config.getDouble("hit-radius", 1.5);
 
+        if (!ctx.fire(new InfernalMobSpearEvent(mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         ItemStack spearItem = createSpearItem(config.getString("item", "NETHERITE_SPEAR"), sharpnessLevel);
         ItemStack savedHand = equip.getItemInMainHand();
         equip.setItemInMainHand(spearItem);

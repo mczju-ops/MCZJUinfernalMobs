@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobRustEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -48,6 +49,7 @@ public class PassiveRustSkill implements Skill {
 
         int damageAmount = config.getInt("damage-amount", 20);
         if (ctx.isWeakened()) damageAmount = Math.max(1, damageAmount / 2);
+        if (!ctx.fire(new InfernalMobRustEvent(ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         int current = damageable.getDamage();
         int next = Math.min(current + damageAmount, maxDamage);
         damageable.setDamage(next);

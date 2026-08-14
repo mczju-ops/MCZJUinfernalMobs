@@ -703,14 +703,8 @@ skills:
     cooldown-ticks: 80
     chance: 0.33
     sound: "entity.wind_charge.throw"
-        # --- 反制缴械：副手持有 thief_counter 时触发 ---
-    # 本次缴械仍会成功，但会把该怪的 thief 冷却延长 counter-duration-ticks，从而封住缴械能力
-    counter-duration-ticks: 200
-    counter-sound: "item.crossbow.quick_charge_1"
-    # 螺旋粒子（围绕怪物转圈）。如果服务器该粒子名不存在，会自动回退到 SPELL_WITCH
-    counter-particle: "item_cobweb"
     # 绘制线粒子：玩家眼睛 -> 本次缴械落点
-    counter-line-particle: "small_gust"
+    line-particle: "small_gust"
 
 
   tosser:

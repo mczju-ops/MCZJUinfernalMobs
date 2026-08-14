@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobConfusingEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -38,6 +39,7 @@ public class PassiveConfusingSkill implements Skill {
         int amplifier = config.getInt("amplifier", 2);
         if (ctx.isWeakened()) duration = Math.max(1, duration / 2);
 
+        if (!ctx.fire(new InfernalMobConfusingEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
                 PotionEffectType.NAUSEA, duration, amplifier, false, true));
     }

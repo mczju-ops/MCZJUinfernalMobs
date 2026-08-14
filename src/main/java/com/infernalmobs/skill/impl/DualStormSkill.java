@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobStormEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -38,6 +39,7 @@ public class DualStormSkill implements Skill {
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
         ctx.setTriggered(true);
 
+        if (!ctx.fire(new InfernalMobStormEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         target.getWorld().strikeLightning(target.getLocation());
     }
 }

@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobBerserkEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -37,6 +38,7 @@ public class ActiveBerserkSkill implements Skill {
         double selfDamage = config.getDouble("self-damage", 1);
         double extraDamage = config.getDouble("extra-damage", 5);
 
+        if (!ctx.fire(new InfernalMobBerserkEvent(mob, victim, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         mob.setHealth(Math.max(0, mob.getHealth() - selfDamage));
         victim.damage(extraDamage, mob);
 

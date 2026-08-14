@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobGravityEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -35,8 +36,9 @@ public class RangeGravitySkill implements Skill {
         if (target == null || !target.isOnline()) return;
         if (target.hasPotionEffect(PotionEffectType.LEVITATION)) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixTriggerEvent(affixId=gravity) 接管
+        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixPreRollEvent(affixId=gravity) 接管
 
+        if (!ctx.fire(new InfernalMobGravityEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         // 从事件覆盖参数读取（监听器可改 duration-ticks / amplifier），未覆盖则回退 config
         int duration = ctx.getIntParam("duration-ticks", config.getInt("duration-ticks", 60));
         int amplifier = ctx.getIntParam("amplifier", config.getInt("amplifier", 0));

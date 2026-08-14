@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobArcherEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -46,6 +47,11 @@ public class DualArcherSkill implements Skill {
         if (ctx.isWeakened()) count = Math.max(1, count / 2);
         float speed = (float) config.getDouble("speed", 1.0);
         float arrowSpread = (float) config.getDouble("spread-config", 6.0);
+
+        InfernalMobArcherEvent ev = new InfernalMobArcherEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(), count, speed);
+        if (!ctx.fire(ev)) return;
+        count = ev.getArrowCount();
+        speed = ev.getSpeed();
 
         LivingEntity mob = ctx.getEntity();
         Location loc1 = target.getLocation();

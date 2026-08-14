@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobVexSummonerEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -43,6 +44,7 @@ public class PassiveVexSummonerSkill implements Skill {
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
+        if (!ctx.fire(new InfernalMobVexSummonerEvent(mob, player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         int maxNearby = config.getInt("max-nearby", 4);
         double countRange = config.getDouble("count-range", 16);
         long vexCount = mob.getWorld().getNearbyEntities(mob.getLocation(), countRange, countRange, countRange)

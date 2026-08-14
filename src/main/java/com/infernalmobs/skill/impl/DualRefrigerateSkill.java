@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobRefrigerateEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -37,6 +38,7 @@ public class DualRefrigerateSkill implements Skill {
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
         ctx.setTriggered(true);
 
+        if (!ctx.fire(new InfernalMobRefrigerateEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         int ticks = config.getInt("freeze-ticks", 140);
         target.setFreezeTicks(Math.max(target.getFreezeTicks(), ticks));
     }

@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobBlindingEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -38,6 +39,7 @@ public class PassiveBlindingSkill implements Skill {
         int amplifier = config.getInt("amplifier", 0);
         if (ctx.isWeakened()) durationTicks = Math.max(1, durationTicks / 2);
 
+        if (!ctx.fire(new InfernalMobBlindingEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
                 PotionEffectType.BLINDNESS, durationTicks, amplifier, false, true));
     }

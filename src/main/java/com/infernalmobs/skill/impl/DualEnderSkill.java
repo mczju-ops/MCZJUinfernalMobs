@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobEnderEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -49,6 +50,7 @@ public class DualEnderSkill implements Skill {
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
         ctx.setTriggered(true);
 
+        if (!ctx.fire(new InfernalMobEnderEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         Vector behind = target.getLocation().getDirection().multiply(-1).setY(0).normalize();
         double dist = config.getDouble("distance", 2);
         Location dest = target.getLocation().add(behind.multiply(dist));

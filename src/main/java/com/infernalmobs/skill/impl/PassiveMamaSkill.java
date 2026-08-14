@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobMamaEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
@@ -134,6 +135,10 @@ public class PassiveMamaSkill implements Skill {
 
         boolean baby = config.getBoolean("baby", true);
         double noBabyScale = config.getDouble("no-baby-scale", 0.5);
+
+        InfernalMobMamaEvent ev = new InfernalMobMamaEvent(parent, ctx.getTargetPlayer(), ctx.getHandle(), parentLevel, count);
+        if (!ctx.fire(ev)) return;
+        count = ev.getCount();
 
         Location loc = parent.getLocation().clone();
         EntityType parentType = parent.getType();

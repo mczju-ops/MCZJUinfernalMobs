@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobWebberEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -47,6 +48,7 @@ public class DualWebberSkill implements Skill {
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
         ctx.setTriggered(true);
 
+        if (!ctx.fire(new InfernalMobWebberEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         boolean canGiantVariant = ctx.getEntity() != null
                 && (ctx.getEntity().getType() == EntityType.SPIDER || ctx.getEntity().getType() == EntityType.CAVE_SPIDER);
 

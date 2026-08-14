@@ -1,8 +1,10 @@
 package com.infernalmobs.skill;
 
+import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.model.MobState;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -100,7 +102,28 @@ public class SkillContext {
         this.triggered = triggered;
     }
 
-    // === 参数覆盖（由 InfernalAffixTriggerEvent 修改后写入）===
+    /** 炒鸡怪门面句柄（由 CombatService 在触发事件前写入，供技能触发 Post 事件复用）。 */
+    private InfernalMobHandle handle;
+
+    public InfernalMobHandle getHandle() {
+        return handle;
+    }
+
+    public void setHandle(InfernalMobHandle handle) {
+        this.handle = handle;
+    }
+
+    /**
+     * 触发一个事件，返回 false 表示该事件被取消（Cancellable）。
+     * 供技能在“真正触发”时 call 各自的 Post 事件。
+     */
+    public boolean fire(Event event) {
+        if (event == null) return true;
+        getPlugin().getServer().getPluginManager().callEvent(event);
+        return !(event instanceof Cancellable c && c.isCancelled());
+    }
+
+    // === 参数覆盖（由 InfernalAffixPreRollEvent 修改后写入）===
 
     /** 整体替换参数覆盖（事件触发后由 CombatService 调用）。 */
     public void setParamOverrides(Map<String, Object> overrides) {

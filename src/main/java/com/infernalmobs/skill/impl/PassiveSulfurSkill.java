@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobSulfurEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -54,6 +55,7 @@ public class PassiveSulfurSkill implements Skill {
         if (DisplacementImmunityHelper.isImmuneAndCleanup(target, ctx.getCurrentTick())) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;
 
+        if (!ctx.fire(new InfernalMobSulfurEvent(mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         int warnTicks = config.getInt("warn-ticks", 20);
 
         Location playerLoc = target.getLocation();

@@ -2,7 +2,9 @@ package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.InfernalAffixTriggerEvent;
+import com.infernalmobs.api.event.InfernalAffixPreRollEvent;
+import com.infernalmobs.api.event.InfernalMob1upEvent;
+import com.infernalmobs.api.event.InfernalMobLifestealEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
@@ -279,6 +281,13 @@ public class CombatService {
             if (healthAfter > threshold) continue;   // 还在阈值以上，不触发
             if (healthAfter <= 0) continue;          // 致命一击，不拦截，让怪直接死亡
 
+            // 1up 真正触发事件：外部可取消本次保命
+            LivingEntity damager = event instanceof EntityDamageByEntityEvent e2 && e2.getDamager() instanceof LivingEntity le ? le : null;
+            InfernalMobHandle handle = new InfernalMobHandle(victim, state.getProfile().getLevel(), state.getProfile().getAffixIds(), state.getSuppressedAffixes());
+            InfernalMob1upEvent e = new InfernalMob1upEvent(victim, damager, handle, state.getProfile().getLevel());
+            plugin.getServer().getPluginManager().callEvent(e);
+            if (e.isCancelled()) continue;
+
             if (!state.useOneTimeIfNotUsed("1up")) continue;
 
             event.setDamage(DamageModifier.BASE, 0);
@@ -317,8 +326,10 @@ public class CombatService {
             if ("lifesteal".equals(affix.getSkillId()) && affix.getSkill() instanceof com.infernalmobs.skill.impl.PassiveLifestealSkill ls) {
                 if (ctx.isWeakened() && Math.random() < 0.5) { /* 削弱：50% 不触发 */ }
                 else {
-                    int duration = sc.getInt("duration-ticks", 80);
-                    ls.setLifestealBuff(ctx, currentTick + duration);
+                    if (ctx.fire(new InfernalMobLifestealEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) {
+                        int duration = sc.getInt("duration-ticks", 80);
+                        ls.setLifestealBuff(ctx, currentTick + duration);
+                    }
                 }
             }
         }
@@ -579,7 +590,7 @@ public class CombatService {
     }
 
     /**
-     * 在词条技能真正生效前触发 {@link InfernalAffixTriggerEvent}。
+     * 在词条技能真正生效前触发 {@link InfernalAffixPreRollEvent}。
      * 返回 false 表示事件被取消（本次技能触发应被跳过）。
      * 参数袋以技能配置为初始值；若监听器修改了参数，则写入上下文供技能在应用效果时读取。
      */
@@ -589,7 +600,8 @@ public class CombatService {
         InfernalMobHandle handle = new InfernalMobHandle(mob,
                 state.getProfile().getLevel(), state.getProfile().getAffixIds(),
                 state.getSuppressedAffixes());
-        InfernalAffixTriggerEvent event = new InfernalAffixTriggerEvent(
+        ctx.setHandle(handle);
+        InfernalAffixPreRollEvent event = new InfernalAffixPreRollEvent(
                 affix.getSkillId(), affix.getSkill().getType(), mob, target, handle,
                 state.getProfile().getLevel());
         if (sc != null && sc.getSection() != null) {

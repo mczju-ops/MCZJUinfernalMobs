@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobTosserEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -50,8 +51,9 @@ public class RangeTosserSkill implements Skill {
             force *= 0.5;
             up *= 0.5;
         }
-        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixTriggerEvent(affixId=tosser) 接管
+        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixPreRollEvent(affixId=tosser) 接管
 
+        if (!ctx.fire(new InfernalMobTosserEvent(ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         player.setVelocity(toMob.multiply(force).setY(up));
 
         String soundKey = config.getString("sound", "ENTITY_BREEZE_JUMP");

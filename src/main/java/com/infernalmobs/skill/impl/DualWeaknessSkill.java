@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobWeaknessEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -39,6 +40,7 @@ public class DualWeaknessSkill implements Skill {
         if (ctx.isWeakened()) duration = Math.max(1, duration / 2);
         ctx.setTriggered(true);  // 无概率判定，每次进入都视为已触发，保留 cooldown 节流
 
+        if (!ctx.fire(new InfernalMobWeaknessEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, duration, amplifier, false, true));
     }
 }

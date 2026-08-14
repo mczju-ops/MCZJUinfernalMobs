@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobWardenWrathEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -63,6 +64,7 @@ public class PassiveWardenWrathSkill implements Skill {
 
         double minMultiplier = config.getDouble("decay-min-multiplier", 0.2);
         double decayMultiplier = 1.0 - (distance / maxRange) * (1.0 - minMultiplier);
+        if (!ctx.fire(new InfernalMobWardenWrathEvent(ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         debugLog(ctx, "生效 distance=" + String.format("%.1f", distance) + " decay=" + String.format("%.2f", decayMultiplier));
 
         boolean displacementImmune = DisplacementImmunityHelper.isImmuneAndCleanup(player, ctx.getCurrentTick());

@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobWitheringEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -38,6 +39,7 @@ public class PassiveWitheringSkill implements Skill {
         int amplifier = config.getInt("amplifier", 1);
         if (ctx.isWeakened()) durationTicks = Math.max(1, durationTicks / 2);
 
+        if (!ctx.fire(new InfernalMobWitheringEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
                 PotionEffectType.WITHER, durationTicks, amplifier, false, true));
     }

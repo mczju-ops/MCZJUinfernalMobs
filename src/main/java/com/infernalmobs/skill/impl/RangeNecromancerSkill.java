@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.InfernalMobNecromancerEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -36,6 +37,7 @@ public class RangeNecromancerSkill implements Skill {
         if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
+        if (!ctx.fire(new InfernalMobNecromancerEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         double velocity = config.getDouble("velocity", 1.0);
         Vector dir = ctx.getTargetPlayer().getEyeLocation().toVector()
                 .subtract(ctx.getEntity().getEyeLocation().toVector()).normalize();
