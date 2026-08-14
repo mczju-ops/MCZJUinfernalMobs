@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.1.0</version>   <!-- 发布 tag；开发期可用 master-SNAPSHOT 或 commit hash -->
+        <version>1.3.1</version>   <!-- 发布 tag；开发期可用 master-SNAPSHOT 或 commit hash -->
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -169,28 +169,40 @@ public enum InfernalAffix {
 
 注册方式：实现 `Listener`，`@EventHandler` 监听对应事件类即可（与监听任何 Bukkit 事件相同）。
 
-### 3.1 InfernalAffixTriggerEvent —— 词条触发（可取消）
+### 3.1 事件体系概览
 
-**时机**：词条技能 chance/cooldown 判定通过后、效果真正生效前。用于免疫 / 削弱 / 改数值。
+事件分两条链路：
+
+| 链路 | 事件 | 时机 | 用途 |
+| --- | --- | --- | --- |
+| **触发前** | `InfernalAffixPreRollEvent` | chance roll **之前** | 免疫（`setCancelled`）/ 改数值（`setParam`） |
+| **真正触发** | `InfernalAffixTriggeredEvent` 各技能子类 | chance 判定通过、效果**即将生效** | 精确监听某技能、改掉落 / 冷却 / 数量等 |
+
+- 每个技能都有一个专属 Post 事件（如 `InfernalMobThiefEvent`、`InfernalMobArmouredEvent`），全部继承抽象基类 `InfernalAffixTriggeredEvent`。
+- 另有 3 个与词条触发无关的生命周期事件：`InfernalMobSpawnEvent`（生成）、`InfernalMobDropEvent`（掉落）、`InfernalMobKillEvent`（击杀）。
+
+### 3.2 InfernalAffixPreRollEvent —— 词条触发前（可取消 / 改参数）
+
+**时机**：词条技能进入 chance 判定（roll）**之前**。用于免疫 / 削弱 / 改数值。
 
 | 字段 | 说明 |
 | --- | --- |
 | `String getAffixId()` | 触发的词条 id（如 `"gravity"`） |
-| `SkillType getSkillType()` | 技能类型（PASSIVE / DUAL / RANGE / ACTIVE / DEATH） |
+| `SkillType getSkillType()` | 技能类型（ACTIVE / PASSIVE / STAT / DEATH / RANGE / DUAL） |
 | `LivingEntity getMob()` | 炒鸡怪 |
-| `LivingEntity getTarget()` | 作用目标（死亡类技能为击杀者，可能 null） |
+| `LivingEntity getTarget()` | 作用目标（可能 null） |
 | `InfernalMobHandle getHandle()` | 门面（等级 / 词条只读） |
 | `int getLevel()` | 等级 |
 | `Object getParam(String key)` | 读取参数袋 |
 | `void setParam(String key, Object value)` | 修改参数（改数值） |
-| `setCancelled(true)` | 取消本次触发（免疫） |
+| `setCancelled(true)` | 免疫：跳过本次触发（不 roll、不进冷却） |
 
 **常用参数 key 常量**：`PARAM_DURATION_TICKS` / `PARAM_AMPLIFIER` / `PARAM_CHANCE` / `PARAM_COOLDOWN_TICKS` / `PARAM_RANGE` / `PARAM_DAMAGE` / `PARAM_FORCE` / `PARAM_UPWARD` / `PARAM_VELOCITY` / `PARAM_FIRE_TICKS`。参数袋初始值为该词条在 config.yml 中的配置。
 
 **示例：重力护符（MagicItems）——玩家快捷栏有护符时取消 gravity、否则把失重时长减半**
 ```java
 @EventHandler
-public void onAffix(InfernalAffixTriggerEvent e) {
+public void onAffix(InfernalAffixPreRollEvent e) {
     if (!"gravity".equals(e.getAffixId())) return;
     Player p = (Player) e.getTarget();
     if (p == null) return;
@@ -198,8 +210,8 @@ public void onAffix(InfernalAffixTriggerEvent e) {
     if (countGravityCharm(p) > 0) {
         e.setCancelled(true);                       // 免疫
     } else {
-        int t = e.getParam(InfernalAffixTriggerEvent.PARAM_DURATION_TICKS, 100);
-        e.setParam(InfernalAffixTriggerEvent.PARAM_DURATION_TICKS, t / 2);  // 减半
+        int t = e.getParam(InfernalAffixPreRollEvent.PARAM_DURATION_TICKS, 100);
+        e.setParam(InfernalAffixPreRollEvent.PARAM_DURATION_TICKS, t / 2);  // 减半
     }
 }
 ```
@@ -207,7 +219,7 @@ public void onAffix(InfernalAffixTriggerEvent e) {
 **示例：法王套免疫指定词条**
 ```java
 @EventHandler
-public void onAffix(InfernalAffixTriggerEvent e) {
+public void onAffix(InfernalAffixPreRollEvent e) {
     if (e.getTarget() instanceof Player p && wearingMagicKingChest(p)) {
         if (Set.of("poisonous", "withering", "lifesteal", "molten", "weakness", "rust").contains(e.getAffixId())) {
             e.setCancelled(true);
@@ -216,7 +228,95 @@ public void onAffix(InfernalAffixTriggerEvent e) {
 }
 ```
 
-### 3.2 InfernalMobSpawnEvent —— 炒鸡怪生成（可取消）
+> 注意：本事件在 roll **之前**触发，roll 结果（是否真正触发）之后才确定。要等「真正触发」时再干预掉落 / 冷却 / 数量等，请用 §3.3 的各技能 Post 事件。
+
+### 3.3 InfernalAffixTriggeredEvent —— 词条真正触发（各技能 Post 事件）
+
+**时机**：chance 判定通过、效果**即将生效**时。每个技能一个专属子类，按技能精确监听。
+
+**基类公共字段**（所有 Post 事件通用）：
+
+| 字段 | 说明 |
+| --- | --- |
+| `String getAffixId()` | 触发的词条 id |
+| `SkillType getSkillType()` | 技能类型（ACTIVE / PASSIVE / STAT / DEATH / RANGE / DUAL） |
+| `LivingEntity getMob()` | 炒鸡怪 |
+| `LivingEntity getTarget()` | 效果作用目标；STAT 装配类与部分场景为 null |
+| `InfernalMobHandle getHandle()` | 门面（只读） |
+| `int getLevel()` | 等级 |
+| `setCancelled(true)` | 取消本次效果生效（免疫） |
+
+**Post 事件全表**（共 38 个）：
+
+| 词条 | 事件类 | 类型 | 额外字段 |
+| --- | --- | --- | --- |
+| 1up | `InfernalMob1upEvent` | STAT | —（target=攻击者，可能 null） |
+| archer | `InfernalMobArcherEvent` | DUAL | `getArrowCount/setArrowCount`、`getSpeed/setSpeed` |
+| armoured | `InfernalMobArmouredEvent` | STAT | —（target=null） |
+| berserk | `InfernalMobBerserkEvent` | ACTIVE | — |
+| blinding | `InfernalMobBlindingEvent` | PASSIVE | — |
+| bullwark | `InfernalMobBullwarkEvent` | STAT | —（target=null） |
+| cloaked | `InfernalMobCloakedEvent` | STAT | —（target=null） |
+| confusing | `InfernalMobConfusingEvent` | PASSIVE | — |
+| dye | `InfernalMobDyeEvent` | DEATH | —（target=击杀者，可能 null） |
+| ender | `InfernalMobEnderEvent` | DUAL | — |
+| firework | `InfernalMobFireworkEvent` | ACTIVE | — |
+| ghastly | `InfernalMobGhastlyEvent` | RANGE | — |
+| ghost | `InfernalMobGhostEvent` | DEATH | —（target=击杀者，可能 null） |
+| gravity | `InfernalMobGravityEvent` | RANGE | — |
+| lifesteal | `InfernalMobLifestealEvent` | PASSIVE | — |
+| mama | `InfernalMobMamaEvent` | PASSIVE | `getCount/setCount` |
+| molten | `InfernalMobMoltenEvent` | PASSIVE | — |
+| morph | `InfernalMobMorphEvent` | DUAL | `getTargetType/setTargetType` |
+| mounted | `InfernalMobMountedEvent` | STAT | —（target=null） |
+| necromancer | `InfernalMobNecromancerEvent` | RANGE | — |
+| poisonous | `InfernalMobPoisonousEvent` | PASSIVE | — |
+| quicksand | `InfernalMobQuicksandEvent` | PASSIVE | — |
+| refrigerate | `InfernalMobRefrigerateEvent` | DUAL | — |
+| rust | `InfernalMobRustEvent` | PASSIVE | — |
+| sapper | `InfernalMobSapperEvent` | PASSIVE | — |
+| spear | `InfernalMobSpearEvent` | RANGE | — |
+| sprint | `InfernalMobSprintEvent` | STAT | —（target=null） |
+| storm | `InfernalMobStormEvent` | DUAL | — |
+| sulfur | `InfernalMobSulfurEvent` | PASSIVE | — |
+| swap | `InfernalMobSwapEvent` | PASSIVE | — |
+| thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
+| tosser | `InfernalMobTosserEvent` | RANGE | — |
+| vengeance | `InfernalMobVengeanceEvent` | PASSIVE | — |
+| vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | — |
+| wardenwrath | `InfernalMobWardenWrathEvent` | PASSIVE | — |
+| weakness | `InfernalMobWeaknessEvent` | DUAL | — |
+| webber | `InfernalMobWebberEvent` | DUAL | — |
+| withering | `InfernalMobWitheringEvent` | PASSIVE | — |
+
+**示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
+```java
+@EventHandler
+public void onThief(InfernalMobThiefEvent e) {
+    e.setDropLocation(e.getPlayer().getLocation());   // 掉到玩家脚下
+    e.setCooldownTicks(e.getCooldownTicks() / 2);     // 冷却减半
+}
+```
+
+**示例：armoured 装配——只监听高等级触发并记录**
+```java
+@EventHandler
+public void onArmoured(InfernalMobArmouredEvent e) {
+    if (e.getLevel() < 3) return;          // 只看 3 级+
+    // STAT 装配类事件 target 恒为 null，作用对象即 e.getMob() 自己
+    log("armoured 装配生效: Lv." + e.getLevel() + " @ " + e.getMob().getName());
+}
+```
+
+**示例：mama 母体——翻倍产子**
+```java
+@EventHandler
+public void onMama(InfernalMobMamaEvent e) {
+    e.setCount(e.getCount() * 2);
+}
+```
+
+### 3.4 InfernalMobSpawnEvent —— 炒鸡怪生成（可取消）
 
 **时机**：等级/词条已计算之后、装配/数值/命名/注册之前。用于编辑生成内容或阻止炒鸡化。
 
@@ -239,7 +339,7 @@ public void onSpawn(InfernalMobSpawnEvent e) {
 }
 ```
 
-### 3.3 InfernalMobDropEvent —— 掉落（可取消）
+### 3.5 InfernalMobDropEvent —— 掉落（可取消）
 
 **时机**：插件产出掉落（等级池加权 + special + 保底 + dye 特殊掉落）聚合后、落世界前。**不包含原版掉落。**
 
@@ -261,7 +361,7 @@ public void onDrop(InfernalMobDropEvent e) {
 }
 ```
 
-### 3.4 InfernalMobKillEvent —— 玩家击杀（不可取消）
+### 3.6 InfernalMobKillEvent —— 玩家击杀（不可取消）
 
 **时机**：确认击杀者为玩家后同步触发。供进度 / 成就插件使用。
 
@@ -311,6 +411,6 @@ public void onFish(ProjectileHitEvent e) {
 ## 5. 注意事项
 
 - **thief 缴械物**不在掉落事件聚合内（它是战斗中从玩家手上掉的物品，时机在死亡之外）。
-- **1up**（STAT 型）不在词条触发事件线路上（STAT 词条是装配时生效，无 onTrigger）。
+- **STAT / DEATH / 1up 词条现已各有专属 Post 事件**：STAT 在装配生效时触发（`target` 为 null）；DEATH 在死亡时触发（`target` 为击杀者，可能 null）；1up 在保命时触发（`target` 为攻击者，可能 null）。
 - **不可在异步线程**调用 `spawnInfernalMob` 或直接操作实体，请切主线程（`runTask`）。
 - 事件类均在 `com.infernalmobs.api.event`，包结构即对外契约；调用逻辑在插件本体（对使用方不可见）。
