@@ -246,7 +246,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | blinding | `InfernalMobBlindingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | bullwark | `InfernalMobBullwarkEvent` | STAT | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier`（target=null） |
 | cloaked | `InfernalMobCloakedEvent` | STAT | `getDurationTicks/setDurationTicks`、`getHelmet/setHelmet`（target=null） |
-| confusing | `InfernalMobConfusingEvent` | PASSIVE | — |
+| confusing | `InfernalMobConfusingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | dye | `InfernalMobDyeEvent` | DEATH | —（target=击杀者，可能 null） |
 | ender | `InfernalMobEnderEvent` | DUAL | — |
 | firework | `InfernalMobFireworkEvent` | ACTIVE | — |
@@ -259,11 +259,11 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | morph | `InfernalMobMorphEvent` | DUAL | `getTargetType/setTargetType` |
 | mounted | `InfernalMobMountedEvent` | STAT | —（target=null） |
 | necromancer | `InfernalMobNecromancerEvent` | RANGE | — |
-| poisonous | `InfernalMobPoisonousEvent` | PASSIVE | — |
-| quicksand | `InfernalMobQuicksandEvent` | PASSIVE | — |
+| poisonous | `InfernalMobPoisonousEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+| quicksand | `InfernalMobQuicksandEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | refrigerate | `InfernalMobRefrigerateEvent` | DUAL | — |
 | rust | `InfernalMobRustEvent` | PASSIVE | — |
-| sapper | `InfernalMobSapperEvent` | PASSIVE | — |
+| sapper | `InfernalMobSapperEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | spear | `InfernalMobSpearEvent` | RANGE | — |
 | sprint | `InfernalMobSprintEvent` | STAT | —（target=null） |
 | storm | `InfernalMobStormEvent` | DUAL | — |
@@ -276,7 +276,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | wardenwrath | `InfernalMobWardenWrathEvent` | PASSIVE | — |
 | weakness | `InfernalMobWeaknessEvent` | DUAL | — |
 | webber | `InfernalMobWebberEvent` | DUAL | — |
-| withering | `InfernalMobWitheringEvent` | PASSIVE | — |
+| withering | `InfernalMobWitheringEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 
 **sulfur 的逐玩家喷发事件**：`InfernalMobSulfurLaunchEvent` 不继承 `InfernalAffixTriggeredEvent`。
 它在硫泉完成预警、准备顶起范围内某一名玩家时单独广播，可通过

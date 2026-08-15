@@ -33,14 +33,18 @@ public class PassiveConfusingSkill implements Skill {
     @Override
     public void onTrigger(SkillContext ctx, SkillConfig config) {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
-        if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
+        var target = ctx.getTargetPlayer();
+        if (target == null || !target.isOnline()) return;
 
-        int duration = config.getInt("duration-ticks", 80);
+        int duration = config.getDurationTicks("duration-ticks", 80);
         int amplifier = config.getInt("amplifier", 2);
         if (ctx.isWeakened()) duration = Math.max(1, duration / 2);
 
-        if (!ctx.fire(new InfernalMobConfusingEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
-                PotionEffectType.NAUSEA, duration, amplifier, false, true));
+        InfernalMobConfusingEvent event = new InfernalMobConfusingEvent(
+                ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                duration, amplifier);
+        if (!ctx.fire(event)) return;
+        target.addPotionEffect(new PotionEffect(
+                PotionEffectType.NAUSEA, event.getDurationTicks(), event.getAmplifier(), false, true));
     }
 }
