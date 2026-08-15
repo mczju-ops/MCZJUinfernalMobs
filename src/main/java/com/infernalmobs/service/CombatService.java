@@ -4,6 +4,7 @@ import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobFireworkDamageEvent;
+import com.infernalmobs.api.event.affix.effect.InfernalMobGhastlyDamageEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
@@ -16,6 +17,7 @@ import org.bukkit.Particle;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Fireball;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -333,6 +335,40 @@ public class CombatService {
             if (fireTicks > 0) hit.setFireTicks(Math.max(hit.getFireTicks(), fireTicks));
         }
         // 不 cancel，命中实体或方块都按 ExplosionPower 爆炸
+    }
+
+    /**
+     * 广播 ghastly 火球的逐受害者伤害事件；直击使用配置伤害，爆炸保留原版距离衰减。
+     */
+    public void handleGhastlyDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Fireball fireball)) return;
+        List<MetadataValue> skillMetadata = fireball.getMetadata("infernalmobs_skill_id");
+        if (skillMetadata.isEmpty() || !"ghastly".equals(skillMetadata.getFirst().asString())) return;
+        if (!(event.getEntity() instanceof LivingEntity victim)) return;
+
+        List<MetadataValue> sourceMetadata = fireball.getMetadata("infernalmobs_source");
+        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
+        LivingEntity mob = findEntity(mobUuid);
+        if (mob == null || !mob.isValid()) return;
+
+        List<MetadataValue> handleMetadata = fireball.getMetadata("infernalmobs_ghastly_handle");
+        if (handleMetadata.isEmpty() || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
+        List<MetadataValue> levelMetadata = fireball.getMetadata("infernalmobs_ghastly_level");
+        if (levelMetadata.isEmpty()) return;
+
+        if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
+            List<MetadataValue> damageMetadata = fireball.getMetadata("infernalmobs_damage");
+            if (!damageMetadata.isEmpty()) event.setDamage(Math.max(0.0, damageMetadata.getFirst().asDouble()));
+        }
+
+        InfernalMobGhastlyDamageEvent damageEvent = new InfernalMobGhastlyDamageEvent(
+                mob, victim, fireball, handle, levelMetadata.getFirst().asInt(), event.getCause(), event.getDamage());
+        plugin.getServer().getPluginManager().callEvent(damageEvent);
+        if (damageEvent.isCancelled()) {
+            event.setCancelled(true);
+            return;
+        }
+        event.setDamage(damageEvent.getDamage());
     }
 
     /**

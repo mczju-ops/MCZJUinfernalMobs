@@ -61,6 +61,9 @@ public class CombatListener implements Listener {
             combatService.handleFireworkDamage(event);
             return;
         }
+
+        combatService.handleGhastlyDamage(event); // 处理 ghastly 词条造成的火球伤害
+
         if (event.getEntity() instanceof LivingEntity victim) {
             Player attackingPlayer = null;
             if (event.getDamager() instanceof Player p) attackingPlayer = p;

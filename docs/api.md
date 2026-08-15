@@ -250,7 +250,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | dye | `InfernalMobDyeEvent` | DEATH | —（target=击杀者，可能 null） |
 | ender | `InfernalMobEnderEvent` | DUAL | `getDestination/setDestination` |
 | firework | `InfernalMobFireworkEvent` | DUAL | `getSpawnLocation/setSpawnLocation`、`getFireworkEffect/setFireworkEffect` |
-| ghastly | `InfernalMobGhastlyEvent` | RANGE | — |
+| ghastly | `InfernalMobGhastlyEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getDirectDamage/setDirectDamage`、`getFireTicks/setFireTicks`、`getExplosionPower/setExplosionPower`、`getLifetimeTicks/setLifetimeTicks` |
 | ghost | `InfernalMobGhostEvent` | DEATH | —（target=击杀者，可能 null） |
 | gravity | `InfernalMobGravityEvent` | RANGE | `get/setDurationTicks`、`get/setAmplifier` |
 | lifesteal | `InfernalMobLifestealEvent` | PASSIVE | — |
@@ -288,6 +288,12 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 可通过 `getVictim()` 获取当前受害者、通过 `getDamage/setDamage` 修改重新结算的基础伤害，
 或取消当前受害者的本次伤害。取消 Damage 事件不会影响同次爆炸中的其他实体，
 也不会回滚已经发生的 firework 触发或冷却。
+
+**ghastly 的逐受害者伤害事件**：`InfernalMobGhastlyDamageEvent` 不继承
+`InfernalAffixTriggeredEvent`。火球直接命中或爆炸产生范围伤害时，针对每个受害者分别广播，
+可通过 `getDamageCause()` 区分伤害阶段、通过 `getDamage/setDamage` 修改基础伤害，
+或取消当前受害者的本次伤害。取消 Damage 事件不会影响其他受害者，
+也不会回滚已经发生的 ghastly 触发或冷却。
 
 **示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java

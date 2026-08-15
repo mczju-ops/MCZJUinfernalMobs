@@ -613,6 +613,7 @@ skills:
     velocity: 1.2
     fire-ticks: 60
     explosion-power: 1   # ExplosionPower，击中时爆炸威力，0=不爆炸
+    entity-lifetime-ticks: 100
 
   lifesteal:
     type: PASSIVE
