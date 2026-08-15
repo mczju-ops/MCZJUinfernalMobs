@@ -242,7 +242,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | 1up | `InfernalMob1upEvent` | STAT | `getRecoveryAmount/setRecoveryAmount`（免除伤害后额外回复的生命值；target=攻击者，可能 null） |
 | archer | `InfernalMobArcherEvent` | DUAL | `getArrowCount/setArrowCount`、`getSpeed/setSpeed`、`getDirectionSpread/setDirectionSpread`、`getProjectileSpread/setProjectileSpread` |
 | armoured | `InfernalMobArmouredEvent` | STAT | `getHelmet/setHelmet`、`getChestplate/setChestplate`、`getLeggings/setLeggings`、`getBoots/setBoots`（target=null） |
-| berserk | `InfernalMobBerserkEvent` | ACTIVE | — |
+| berserk | `InfernalMobBerserkEvent` | ACTIVE | `getSelfDamage/setSelfDamage`、`getBonusDamage/setBonusDamage` |
 | blinding | `InfernalMobBlindingEvent` | PASSIVE | — |
 | bullwark | `InfernalMobBullwarkEvent` | STAT | —（target=null） |
 | cloaked | `InfernalMobCloakedEvent` | STAT | —（target=null） |

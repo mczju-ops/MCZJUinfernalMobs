@@ -257,7 +257,7 @@ public class CombatService {
         if (damageBonus > 0) {
             event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) + damageBonus);
         }
-        triggerActiveSkills(damager, victim, mobState);
+        triggerActiveSkills(event, damager, victim, mobState);
         triggerDualSkills(damager, victim, mobState);
     }
 
@@ -514,7 +514,8 @@ public class CombatService {
     /**
      * 怪物对玩家造成伤害时触发 ACTIVE 技能。
      */
-    private void triggerActiveSkills(LivingEntity damager, Player victim, MobState state) {
+    private void triggerActiveSkills(EntityDamageByEntityEvent event, LivingEntity damager,
+                                     Player victim, MobState state) {
         for (Affix affix : state.getProfile().getAffixes()) {
             if (affix.getSkill().getType() != SkillType.ACTIVE) continue;
             SkillConfig sc = config.getSkillConfig(affix.getSkillId());
@@ -523,6 +524,7 @@ public class CombatService {
             if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
             SkillContext ctx = new SkillContext(plugin, damager, state);
             ctx.setTargetPlayer(victim);
+            ctx.setTriggerEvent(event);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             if (!fireAffixAttemptEvent(affix, ctx, damager, victim, state)) continue;
