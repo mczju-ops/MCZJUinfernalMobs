@@ -25,11 +25,15 @@ public class StatBullwarkSkill implements Skill {
 
     @Override
     public void onEquip(SkillContext ctx, SkillConfig config) {
-        if (!ctx.fire(new InfernalMobBullwarkEvent(ctx.getEntity(), null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         int duration = config.getDurationTicks("duration-ticks", -1);
         int amplifier = config.getInt("amplifier", 2);  // III
+
+        InfernalMobBullwarkEvent event = new InfernalMobBullwarkEvent(
+                ctx.getEntity(), null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel(),
+                duration, amplifier);
+        if (!ctx.fire(event)) return;
         ctx.getEntity().addPotionEffect(new PotionEffect(
-                PotionEffectType.RESISTANCE, duration, amplifier, false, true));
+                PotionEffectType.RESISTANCE, event.getDurationTicks(), event.getAmplifier(), false, true));
     }
 
     @Override

@@ -244,8 +244,8 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | armoured | `InfernalMobArmouredEvent` | STAT | `getHelmet/setHelmet`、`getChestplate/setChestplate`、`getLeggings/setLeggings`、`getBoots/setBoots`（target=null） |
 | berserk | `InfernalMobBerserkEvent` | ACTIVE | `getSelfDamage/setSelfDamage`、`getBonusDamage/setBonusDamage` |
 | blinding | `InfernalMobBlindingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
-| bullwark | `InfernalMobBullwarkEvent` | STAT | —（target=null） |
-| cloaked | `InfernalMobCloakedEvent` | STAT | —（target=null） |
+| bullwark | `InfernalMobBullwarkEvent` | STAT | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier`（target=null） |
+| cloaked | `InfernalMobCloakedEvent` | STAT | `getDurationTicks/setDurationTicks`、`getHelmet/setHelmet`（target=null） |
 | confusing | `InfernalMobConfusingEvent` | PASSIVE | — |
 | dye | `InfernalMobDyeEvent` | DEATH | —（target=击杀者，可能 null） |
 | ender | `InfernalMobEnderEvent` | DUAL | — |
