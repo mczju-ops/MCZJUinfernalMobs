@@ -14,7 +14,7 @@ import org.bukkit.potion.PotionEffectType;
 /**
  * 重甲：怪物诞生时生效。
  * 若可穿盔甲（僵尸、骷髅等）则穿钻石套；
- * 若不可穿盔甲则施加抗性提升II。
+ * 若意外收到非 Mob 实体则以抗性提升II兜底。
  */
 public class StatArmouredSkill implements Skill {
 
@@ -30,20 +30,26 @@ public class StatArmouredSkill implements Skill {
 
     @Override
     public void onEquip(SkillContext ctx, SkillConfig config) {
-        if (!ctx.fire(new InfernalMobArmouredEvent(ctx.getEntity(), null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        if (ctx.getEntity() instanceof Mob mob && mob.getEquipment() != null) {
-            int tier = Math.min(config.getInt("armor-tier", 3), 4); // 0=皮革 1=金 2=铁 3=钻石 4=下界合金
-            int level = ctx.getMobState() != null ? ctx.getMobState().getProfile().getLevel() : 1;
-            if (tier == 3 && level >= 11) tier = 4; // Lv11+ 钻石升为合金
-            ItemStack[] armor = getArmorSet(tier);
-            mob.getEquipment().setHelmet(armor[0]);
-            mob.getEquipment().setChestplate(armor[1]);
-            mob.getEquipment().setLeggings(armor[2]);
-            mob.getEquipment().setBoots(armor[3]);
-            mob.getEquipment().setHelmetDropChance(0);
-            mob.getEquipment().setChestplateDropChance(0);
-            mob.getEquipment().setLeggingsDropChance(0);
-            mob.getEquipment().setBootsDropChance(0);
+        int tier = Math.min(config.getInt("armor-tier", 3), 4); // 0=皮革 1=金 2=铁 3=钻石 4=下界合金
+        int level = ctx.getMobState() != null ? ctx.getMobState().getProfile().getLevel() : 1;
+        if (tier == 3 && level >= 11) tier = 4; // Lv11+ 钻石升为合金
+        ItemStack[] armor = getArmorSet(tier);
+
+        InfernalMobArmouredEvent event = new InfernalMobArmouredEvent(
+                ctx.getEntity(), null, ctx.getOrCreateHandle(), level,
+                armor[0], armor[1], armor[2], armor[3]);
+        if (!ctx.fire(event)) return;
+
+        if (ctx.getEntity() instanceof Mob mob) {
+            var equipment = mob.getEquipment();
+            equipment.setHelmet(event.getHelmet());
+            equipment.setChestplate(event.getChestplate());
+            equipment.setLeggings(event.getLeggings());
+            equipment.setBoots(event.getBoots());
+            equipment.setHelmetDropChance(0);
+            equipment.setChestplateDropChance(0);
+            equipment.setLeggingsDropChance(0);
+            equipment.setBootsDropChance(0);
         } else {
             int duration = config.getDurationTicks("resistance-duration-ticks", -1);
             int amplifier = config.getInt("resistance-amplifier", 1);
