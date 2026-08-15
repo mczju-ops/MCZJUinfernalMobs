@@ -44,12 +44,8 @@ public class DualArcherSkill implements Skill {
         int count = Math.max(1, Math.min(config.getInt("arrow-count", 3), 8));
         if (ctx.isWeakened()) count = Math.max(1, count / 2);
         float speed = (float) config.getDouble("speed", 1.0);
-        float arrowSpread = (float) config.getDouble("spread-config", 6.0);
-
-        InfernalMobArcherEvent ev = new InfernalMobArcherEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(), count, speed);
-        if (!ctx.fire(ev)) return;
-        count = ev.getArrowCount();
-        speed = ev.getSpeed();
+        double directionSpread = config.getDouble("spread", 0.1);
+        float projectileSpread = (float) config.getDouble("spread-config", 6.0);
 
         LivingEntity mob = ctx.getEntity();
         Location loc1 = target.getLocation();
@@ -64,15 +60,25 @@ public class DualArcherSkill implements Skill {
         if (toTarget.lengthSquared() < 0.01) return;
         toTarget.normalize();
 
-        double dirSpread = config.getDouble("spread", 0.1);
+        InfernalMobArcherEvent ev = new InfernalMobArcherEvent(
+                mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                count, speed, directionSpread, projectileSpread);
+        if (!ctx.fire(ev)) return;
+        count = ev.getArrowCount();
+        speed = ev.getSpeed();
+        directionSpread = ev.getDirectionSpread();
+        projectileSpread = ev.getProjectileSpread();
 
         for (int i = 0; i < count; i++) {
             Vector dir = toTarget.clone();
-            dir.add(new Vector((Math.random() - 0.5) * dirSpread, (Math.random() - 0.5) * dirSpread, (Math.random() - 0.5) * dirSpread));
+            dir.add(new Vector(
+                    (Math.random() - 0.5) * directionSpread,
+                    (Math.random() - 0.5) * directionSpread,
+                    (Math.random() - 0.5) * directionSpread));
             if (dir.lengthSquared() > 0.01) dir.normalize();
             else dir = toTarget.clone();
 
-            Arrow arr = mob.getWorld().spawnArrow(loc2, dir, speed, arrowSpread);
+            Arrow arr = mob.getWorld().spawnArrow(loc2, dir, speed, projectileSpread);
             arr.setShooter(mob);
             arr.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
         }

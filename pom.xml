@@ -85,6 +85,9 @@
                     <!-- JDK 25 下 plexus-compiler 进程内编译(javax.tools)会抛 ConcurrentModificationException；
                          改用 fork 出进程 javac 编译以规避（见 JavaxToolsCompiler.compileInProcess 已知问题）。 -->
                     <fork>true</fork>
+                    <compilerArgs>
+                        <arg>-Xlint:-removal</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <!-- 将对外 API（MCZJUInfernalMobs-API 中的 com.infernalmobs.api.** 与 SkillType）shade 进插件 jar，
