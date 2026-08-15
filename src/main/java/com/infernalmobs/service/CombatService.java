@@ -3,6 +3,7 @@ package com.infernalmobs.service;
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
+import com.infernalmobs.api.event.affix.effect.InfernalMobFireworkDamageEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
@@ -339,15 +340,25 @@ public class CombatService {
      */
     public void handleFireworkDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Firework fw) || !fw.hasMetadata("infernalmobs_firework_source")) return;
-        List<MetadataValue> meta = fw.getMetadata("infernalmobs_firework_source");
-        if (meta.isEmpty()) return;
-        Object val = meta.get(0).value();
-        if (!(val instanceof UUID mobUuid)) return;
+        List<MetadataValue> sourceMetadata = fw.getMetadata("infernalmobs_firework_source");
+        if (sourceMetadata.isEmpty() || !(sourceMetadata.get(0).value() instanceof UUID mobUuid)) return;
         LivingEntity mob = findEntity(mobUuid);
         if (mob == null || !mob.isValid()) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
+
+        List<MetadataValue> handleMetadata = fw.getMetadata("infernalmobs_firework_handle");
+        if (handleMetadata.isEmpty() || !(handleMetadata.get(0).value() instanceof InfernalMobHandle handle)) return;
+        List<MetadataValue> levelMetadata = fw.getMetadata("infernalmobs_firework_level");
+        if (levelMetadata.isEmpty()) return;
+        int level = levelMetadata.get(0).asInt();
+
+        double damage = event.getDamage();
         event.setCancelled(true);
-        victim.damage(event.getFinalDamage(), mob);
+        InfernalMobFireworkDamageEvent damageEvent = new InfernalMobFireworkDamageEvent(
+                mob, victim, fw, handle, level, damage);
+        plugin.getServer().getPluginManager().callEvent(damageEvent);
+        if (damageEvent.isCancelled() || damageEvent.getDamage() <= 0.0) return;
+        victim.damage(damageEvent.getDamage(), mob);
     }
 
     private volatile long currentTick = 0;

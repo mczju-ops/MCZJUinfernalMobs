@@ -249,7 +249,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | confusing | `InfernalMobConfusingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | dye | `InfernalMobDyeEvent` | DEATH | —（target=击杀者，可能 null） |
 | ender | `InfernalMobEnderEvent` | DUAL | `getDestination/setDestination` |
-| firework | `InfernalMobFireworkEvent` | ACTIVE | — |
+| firework | `InfernalMobFireworkEvent` | DUAL | `getSpawnLocation/setSpawnLocation`、`getFireworkEffect/setFireworkEffect` |
 | ghastly | `InfernalMobGhastlyEvent` | RANGE | — |
 | ghost | `InfernalMobGhostEvent` | DEATH | —（target=击杀者，可能 null） |
 | gravity | `InfernalMobGravityEvent` | RANGE | `get/setDurationTicks`、`get/setAmplifier` |
@@ -282,6 +282,12 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 它在硫泉完成预警、准备顶起范围内某一名玩家时单独广播，可通过
 `getPlayer()` 获取该玩家、通过 `getUpward/setUpward` 修改本次竖直速度，或取消该玩家本次被顶起。
 取消 Launch 事件不会取消已经发生的 sulfur 触发，也不会回滚或重复提交其冷却。
+
+**firework 的逐受害者伤害事件**：`InfernalMobFireworkDamageEvent` 不继承
+`InfernalAffixTriggeredEvent`。原版烟花爆炸为每个受影响实体计算出基础伤害后分别广播，
+可通过 `getVictim()` 获取当前受害者、通过 `getDamage/setDamage` 修改重新结算的基础伤害，
+或取消当前受害者的本次伤害。取消 Damage 事件不会影响同次爆炸中的其他实体，
+也不会回滚已经发生的 firework 触发或冷却。
 
 **示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java
