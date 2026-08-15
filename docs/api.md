@@ -248,7 +248,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | cloaked | `InfernalMobCloakedEvent` | STAT | `getDurationTicks/setDurationTicks`、`getHelmet/setHelmet`（target=null） |
 | confusing | `InfernalMobConfusingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | dye | `InfernalMobDyeEvent` | DEATH | —（target=击杀者，可能 null） |
-| ender | `InfernalMobEnderEvent` | DUAL | — |
+| ender | `InfernalMobEnderEvent` | DUAL | `getDestination/setDestination` |
 | firework | `InfernalMobFireworkEvent` | ACTIVE | — |
 | ghastly | `InfernalMobGhastlyEvent` | RANGE | — |
 | ghost | `InfernalMobGhostEvent` | DEATH | —（target=击杀者，可能 null） |

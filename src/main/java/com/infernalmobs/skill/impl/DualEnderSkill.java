@@ -48,19 +48,27 @@ public class DualEnderSkill implements Skill {
         double chance = config.getDouble("chance", 1.0);
         if (chance < 1.0 && Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        if (!ctx.fire(new InfernalMobEnderEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        Vector behind = target.getLocation().getDirection().multiply(-1).setY(0).normalize();
-        double dist = config.getDouble("distance", 2);
-        Location dest = target.getLocation().add(behind.multiply(dist));
-        dest.setY(target.getLocation().getY());
 
+        Location targetLocation = target.getLocation();
+        Vector behind = targetLocation.getDirection().multiply(-1).setY(0).normalize();
+        double dist = config.getDouble("distance", 2);
+        Location dest = targetLocation.clone().add(behind.multiply(dist));
+        dest.setY(targetLocation.getY());
+
+        Location destination = null;
         for (int i = 0; i < 5; i++) {
             Location tryLoc = dest.clone().add(0, i, 0);
             if (tryLoc.getBlock().getType().isAir() && tryLoc.clone().add(0, 1, 0).getBlock().getType().isAir()) {
-                ctx.getEntity().teleport(tryLoc);
+                destination = tryLoc;
                 break;
             }
         }
+        if (destination == null) return;
+
+        InfernalMobEnderEvent event = new InfernalMobEnderEvent(
+                ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(), destination);
+        if (!ctx.fire(event)) return;
+        if (!ctx.getEntity().teleport(event.getDestination())) return;
 
         try {
             ctx.getEntity().getWorld().playSound(ctx.getEntity().getLocation(),
