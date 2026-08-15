@@ -239,7 +239,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 
 | 词条 | 事件类 | 类型 | 额外字段 |
 | --- | --- | --- | --- |
-| 1up | `InfernalMob1upEvent` | STAT | —（target=攻击者，可能 null） |
+| 1up | `InfernalMob1upEvent` | STAT | `getRecoveryAmount/setRecoveryAmount`（免除伤害后额外回复的生命值；target=攻击者，可能 null） |
 | archer | `InfernalMobArcherEvent` | DUAL | `getArrowCount/setArrowCount`、`getSpeed/setSpeed` |
 | armoured | `InfernalMobArmouredEvent` | STAT | —（target=null） |
 | berserk | `InfernalMobBerserkEvent` | ACTIVE | — |

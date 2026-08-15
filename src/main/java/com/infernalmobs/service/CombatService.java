@@ -280,19 +280,19 @@ public class CombatService {
             if (healthAfter > threshold) continue;   // 还在阈值以上，不触发
             if (healthAfter <= 0) continue;          // 致命一击，不拦截，让怪直接死亡
 
+            if (!(affix.getSkill() instanceof com.infernalmobs.skill.impl.Stat1upSkill skill)) continue;
+            double recoveryAmount = skill.calculateRecoveryAmount(victim, state);
+            if (!state.useOneTimeIfNotUsed("1up")) continue;
+
             // 1up 真正触发事件：外部可取消本次保命
             LivingEntity damager = event instanceof EntityDamageByEntityEvent e2 && e2.getDamager() instanceof LivingEntity le ? le : null;
             InfernalMobHandle handle = new InfernalMobHandle(victim, state.getProfile().getLevel(), state.getProfile().getAffixIds(), state.getSuppressedAffixes());
-            InfernalMob1upEvent e = new InfernalMob1upEvent(victim, damager, handle, state.getProfile().getLevel());
+            InfernalMob1upEvent e = new InfernalMob1upEvent(victim, damager, handle, state.getProfile().getLevel(), recoveryAmount);
             plugin.getServer().getPluginManager().callEvent(e);
-            if (e.isCancelled()) continue;
+            if (e.isCancelled()) break;
 
-            if (!state.useOneTimeIfNotUsed("1up")) continue;
-
-            event.setDamage(DamageModifier.BASE, 0);
-            if (affix.getSkill() instanceof com.infernalmobs.skill.impl.Stat1upSkill skill) {
-                skill.trigger(victim, sc, state);
-            }
+            event.setDamage(0.0);
+            skill.trigger(victim, sc, state, e.getRecoveryAmount());
             break;
         }
     }

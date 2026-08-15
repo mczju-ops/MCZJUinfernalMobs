@@ -37,19 +37,25 @@ public class Stat1upSkill implements Skill {
     public void onUnequip(SkillContext ctx) {}
 
     /**
-     * 由 CombatService 在满足条件时调用。
+     * 计算本次保命默认能够回复的生命值。
      */
-    public void trigger(LivingEntity entity, SkillConfig config, MobState mobState) {
+    public double calculateRecoveryAmount(LivingEntity entity, MobState mobState) {
+        if (entity == null || !entity.isValid()) return 0.0;
+        return Math.max(0.0, getHealCeiling(entity, mobState) - entity.getHealth());
+    }
+
+    /**
+     * 由 CombatService 在满足条件并广播事件后调用。
+     */
+    public void trigger(LivingEntity entity, SkillConfig config, MobState mobState, double recoveryAmount) {
         if (entity == null || !entity.isValid()) return;
-        var attr = entity.getAttribute(Attribute.MAX_HEALTH);
-        if (attr == null) return;
-        double maxHp = attr.getValue();
-        double zCap = CombatService.zombieFamilyHealCap(entity, mobState);
-        if (!Double.isInfinite(zCap)) {
-            maxHp = Math.min(maxHp, zCap);
+        double safeRecoveryAmount = Double.isFinite(recoveryAmount) ? Math.max(0.0, recoveryAmount) : 0.0;
+        double currentHealth = entity.getHealth();
+        double healthAfterRecovery = Math.min(getHealCeiling(entity, mobState), currentHealth + safeRecoveryAmount);
+        if (healthAfterRecovery > currentHealth) {
+            entity.setHealth(healthAfterRecovery);
         }
-        maxHp = Math.min(maxHp, entity.getMaxHealth());
-        entity.setHealth(maxHp);
+
         String soundKey = config.getString("sound", "BLOCK_BREWING_STAND_BREW");
         try {
             Sound s = Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
@@ -63,5 +69,15 @@ public class Stat1upSkill implements Skill {
                 .density(10)
                 .offset(0.08, 0.08, 0.08)
                 .play(at);
+    }
+
+    private double getHealCeiling(LivingEntity entity, MobState mobState) {
+        var attr = entity.getAttribute(Attribute.MAX_HEALTH);
+        double maxHp = attr != null ? attr.getValue() : entity.getMaxHealth();
+        double zCap = CombatService.zombieFamilyHealCap(entity, mobState);
+        if (!Double.isInfinite(zCap)) {
+            maxHp = Math.min(maxHp, zCap);
+        }
+        return Math.min(maxHp, entity.getMaxHealth());
     }
 }
