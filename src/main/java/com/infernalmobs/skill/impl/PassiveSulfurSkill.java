@@ -1,6 +1,7 @@
 package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.InfernalMobSulfurEvent;
+import com.infernalmobs.api.event.InfernalMobSulfurLaunchEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -92,7 +93,13 @@ public class PassiveSulfurSkill implements Skill {
                                 && DisplacementImmunityHelper.isImmuneAndCleanup(p, ctx.getCurrentTick())) continue;
                         double factor = 1.0;
                         if (ctx.isWeakened() && p.equals(target)) factor *= 0.5;
-                        double up = upward * factor;
+                        InfernalMobSulfurLaunchEvent launchEvent = new InfernalMobSulfurLaunchEvent(
+                                mob, p, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                                upward * factor);
+                        // 这是喷发后的逐玩家阶段事件，不改变 sulfur 已经成功触发及提交冷却的事实。
+                        if (!ctx.fire(launchEvent)) continue;
+
+                        double up = launchEvent.getUpward();
                         if (up > 0.01) {
                             p.setVelocity(p.getVelocity().setY(Math.max(p.getVelocity().getY(), up)));
                         }

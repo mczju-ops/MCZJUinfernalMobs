@@ -278,6 +278,11 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | webber | `InfernalMobWebberEvent` | DUAL | — |
 | withering | `InfernalMobWitheringEvent` | PASSIVE | — |
 
+**sulfur 的逐玩家喷发事件**：`InfernalMobSulfurLaunchEvent` 不继承 `InfernalAffixTriggeredEvent`。
+它在硫泉完成预警、准备顶起范围内某一名玩家时单独广播，可通过
+`getPlayer()` 获取该玩家、通过 `getUpward/setUpward` 修改本次竖直速度，或取消该玩家本次被顶起。
+取消 Launch 事件不会取消已经发生的 sulfur 触发，也不会回滚或重复提交其冷却。
+
 **示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java
 @EventHandler
