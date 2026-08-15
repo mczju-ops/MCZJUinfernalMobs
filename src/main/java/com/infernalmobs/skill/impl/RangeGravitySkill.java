@@ -36,14 +36,15 @@ public class RangeGravitySkill implements Skill {
         if (target == null || !target.isOnline()) return;
         if (target.hasPotionEffect(PotionEffectType.LEVITATION)) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixPreRollEvent(affixId=gravity) 接管
+        int duration = config.getInt("duration-ticks", 60);
+        int amplifier = config.getInt("amplifier", 0);
+        InfernalMobGravityEvent event = new InfernalMobGravityEvent(
+                ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                duration, amplifier);
+        if (!ctx.fire(event)) return;
 
-        if (!ctx.fire(new InfernalMobGravityEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        // 从事件覆盖参数读取（监听器可改 duration-ticks / amplifier），未覆盖则回退 config
-        int duration = ctx.getIntParam("duration-ticks", config.getInt("duration-ticks", 60));
-        int amplifier = ctx.getIntParam("amplifier", config.getInt("amplifier", 0));
-
-        target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, duration, amplifier, false, true));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION,
+                event.getDurationTicks(), event.getAmplifier(), false, true));
 
         try {
             target.getWorld().playSound(target.getLocation(), org.bukkit.Sound.ENTITY_SHULKER_SHOOT, 0.5f, 1.2f);

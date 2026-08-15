@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.3.1</version>   <!-- 发布 tag；开发期可用 master-SNAPSHOT 或 commit hash -->
+        <version>1.4.0</version>   <!-- 发布 tag；开发期可用分支名或 commit hash -->
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -171,70 +171,59 @@ public enum InfernalAffix {
 
 ### 3.1 事件体系概览
 
-事件分两条链路：
+非 `STAT` 词条遵循以下触发链路：
+
+```text
+内部资格检查
+→ InfernalAffixAttemptEvent
+→ 技能条件与概率判定
+→ 计算最终效果参数
+→ 专用 InfernalAffixTriggeredEvent
+→ 提交冷却
+→ 应用效果
+```
 
 | 链路 | 事件 | 时机 | 用途 |
 | --- | --- | --- | --- |
-| **触发前** | `InfernalAffixPreRollEvent` | chance roll **之前** | 免疫（`setCancelled`）/ 改数值（`setParam`） |
-| **真正触发** | `InfernalAffixTriggeredEvent` 各技能子类 | chance 判定通过、效果**即将生效** | 精确监听某技能、改掉落 / 冷却 / 数量等 |
+| **尝试触发** | `InfernalAffixAttemptEvent` | 内部资格检查通过、技能条件与概率判定之前 | 阻止本次尝试 |
+| **真正触发** | `InfernalAffixTriggeredEvent` 各技能子类 | 条件与概率判定通过、效果即将生效 | 精确监听某技能、修改类型化效果参数 |
 
-- 每个技能都有一个专属 Post 事件（如 `InfernalMobThiefEvent`、`InfernalMobArmouredEvent`），全部继承抽象基类 `InfernalAffixTriggeredEvent`。
+- `STAT` 词条是怪物装配时形成的特质，不经过 Attempt 链路。
+- 每个词条都有一个专属 Triggered 事件（如 `InfernalMobThiefEvent`、`InfernalMobArmouredEvent`），全部继承抽象基类 `InfernalAffixTriggeredEvent`。
 - 另有 3 个与词条触发无关的生命周期事件：`InfernalMobSpawnEvent`（生成）、`InfernalMobDropEvent`（掉落）、`InfernalMobKillEvent`（击杀）。
 
-### 3.2 InfernalAffixPreRollEvent —— 词条触发前（可取消 / 改参数）
+### 3.2 InfernalAffixAttemptEvent —— 尝试触发（可取消）
 
-**时机**：词条技能进入 chance 判定（roll）**之前**。用于免疫 / 削弱 / 改数值。
+**时机**：非 `STAT` 词条通过冷却、目标等内部资格检查后，进入技能自身条件与概率判定之前。
 
 | 字段 | 说明 |
 | --- | --- |
-| `String getAffixId()` | 触发的词条 id（如 `"gravity"`） |
-| `SkillType getSkillType()` | 技能类型（ACTIVE / PASSIVE / STAT / DEATH / RANGE / DUAL） |
+| `String getAffixId()` | 尝试触发的词条 id（如 `"gravity"`） |
+| `SkillType getSkillType()` | 技能类型（ACTIVE / PASSIVE / DEATH / RANGE / DUAL） |
 | `LivingEntity getMob()` | 炒鸡怪 |
-| `LivingEntity getTarget()` | 作用目标（可能 null） |
+| `LivingEntity getTarget()` | 本次交互目标（可能 null） |
 | `InfernalMobHandle getHandle()` | 门面（等级 / 词条只读） |
 | `int getLevel()` | 等级 |
-| `Object getParam(String key)` | 读取参数袋 |
-| `void setParam(String key, Object value)` | 修改参数（改数值） |
-| `setCancelled(true)` | 免疫：跳过本次触发（不 roll、不进冷却） |
+| `setCancelled(true)` | 结束本次尝试：不再判定、不进入新冷却 |
 
-**常用参数 key 常量**：`PARAM_DURATION_TICKS` / `PARAM_AMPLIFIER` / `PARAM_CHANCE` / `PARAM_COOLDOWN_TICKS` / `PARAM_RANGE` / `PARAM_DAMAGE` / `PARAM_FORCE` / `PARAM_UPWARD` / `PARAM_VELOCITY` / `PARAM_FIRE_TICKS`。参数袋初始值为该词条在 config.yml 中的配置。
-
-**示例：重力护符（MagicItems）——玩家快捷栏有护符时取消 gravity、否则把失重时长减半**
+**示例：阻止玩家受到 gravity 的本次触发尝试**
 ```java
 @EventHandler
-public void onAffix(InfernalAffixPreRollEvent e) {
+public void onAffixAttempt(InfernalAffixAttemptEvent e) {
     if (!"gravity".equals(e.getAffixId())) return;
-    Player p = (Player) e.getTarget();
-    if (p == null) return;
-
-    if (countGravityCharm(p) > 0) {
-        e.setCancelled(true);                       // 免疫
-    } else {
-        int t = e.getParam(InfernalAffixPreRollEvent.PARAM_DURATION_TICKS, 100);
-        e.setParam(InfernalAffixPreRollEvent.PARAM_DURATION_TICKS, t / 2);  // 减半
-    }
+    if (e.getTarget() instanceof Player player && isImmune(player)) e.setCancelled(true);
 }
 ```
 
-**示例：法王套免疫指定词条**
-```java
-@EventHandler
-public void onAffix(InfernalAffixPreRollEvent e) {
-    if (e.getTarget() instanceof Player p && wearingMagicKingChest(p)) {
-        if (Set.of("poisonous", "withering", "lifesteal", "molten", "weakness", "rust").contains(e.getAffixId())) {
-            e.setCancelled(true);
-        }
-    }
-}
-```
+> Attempt 不提供通用参数袋。需要修改效果数值时，请监听 §3.3 中对应技能的类型化 Triggered 事件。
 
-> 注意：本事件在 roll **之前**触发，roll 结果（是否真正触发）之后才确定。要等「真正触发」时再干预掉落 / 冷却 / 数量等，请用 §3.3 的各技能 Post 事件。
+### 3.3 InfernalAffixTriggeredEvent —— 词条真正触发
 
-### 3.3 InfernalAffixTriggeredEvent —— 词条真正触发（各技能 Post 事件）
+**时机**：技能条件与概率判定通过、最终效果参数已经计算、效果即将生效时。每个技能一个专属子类。
 
-**时机**：chance 判定通过、效果**即将生效**时。每个技能一个专属子类，按技能精确监听。
+到达 Triggered 事件即表示本次词条已经成功触发。`setCancelled(true)` 会阻止效果生效，但不会改回“未触发”状态，本体仍会提交或保留本次冷却。条件失败或概率未通过时，不广播 Triggered 事件，也不产生新冷却。
 
-**基类公共字段**（所有 Post 事件通用）：
+**基类公共字段**：
 
 | 字段 | 说明 |
 | --- | --- |
@@ -244,7 +233,7 @@ public void onAffix(InfernalAffixPreRollEvent e) {
 | `LivingEntity getTarget()` | 效果作用目标；STAT 装配类与部分场景为 null |
 | `InfernalMobHandle getHandle()` | 门面（只读） |
 | `int getLevel()` | 等级 |
-| `setCancelled(true)` | 取消本次效果生效（免疫） |
+| `setCancelled(true)` | 阻止本次效果生效，但仍视为成功触发并进入冷却 |
 
 **Post 事件全表**（共 38 个）：
 
@@ -263,7 +252,7 @@ public void onAffix(InfernalAffixPreRollEvent e) {
 | firework | `InfernalMobFireworkEvent` | ACTIVE | — |
 | ghastly | `InfernalMobGhastlyEvent` | RANGE | — |
 | ghost | `InfernalMobGhostEvent` | DEATH | —（target=击杀者，可能 null） |
-| gravity | `InfernalMobGravityEvent` | RANGE | — |
+| gravity | `InfernalMobGravityEvent` | RANGE | `get/setDurationTicks`、`get/setAmplifier` |
 | lifesteal | `InfernalMobLifestealEvent` | PASSIVE | — |
 | mama | `InfernalMobMamaEvent` | PASSIVE | `getCount/setCount` |
 | molten | `InfernalMobMoltenEvent` | PASSIVE | — |
@@ -281,7 +270,7 @@ public void onAffix(InfernalAffixPreRollEvent e) {
 | sulfur | `InfernalMobSulfurEvent` | PASSIVE | — |
 | swap | `InfernalMobSwapEvent` | PASSIVE | — |
 | thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
-| tosser | `InfernalMobTosserEvent` | RANGE | — |
+| tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |
 | vengeance | `InfernalMobVengeanceEvent` | PASSIVE | — |
 | vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | — |
 | wardenwrath | `InfernalMobWardenWrathEvent` | PASSIVE | — |

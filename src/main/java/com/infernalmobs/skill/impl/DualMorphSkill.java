@@ -69,8 +69,6 @@ public class DualMorphSkill implements Skill {
         org.bukkit.Location soundLoc = entity.getLocation().clone();
         MobFactory factory = ctx.getMobFactory();
         if (factory == null) return;
-        ctx.setTriggered(true);
-
         String soundKey = config.getString("sound", "BLOCK_ENDER_CHEST_OPEN");
         float soundVolume = (float) config.getDouble("sound-volume", 0.6);
         float soundPitch = (float) config.getDouble("sound-pitch", 0.7);

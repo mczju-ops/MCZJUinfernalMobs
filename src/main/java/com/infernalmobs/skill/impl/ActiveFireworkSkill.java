@@ -41,8 +41,6 @@ public class ActiveFireworkSkill implements Skill {
         double chance = config.getDouble("chance", 1.0);
         if (chance < 1.0 && Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        ctx.setTriggered(true);
-
         if (!ctx.fire(new InfernalMobFireworkEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         // 需求：烟花的小爆炸发生在“玩家位置”。
         Location targetLoc = target.getLocation().clone();

@@ -1,6 +1,6 @@
 package com.infernalmobs.controller.listener;
 
-import com.infernalmobs.api.event.InfernalAffixPreRollEvent;
+import com.infernalmobs.api.event.InfernalAffixAttemptEvent;
 import com.infernalmobs.util.Keys;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,13 +12,13 @@ import org.bukkit.persistence.PersistentDataType;
 
 /**
  * 免疫缴械（PDC mczju:im_thief_resistance）监听。
- * 玩家主手物品携带该 PDC 时，取消 thief 词条的 {@link InfernalAffixPreRollEvent}，
+ * 玩家主手物品携带该 PDC 时，取消 thief 词条的 {@link InfernalAffixAttemptEvent}，
  * 使缴械不生效。免疫逻辑从技能内部移到事件层，外部插件也可监听同一事件获知“已免疫/已取消”。
  */
 public class ThiefResistanceListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onAffixTrigger(InfernalAffixPreRollEvent event) {
+    public void onAffixAttempt(InfernalAffixAttemptEvent event) {
         if (!"thief".equals(event.getAffixId())) return;
         if (!(event.getTarget() instanceof Player player)) return;
         if (isResistant(player.getInventory().getItemInMainHand())) {

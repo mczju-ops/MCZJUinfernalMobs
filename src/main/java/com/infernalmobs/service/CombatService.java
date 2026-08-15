@@ -2,9 +2,8 @@ package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.InfernalAffixPreRollEvent;
+import com.infernalmobs.api.event.InfernalAffixAttemptEvent;
 import com.infernalmobs.api.event.InfernalMob1upEvent;
-import com.infernalmobs.api.event.InfernalMobLifestealEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
@@ -307,31 +306,15 @@ public class CombatService {
             SkillConfig sc = config.getSkillConfig(affix.getSkillId());
             if (sc == null) continue;
             int cooldownTicks = sc.getInt("cooldown-ticks", affix.getSkill().getType() == SkillType.DUAL ? 60 : 0);
-            // PASSIVE 技能自己管理冷却（如 sulfur 内置了完整的冷却逻辑），不在外层预扣。
-            // DUAL 技能同样不预扣：冷却改为“触发成功后才扣”（onTrigger 后按 ctx.isTriggered() 判定），
-            // 否则失败的概率 roll 也会吃掉冷却，导致每个冷却窗口只判定一次、实测概率远低于配置值。
             if (cooldownTicks > 0 && mobState.isOnCooldown(affix.getSkillId(), currentTick)) continue;
             SkillContext ctx = new SkillContext(plugin, victim, mobState);
             ctx.setTargetPlayer(damager);
             ctx.setTriggerEvent(event);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixTriggerEvent(affix, sc, ctx, victim, damager, mobState)) continue;
+            if (!fireAffixAttemptEvent(affix, ctx, victim, damager, mobState)) continue;
             affix.getSkill().onTrigger(ctx, sc);
-            if (affix.getSkill().getType() == SkillType.DUAL && cooldownTicks > 0 && ctx.isTriggered()) {
-                mobState.setCooldown(affix.getSkillId(), currentTick + cooldownTicks);
-            }
-
-            // lifesteal: 受击后设置回血 buff（削弱时 50% 概率不触发）
-            if ("lifesteal".equals(affix.getSkillId()) && affix.getSkill() instanceof com.infernalmobs.skill.impl.PassiveLifestealSkill ls) {
-                if (ctx.isWeakened() && Math.random() < 0.5) { /* 削弱：50% 不触发 */ }
-                else {
-                    if (ctx.fire(new InfernalMobLifestealEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) {
-                        int duration = sc.getInt("duration-ticks", 80);
-                        ls.setLifestealBuff(ctx, currentTick + duration);
-                    }
-                }
-            }
+            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldownTicks);
         }
     }
 
@@ -501,7 +484,7 @@ public class CombatService {
             if (target == null) continue;
 
             int cooldown = sc.getInt("cooldown-ticks", 100);
-            if (state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
+            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
 
             // ghastly 与 necromancer 共享投射物冷却，错开释放
             if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
@@ -509,19 +492,22 @@ public class CombatService {
                 if (lastProj > 0 && currentTick - lastProj < 40) continue;
             }
 
-            double chance = sc.getDouble("chance", 0.02);
-            if (Math.random() >= chance) continue;
-
-            state.setCooldown(affix.getSkillId(), currentTick + cooldown);
-            if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
-                state.setBuff(com.infernalmobs.skill.impl.RangeNecromancerSkill.PROJECTILE_BUFF, currentTick);
-            }
             SkillContext ctx = new SkillContext(plugin, entity, state);
             ctx.setTargetPlayer(target);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixTriggerEvent(affix, sc, ctx, entity, target, state)) continue;
+            if (!fireAffixAttemptEvent(affix, ctx, entity, target, state)) continue;
+
+            double chance = sc.getDouble("chance", 0.02);
+            if (Math.random() >= chance) continue;
+
             affix.getSkill().onTrigger(ctx, sc);
+            if (ctx.isTriggered()) {
+                ctx.commitCooldown(affix.getSkillId(), cooldown);
+                if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
+                    state.setBuff(com.infernalmobs.skill.impl.RangeNecromancerSkill.PROJECTILE_BUFF, currentTick);
+                }
+            }
         }
     }
 
@@ -534,14 +520,14 @@ public class CombatService {
             SkillConfig sc = config.getSkillConfig(affix.getSkillId());
             if (sc == null) continue;
             int cooldown = sc.getInt("cooldown-ticks", 100);
-            if (state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-            state.setCooldown(affix.getSkillId(), currentTick + cooldown);
+            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
             SkillContext ctx = new SkillContext(plugin, damager, state);
             ctx.setTargetPlayer(victim);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixTriggerEvent(affix, sc, ctx, damager, victim, state)) continue;
+            if (!fireAffixAttemptEvent(affix, ctx, damager, victim, state)) continue;
             affix.getSkill().onTrigger(ctx, sc);
+            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldown);
         }
     }
 
@@ -552,17 +538,14 @@ public class CombatService {
             SkillConfig sc = config.getSkillConfig(affix.getSkillId());
             if (sc == null) continue;
             int cooldown = sc.getInt("cooldown-ticks", 60);
-            // 冷却改为“触发成功后才扣”，失败的概率 roll 不消耗冷却（否则每冷却窗口只判定一次）
             if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
             SkillContext ctx = new SkillContext(plugin, damager, state);
             ctx.setTargetPlayer(victim);
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixTriggerEvent(affix, sc, ctx, damager, victim, state)) continue;
+            if (!fireAffixAttemptEvent(affix, ctx, damager, victim, state)) continue;
             affix.getSkill().onTrigger(ctx, sc);
-            if (cooldown > 0 && ctx.isTriggered()) {
-                state.setCooldown(affix.getSkillId(), currentTick + cooldown);
-            }
+            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldown);
         }
     }
 
@@ -584,35 +567,28 @@ public class CombatService {
             ctx.setCurrentTick(currentTick);
             if (mobFactory != null) ctx.setMobFactory(mobFactory);
             ctx.setCollectTo(collectTo);
-            if (!fireAffixTriggerEvent(affix, sc, ctx, entity, killer, mobState)) continue;
+            if (!fireAffixAttemptEvent(affix, ctx, entity, killer, mobState)) continue;
             affix.getSkill().onTrigger(ctx, sc);
         }
     }
 
     /**
-     * 在词条技能真正生效前触发 {@link InfernalAffixPreRollEvent}。
-     * 返回 false 表示事件被取消（本次技能触发应被跳过）。
-     * 参数袋以技能配置为初始值；若监听器修改了参数，则写入上下文供技能在应用效果时读取。
+     * 在非 STAT 词条进入技能条件与概率判定前广播 {@link InfernalAffixAttemptEvent}。
+     * 调用本方法前应先完成冷却、目标等内部资格检查；取消后不继续判定，也不产生新冷却。
      */
-    private boolean fireAffixTriggerEvent(Affix affix, SkillConfig sc, SkillContext ctx,
+    private boolean fireAffixAttemptEvent(Affix affix, SkillContext ctx,
                                           LivingEntity mob, LivingEntity target, MobState state) {
+        if (affix.getSkill().getType() == SkillType.STAT) return true;
         if (plugin == null) return true;
         InfernalMobHandle handle = new InfernalMobHandle(mob,
                 state.getProfile().getLevel(), state.getProfile().getAffixIds(),
                 state.getSuppressedAffixes());
         ctx.setHandle(handle);
-        InfernalAffixPreRollEvent event = new InfernalAffixPreRollEvent(
+        InfernalAffixAttemptEvent event = new InfernalAffixAttemptEvent(
                 affix.getSkillId(), affix.getSkill().getType(), mob, target, handle,
                 state.getProfile().getLevel());
-        if (sc != null && sc.getSection() != null) {
-            for (String key : sc.getSection().getKeys(false)) {
-                event.setParam(key, sc.getSection().get(key));
-            }
-        }
         plugin.getServer().getPluginManager().callEvent(event);
-        if (event.isCancelled()) return false;
-        ctx.setParamOverrides(event.getParams());
-        return true;
+        return !event.isCancelled();
     }
 
     /**

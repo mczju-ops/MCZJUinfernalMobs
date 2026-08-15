@@ -1,6 +1,7 @@
 package com.infernalmobs.skill;
 
 import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.api.event.InfernalAffixTriggeredEvent;
 import com.infernalmobs.model.MobState;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -9,9 +10,7 @@ import org.bukkit.event.Event;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 技能执行时的上下文，封装实体、状态、事件等信息。
@@ -27,8 +26,6 @@ public class SkillContext {
     private boolean weakened = false;
     /** 当前战斗 tick（由 CombatService 驱动，用于与冷却/持续时间对齐） */
     private long currentTick = 0;
-    /** 词条触发事件修改后的参数覆盖（key = config.yml 参数名，如 duration-ticks）。 */
-    private final Map<String, Object> paramOverrides = new LinkedHashMap<>();
 
     public SkillContext(JavaPlugin plugin, LivingEntity entity, MobState mobState) {
         this.plugin = plugin;
@@ -91,15 +88,11 @@ public class SkillContext {
         this.currentTick = currentTick;
     }
 
-    /** 本次 onTrigger 是否真正触发了技能效果（由技能在通过概率判定后标记，用于“成功后冷却”） */
+    /** 本次执行是否已经广播专用 Triggered 事件；事件被取消也仍视为成功触发。 */
     private boolean triggered = false;
 
     public boolean isTriggered() {
         return triggered;
-    }
-
-    public void setTriggered(boolean triggered) {
-        this.triggered = triggered;
     }
 
     /** 炒鸡怪门面句柄（由 CombatService 在触发事件前写入，供技能触发 Post 事件复用）。 */
@@ -125,44 +118,24 @@ public class SkillContext {
     }
 
     /**
-     * 触发一个事件，返回 false 表示该事件被取消（Cancellable）。
-     * 供技能在“真正触发”时 call 各自的 Post 事件。
+     * 广播事件，返回 false 表示该事件被取消（Cancellable）。
+     * 广播 {@link InfernalAffixTriggeredEvent} 时自动记录本次词条已经成功触发；
+     * 该标记不受取消状态影响，供调用方按统一契约提交冷却。
      */
     public boolean fire(Event event) {
         if (event == null) return true;
+        if (event instanceof InfernalAffixTriggeredEvent) triggered = true;
         getPlugin().getServer().getPluginManager().callEvent(event);
         return !(event instanceof Cancellable c && c.isCancelled());
     }
 
-    // === 参数覆盖（由 InfernalAffixPreRollEvent 修改后写入）===
-
-    /** 整体替换参数覆盖（事件触发后由 CombatService 调用）。 */
-    public void setParamOverrides(Map<String, Object> overrides) {
-        paramOverrides.clear();
-        if (overrides != null) paramOverrides.putAll(overrides);
-    }
-
-    /** 读取参数覆盖；不存在时返回 null。 */
-    public Object getParam(String key) {
-        return paramOverrides.get(key);
-    }
-
-    public boolean hasParam(String key) {
-        return paramOverrides.containsKey(key);
-    }
-
-    /** 读取 int 覆盖参数；无覆盖时返回默认值。 */
-    public int getIntParam(String key, int def) {
-        Object v = paramOverrides.get(key);
-        if (v instanceof Number n) return n.intValue();
-        return def;
-    }
-
-    /** 读取 double 覆盖参数；无覆盖时返回默认值。 */
-    public double getDoubleParam(String key, double def) {
-        Object v = paramOverrides.get(key);
-        if (v instanceof Number n) return n.doubleValue();
-        return def;
+    /**
+     * 从本次触发 tick 起提交词条冷却。非正冷却不写入状态。
+     * 延迟触发的技能也通过此入口提交，避免各技能自行拼接冷却截止时间。
+     */
+    public void commitCooldown(String skillId, int cooldownTicks) {
+        if (mobState == null || skillId == null || cooldownTicks <= 0) return;
+        mobState.setCooldown(skillId, currentTick + cooldownTicks);
     }
 
     // === 死亡掉落收集（InfernalMobDropEvent 聚合用）===

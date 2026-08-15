@@ -1,6 +1,5 @@
 package com.infernalmobs.skill.impl;
 
-import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.InfernalMobThiefEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
@@ -58,15 +57,11 @@ public class DualThiefSkill implements Skill {
             : config.getDouble("steal-chance", baseChance);
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率再减小50%
-        ctx.setTriggered(true);  // 概率判定通过：告知框架“已触发”，冷却改为成功后才扣
-
         // 掉落坐标用触发时怪物位置，延迟任务内不再用 ctx.getEntity()。这样与变身同时触发时，原实体被移除、新实体同位置生成，掉落仍落在“怪物处”正确位置
         Location mobLoc = ctx.getEntity().getLocation().clone();
         String soundKey = config.getString("sound", "ENTITY_WIND_CHARGE_THROW");
         String lineParticleKey = config.getString("line-particle", "REDSTONE");
         int cooldownTicks = config.getInt("cooldown-ticks", 80);
-        final long triggerTick = ctx.getCurrentTick();
-
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -81,9 +76,10 @@ public class DualThiefSkill implements Skill {
                 InfernalMobThiefEvent event = new InfernalMobThiefEvent(
                         ctx.getEntity(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
                         player, mainNow.clone(), mobLoc.clone().add(0, 0.5, 0), cooldownTicks);
-                ctx.getPlugin().getServer().getPluginManager().callEvent(event);
-                if (event.isCancelled()) return;
-                ctx.getMobState().setCooldown("thief", triggerTick + event.getCooldownTicks());
+                boolean shouldDisarm = ctx.fire(event);
+                // 到达专用 Triggered 事件即视为成功触发；即使外部取消缴械，也提交监听器给出的最终冷却。
+                ctx.commitCooldown(getId(), event.getCooldownTicks());
+                if (!shouldDisarm) return;
 
                 Location dropAt = event.getDropLocation();
                 // 画线：玩家眼睛 -> 掉落点（方便看清缴械触发方向）

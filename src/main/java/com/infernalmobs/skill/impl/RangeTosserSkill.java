@@ -51,10 +51,11 @@ public class RangeTosserSkill implements Skill {
             force *= 0.5;
             up *= 0.5;
         }
-        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixPreRollEvent(affixId=tosser) 接管
-
-        if (!ctx.fire(new InfernalMobTosserEvent(ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        player.setVelocity(toMob.multiply(force).setY(up));
+        InfernalMobTosserEvent event = new InfernalMobTosserEvent(
+                ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                force, up);
+        if (!ctx.fire(event)) return;
+        player.setVelocity(toMob.multiply(event.getForce()).setY(event.getUpward()));
 
         String soundKey = config.getString("sound", "ENTITY_BREEZE_JUMP");
         try {

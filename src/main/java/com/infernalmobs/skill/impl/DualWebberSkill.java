@@ -46,8 +46,6 @@ public class DualWebberSkill implements Skill {
         double chance = config.getDouble("chance", 0.3);
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        ctx.setTriggered(true);
-
         if (!ctx.fire(new InfernalMobWebberEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         boolean canGiantVariant = ctx.getEntity() != null
                 && (ctx.getEntity().getType() == EntityType.SPIDER || ctx.getEntity().getType() == EntityType.CAVE_SPIDER);

@@ -43,15 +43,8 @@ public class PassiveSulfurSkill implements Skill {
         LivingEntity mob = ctx.getEntity();
         if (target == null || !target.isOnline() || mob == null || !mob.isValid()) return;
 
-        int cooldownTicks = config.getInt("cooldown-ticks", 80);
-        if (cooldownTicks > 0 && ctx.getMobState().isOnCooldown(getId(), ctx.getCurrentTick())) return;
-
         double chance = config.getDouble("chance", 0.25);
         if (Math.random() >= chance) return;
-
-        if (cooldownTicks > 0) {
-            ctx.getMobState().setCooldown(getId(), ctx.getCurrentTick() + cooldownTicks);
-        }
         if (DisplacementImmunityHelper.isImmuneAndCleanup(target, ctx.getCurrentTick())) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;
 
