@@ -1,7 +1,7 @@
 package com.infernalmobs.skill;
 
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.InfernalAffixTriggeredEvent;
+import com.infernalmobs.api.event.affix.InfernalAffixTriggeredEvent;
 import com.infernalmobs.model.MobState;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;

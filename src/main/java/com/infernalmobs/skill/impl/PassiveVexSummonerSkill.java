@@ -1,6 +1,6 @@
 package com.infernalmobs.skill.impl;
 
-import com.infernalmobs.api.event.InfernalMobVexSummonerEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobVexSummonerEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;

@@ -1,6 +1,6 @@
 package com.infernalmobs.controller.listener;
 
-import com.infernalmobs.api.event.InfernalAffixAttemptEvent;
+import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import com.infernalmobs.util.Keys;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -37,6 +37,6 @@ public class ThiefResistanceListener implements Listener {
         Byte b = meta.getPersistentDataContainer().get(Keys.IM_THIEF_RESISTANCE, PersistentDataType.BYTE);
         if (b != null) return b != 0;
         String s = meta.getPersistentDataContainer().get(Keys.IM_THIEF_RESISTANCE, PersistentDataType.STRING);
-        return s != null && ("1".equals(s) || "true".equalsIgnoreCase(s));
+        return ("1".equals(s) || "true".equalsIgnoreCase(s));
     }
 }

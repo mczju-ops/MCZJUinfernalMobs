@@ -1,6 +1,6 @@
 package com.infernalmobs.controller.listener;
 
-import com.infernalmobs.api.event.InfernalAffixAttemptEvent;
+import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -16,7 +16,7 @@ public class MorphSuppressListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onAffixAttempt(InfernalAffixAttemptEvent event) {
         if (!"morph".equals(event.getAffixId())) return;
-        if (event.getHandle() != null && event.getHandle().isAffixSuppressed("morph")) {
+        if (event.getHandle().isAffixSuppressed("morph")) {
             event.setCancelled(true);
         }
     }

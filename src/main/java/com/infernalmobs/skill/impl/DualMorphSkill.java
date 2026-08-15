@@ -1,12 +1,11 @@
 package com.infernalmobs.skill.impl;
 
-import com.infernalmobs.api.event.InfernalMobMorphEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobMorphEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -73,11 +72,12 @@ public class DualMorphSkill implements Skill {
         float soundVolume = (float) config.getDouble("sound-volume", 0.6);
         float soundPitch = (float) config.getDouble("sound-pitch", 0.7);
 
+        EntityType finalTarget = target;
         new BukkitRunnable() {
             @Override
             public void run() {
                 if (!entity.isValid()) return;
-                factory.morphEntity(entity, ctx.getMobState(), target, currentHealth);
+                factory.morphEntity(entity, ctx.getMobState(), finalTarget, currentHealth);
                 if (soundLoc.getWorld() != null) {
                     try {
                         org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));

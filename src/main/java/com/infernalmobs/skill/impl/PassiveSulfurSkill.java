@@ -1,7 +1,7 @@
 package com.infernalmobs.skill.impl;
 
-import com.infernalmobs.api.event.InfernalMobSulfurEvent;
-import com.infernalmobs.api.event.InfernalMobSulfurLaunchEvent;
+import com.infernalmobs.api.event.affix.effect.InfernalMobSulfurLaunchEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobSulfurEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;

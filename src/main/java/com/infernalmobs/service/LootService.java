@@ -1,7 +1,7 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.InfernalMobDropEvent;
+import com.infernalmobs.api.event.mob.InfernalMobDropEvent;
 import com.infernalmobs.config.GuaranteedLootConfig;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;

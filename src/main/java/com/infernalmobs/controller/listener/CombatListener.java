@@ -2,7 +2,7 @@ package com.infernalmobs.controller.listener;
 
 import com.infernalmobs.InfernalMobsPlugin;
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.InfernalMobKillEvent;
+import com.infernalmobs.api.event.mob.InfernalMobKillEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.ProtectedAnimalsConfig;
 import com.infernalmobs.model.MobState;

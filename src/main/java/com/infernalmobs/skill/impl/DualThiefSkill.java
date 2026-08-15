@@ -1,6 +1,6 @@
 package com.infernalmobs.skill.impl;
 
-import com.infernalmobs.api.event.InfernalMobThiefEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
 import com.infernalmobs.skill.Skill;

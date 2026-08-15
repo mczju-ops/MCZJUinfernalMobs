@@ -2,8 +2,8 @@ package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.InfernalAffixAttemptEvent;
-import com.infernalmobs.api.event.InfernalMob1upEvent;
+import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
