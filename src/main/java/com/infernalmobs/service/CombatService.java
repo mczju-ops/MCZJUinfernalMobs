@@ -210,7 +210,8 @@ public class CombatService {
         };
     }
 
-    private static double healCeiling(LivingEntity entity, MobState state) {
+    /** 获取治疗可达到的生命值上限，同时考虑实体属性、Paper 上限与僵尸系等级上限。 */
+    public static double healCeiling(LivingEntity entity, MobState state) {
         var attr = entity.getAttribute(Attribute.MAX_HEALTH);
         double attrMax = attr != null ? attr.getValue() : entity.getMaxHealth();
         double paperMax = entity.getMaxHealth();
@@ -454,7 +455,6 @@ public class CombatService {
                     if (currentTick % 10 == 0) {
                         tickDyeAura(entity, e.getValue());
                     }
-                    tickLifesteal(entity, e.getValue());
                 }
             }
         }.runTaskTimer(plugin, 20L, 1L);
@@ -509,21 +509,6 @@ public class CombatService {
             mobStates.remove(uuid);
             lastActiveTick.remove(uuid);
         }
-    }
-
-    /** lifesteal: 4s 内每秒回血 */
-    private void tickLifesteal(LivingEntity entity, MobState state) {
-        long until = state.getBuff(com.infernalmobs.skill.impl.PassiveLifestealSkill.BUFF_KEY);
-        if (until == 0 || currentTick >= until) return;
-
-        if (currentTick % 20 != 0) return;  // 每秒一次
-
-        var sc = config.getSkillConfig("lifesteal");
-        double amount = sc != null ? sc.getDouble("heal-per-second", 1) : 1;
-        var attr = entity.getAttribute(Attribute.MAX_HEALTH);
-        if (attr == null) return;
-        double ceiling = healCeiling(entity, state);
-        entity.setHealth(Math.min(ceiling, entity.getHealth() + amount));
     }
 
     /** dye 词条：给怪物周身添加紫色 portal 粒子。 */

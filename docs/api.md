@@ -253,7 +253,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | ghastly | `InfernalMobGhastlyEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getDirectDamage/setDirectDamage`、`getFireTicks/setFireTicks`、`getExplosionPower/setExplosionPower`、`getLifetimeTicks/setLifetimeTicks` |
 | ghost | `InfernalMobGhostEvent` | DEATH | —（target=击杀者，可能 null） |
 | gravity | `InfernalMobGravityEvent` | RANGE | `get/setDurationTicks`、`get/setAmplifier` |
-| lifesteal | `InfernalMobLifestealEvent` | PASSIVE | — |
+| lifesteal | `InfernalMobLifestealEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getHealPerSecond/setHealPerSecond`（每 20 tick 治疗量） |
 | mama | `InfernalMobMamaEvent` | PASSIVE | `getCount/setCount` |
 | molten | `InfernalMobMoltenEvent` | PASSIVE | — |
 | morph | `InfernalMobMorphEvent` | DUAL | `getTargetType/setTargetType` |
