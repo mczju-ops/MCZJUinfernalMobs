@@ -36,8 +36,14 @@ public class DualRefrigerateSkill implements Skill {
         double chance = config.getDouble("chance", 0.3);
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        if (!ctx.fire(new InfernalMobRefrigerateEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        int ticks = config.getInt("freeze-ticks", 140);
-        target.setFreezeTicks(Math.max(target.getFreezeTicks(), ticks));
+
+        int freezeTicks = config.getInt("freeze-ticks", 100);
+        InfernalMobRefrigerateEvent event = new InfernalMobRefrigerateEvent(
+                ctx.getEntity(), target, ctx.getHandle(),
+                ctx.getMobState().getProfile().getLevel(), freezeTicks);
+        if (!ctx.fire(event) || event.getFreezeTicks() == 0) return;
+
+        int effectiveTicks = Math.min(event.getFreezeTicks(), target.getMaxFreezeTicks());
+        target.setFreezeTicks(Math.max(target.getFreezeTicks(), effectiveTicks));
     }
 }
