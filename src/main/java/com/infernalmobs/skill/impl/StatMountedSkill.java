@@ -1,6 +1,7 @@
 package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.affix.triggered.InfernalMobMountedEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobMountedEvent.MountCandidate;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.InfernalMobsPlugin;
@@ -54,7 +55,6 @@ public class StatMountedSkill implements Skill {
         if (ctx == null) {
             return;
         }
-        if (!ctx.fire(new InfernalMobMountedEvent(ctx.getEntity(), null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         debugLog(ctx, "进入 onEquip（入口）");
 
         LivingEntity rider = ctx.getEntity();
@@ -107,9 +107,11 @@ public class StatMountedSkill implements Skill {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (!rider.isValid() || rider.isDead() || rider.getWorld() == null) {
+                if (!rider.isValid() || rider.isDead()) {
                     debugLog(ctx, "延迟任务取消：rider 已无效/死亡/无世界");
                     return;
+                } else {
+                    rider.getWorld();
                 }
                 if (rider.getVehicle() != null) {
                     debugLog(ctx, "延迟任务跳过：rider 已有载具 vehicle=" + rider.getVehicle().getType());
@@ -119,17 +121,34 @@ public class StatMountedSkill implements Skill {
 
                 List<EntityType> attempts = new ArrayList<>(mountPool);
                 Collections.shuffle(attempts, ThreadLocalRandom.current());
-                for (EntityType type : attempts) {
-                    if (type == null) continue;
-                    Entity mount = rider.getWorld().spawnEntity(loc, type);
-                    if (infernalPool.contains(type)) {
-                        maybeMechanizeMount(ctx, config, mount, loc);
-                    }
+                List<MountCandidate> candidates = attempts.stream()
+                        .map(type -> new MountCandidate(type, infernalPool.contains(type)))
+                        .toList();
+                InfernalMobMountedEvent event = new InfernalMobMountedEvent(
+                        rider, null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel(),
+                        candidates, loc);
+                if (!ctx.fire(event)) {
+                    debugLog(ctx, "延迟任务取消：InfernalMobMountedEvent 被取消");
+                    return;
+                }
+
+                Location spawnLocation = event.getSpawnLocation();
+                if (spawnLocation.getWorld() == null) {
+                    debugLog(ctx, "延迟任务跳过：事件提供的生成位置没有世界");
+                    return;
+                }
+                for (MountCandidate candidate : event.getMountCandidates()) {
+                    EntityType type = candidate.mountType();
+                    Entity mount = spawnLocation.getWorld().spawnEntity(spawnLocation, type);
 
                     boolean mounted = mount.addPassenger(rider);
-                    debugLog(ctx, "尝试坐骑 type=" + type + " infernal=" + infernalPool.contains(type) + " addPassenger=" + mounted);
+                    debugLog(ctx, "尝试坐骑 type=" + type + " infernal=" + candidate.infernal()
+                            + " addPassenger=" + mounted);
                     if (mounted) {
-                        addInfernalCamelPassenger(ctx, mount, loc, riderPool);
+                        if (candidate.infernal()) {
+                            maybeMechanizeMount(ctx, mount, spawnLocation);
+                        }
+                        addInfernalCamelPassenger(ctx, mount, spawnLocation, riderPool);
                         debugLog(ctx, "挂载成功 rider=" + rider.getType() + " mount=" + type);
                         return;
                     }
@@ -169,11 +188,13 @@ public class StatMountedSkill implements Skill {
                 continue;
             }
 
-            mechanizePassenger(ctx, passengerEntity, loc);
             boolean added = mount.addPassenger(passenger);
-                debugLog(ctx, "骆驼尸壳从骑手白名单生成第二乘客 type=" + type
+            debugLog(ctx, "骆驼尸壳从骑手白名单生成第二乘客 type=" + type
                     + " infernal=true addPassenger=" + added);
-            if (added) return;
+            if (added) {
+                mechanizePassenger(ctx, passengerEntity, loc);
+                return;
+            }
             passenger.remove();
         }
         debugLog(ctx, "骆驼尸壳所有炒鸡池候选均无法作为第二乘客");
@@ -189,7 +210,7 @@ public class StatMountedSkill implements Skill {
     @Override
     public void onUnequip(SkillContext ctx) {}
 
-    private void maybeMechanizeMount(SkillContext ctx, SkillConfig config, Entity mount, Location loc) {
+    private void maybeMechanizeMount(SkillContext ctx, Entity mount, Location loc) {
         if (!(mount instanceof LivingEntity mountEntity)) return;
 
         MobFactory factory = ctx.getMobFactory();

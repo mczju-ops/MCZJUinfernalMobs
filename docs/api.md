@@ -257,7 +257,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | mama | `InfernalMobMamaEvent` | PASSIVE | `getCount/setCount`、`getChildType/setChildType`、`getSpawnLocation/setSpawnLocation`、`getChildLevelMin/setChildLevelMin`、`getChildLevelMax/setChildLevelMax`、`setChildLevelRange`、`isBaby/setBaby`、`getNoBabyScale/setNoBabyScale` |
 | molten | `InfernalMobMoltenEvent` | PASSIVE | `getFireTicks/setFireTicks`（攻击者的最低剩余燃烧时间） |
 | morph | `InfernalMobMorphEvent` | DUAL | `getTargetType/setTargetType` |
-| mounted | `InfernalMobMountedEvent` | STAT | —（target=null） |
+| mounted | `InfernalMobMountedEvent` | STAT | `getMountCandidates/setMountCandidates`（有序 `MountCandidate` 列表，包含 `mountType` 与 `infernal`）、`getSpawnLocation/setSpawnLocation`（target=null） |
 | necromancer | `InfernalMobNecromancerEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getExplosionPower/setExplosionPower`、`isCharged/setCharged`、`getLifetimeTicks/setLifetimeTicks` |
 | poisonous | `InfernalMobPoisonousEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | quicksand | `InfernalMobQuicksandEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |

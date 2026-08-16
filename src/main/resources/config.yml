@@ -808,8 +808,9 @@ skills:
       - BLAZE
       - BOGGED
       - STRIDER
-    # 坐骑白名单（核心池）：从此列表随机生成坐骑，且生成后会被炒鸡化
-    # 留空=不生成坐骑（mounted 实际不生效）
+    # 炒鸡坐骑池：成功挂载后会被炒鸡化；与 enabled-mounts 合并后随机尝试
+    infernal-mounts: []
+    # 普通坐骑池：成功挂载后保持普通实体；两个坐骑池均留空时 mounted 实际不生效
     enabled-mounts:
       - SPIDER
       - SKELETON_HORSE
