@@ -5,6 +5,8 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import org.bukkit.damage.DamageSource;
+import org.bukkit.damage.DamageType;
 import org.bukkit.entity.Player;
 
 /**
@@ -37,9 +39,17 @@ public class PassiveVengeanceSkill implements Skill {
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
-        if (!ctx.fire(new InfernalMobVengeanceEvent(ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         double damage = config.getDouble("damage", 10);
-        player.damage(damage, ctx.getEntity());
+        InfernalMobVengeanceEvent event = new InfernalMobVengeanceEvent(
+                ctx.getEntity(), player, ctx.getHandle(),
+                ctx.getMobState().getProfile().getLevel(), damage);
+        if (!ctx.fire(event) || event.getDamage() == 0.0) return;
+
+        DamageSource damageSource = DamageSource.builder(DamageType.THORNS)
+                .withCausingEntity(ctx.getEntity())
+                .withDirectEntity(ctx.getEntity())
+                .build();
+        player.damage(event.getDamage(), damageSource);
 
         String soundKey = config.getString("sound", "ENTITY_BREEZE_DEFLECT");
         try {

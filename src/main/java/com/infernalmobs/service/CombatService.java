@@ -261,6 +261,8 @@ public class CombatService {
      * 怪物攻击玩家时：应用伤害加成，并触发 ACTIVE 与 DUAL 技能。
      */
     public void onMobAttack(EntityDamageByEntityEvent event, LivingEntity damager, Player victim, MobState mobState) {
+        if (event.getCause() == EntityDamageEvent.DamageCause.THORNS) return;
+
         double damageBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.DAMAGE_BONUS);
         if (damageBonus > 0) {
             event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) + damageBonus);

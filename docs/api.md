@@ -271,7 +271,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | swap | `InfernalMobSwapEvent` | PASSIVE | `getMobDestination/setMobDestination`、`getPlayerDestination/setPlayerDestination` |
 | thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
 | tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |
-| vengeance | `InfernalMobVengeanceEvent` | PASSIVE | — |
+| vengeance | `InfernalMobVengeanceEvent` | PASSIVE | `getDamage/setDamage`（使用原生 THORNS 伤害来源） |
 | vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | — |
 | wardenwrath | `InfernalMobWardenWrathEvent` | PASSIVE | — |
 | weakness | `InfernalMobWeaknessEvent` | DUAL | — |
