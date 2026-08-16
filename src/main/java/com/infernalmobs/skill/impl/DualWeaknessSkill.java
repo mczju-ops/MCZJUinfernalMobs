@@ -35,10 +35,17 @@ public class DualWeaknessSkill implements Skill {
         Player target = ctx.getTargetPlayer();
         if (target == null || !target.isOnline()) return;
 
-        int duration = config.getInt("duration-ticks", 500);
+        int duration = config.getDurationTicks("duration-ticks", 500);
         int amplifier = config.getInt("amplifier", 1);
-        if (ctx.isWeakened()) duration = Math.max(1, duration / 2);
-        if (!ctx.fire(new InfernalMobWeaknessEvent(ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, duration, amplifier, false, true));
+        if (ctx.isWeakened() && duration != PotionEffect.INFINITE_DURATION) {
+            duration = Math.max(1, duration / 2);
+        }
+
+        InfernalMobWeaknessEvent event = new InfernalMobWeaknessEvent(
+                ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                duration, amplifier);
+        if (!ctx.fire(event)) return;
+        target.addPotionEffect(new PotionEffect(
+                PotionEffectType.WEAKNESS, event.getDurationTicks(), event.getAmplifier(), false, true));
     }
 }
