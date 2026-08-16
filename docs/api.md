@@ -260,7 +260,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | necromancer | `InfernalMobNecromancerEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getExplosionPower/setExplosionPower`、`isCharged/setCharged`、`getLifetimeTicks/setLifetimeTicks` |
 | poisonous | `InfernalMobPoisonousEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | quicksand | `InfernalMobQuicksandEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
-| refrigerate | `InfernalMobRefrigerateEvent` | DUAL | `getFreezeTicks/setFreezeTicks`（目标冻结计数器的最低值，实际应用不超过目标上限） |
+| refrigerate | `InfernalMobRefrigerateEvent` | DUAL | `getFreezeTicks/setFreezeTicks`（目标处于完全冻结状态的持续 tick 数；0 表示不改变冻结状态） |
 | rust | `InfernalMobRustEvent` | PASSIVE | `getItemStack`（只读快照）、`getDamageAmount/setDamageAmount`（标准耐久损耗量） |
 | sapper | `InfernalMobSapperEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | spear | `InfernalMobSpearEvent` | RANGE | `getChargeTicks/setChargeTicks`、`getLungeTicks/setLungeTicks`、`getLungeSpeedAmplifier/setLungeSpeedAmplifier`、`getSpearItem/setSpearItem` |

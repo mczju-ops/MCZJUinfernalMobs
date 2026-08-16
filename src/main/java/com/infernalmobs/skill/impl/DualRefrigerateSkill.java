@@ -12,6 +12,8 @@ import org.bukkit.entity.Player;
  */
 public class DualRefrigerateSkill implements Skill {
 
+    private static final int VANILLA_THAW_TICKS_PER_TICK = 2;
+
     @Override
     public String getId() {
         return "refrigerate";
@@ -43,7 +45,9 @@ public class DualRefrigerateSkill implements Skill {
                 ctx.getMobState().getProfile().getLevel(), freezeTicks);
         if (!ctx.fire(event) || event.getFreezeTicks() == 0) return;
 
-        int effectiveTicks = Math.min(event.getFreezeTicks(), target.getMaxFreezeTicks());
+        long requiredFreezeTicks = (long) target.getMaxFreezeTicks()
+                + (long) event.getFreezeTicks() * VANILLA_THAW_TICKS_PER_TICK;
+        int effectiveTicks = (int) Math.min(requiredFreezeTicks, Integer.MAX_VALUE);
         target.setFreezeTicks(Math.max(target.getFreezeTicks(), effectiveTicks));
     }
 }
