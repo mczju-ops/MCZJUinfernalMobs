@@ -42,18 +42,30 @@ public class PassiveSwapSkill implements Skill {
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
-        if (!ctx.fire(new InfernalMobSwapEvent(ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        Location mobLoc = ctx.getEntity().getLocation().clone();
-        Location playerLoc = player.getLocation().clone();
+        Location mobOrigin = ctx.getEntity().getLocation().clone();
+        Location playerOrigin = player.getLocation().clone();
+        InfernalMobSwapEvent event = new InfernalMobSwapEvent(
+                ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                playerOrigin.clone(), mobOrigin.clone());
+        if (!ctx.fire(event)) return;
 
-        ctx.getEntity().teleport(playerLoc);
-        player.teleport(mobLoc);
+        Location mobDestination = event.getMobDestination().clone();
+        Location playerDestination = event.getPlayerDestination().clone();
+        if (mobDestination.getWorld() == null || playerDestination.getWorld() == null) return;
+
+        if (!ctx.getEntity().teleport(mobDestination)) return;
+        if (!player.teleport(playerDestination)) {
+            ctx.getEntity().teleport(mobOrigin);
+            return;
+        }
 
         String soundKey = config.getString("sound", "ENTITY_SHULKER_TELEPORT");
         try {
             org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            mobLoc.getWorld().playSound(mobLoc, sound, 0.8f, 1f);
-            playerLoc.getWorld().playSound(playerLoc, sound, 0.8f, 1f);
+            Location finalMobLocation = ctx.getEntity().getLocation();
+            Location finalPlayerLocation = player.getLocation();
+            finalMobLocation.getWorld().playSound(finalMobLocation, sound, 0.8f, 1f);
+            finalPlayerLocation.getWorld().playSound(finalPlayerLocation, sound, 0.8f, 1f);
         } catch (IllegalArgumentException ignored) {}
     }
 }
