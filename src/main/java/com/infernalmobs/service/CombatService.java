@@ -6,6 +6,7 @@ import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobFireworkDamageEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobGhastlyDamageEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobNecromancerDamageEvent;
+import com.infernalmobs.api.event.affix.effect.InfernalMobStormDamageEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
@@ -21,6 +22,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Fireball;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.LightningStrike;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.WitherSkull;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -399,6 +401,40 @@ public class CombatService {
                 event.getCause(), event.getDamage());
         plugin.getServer().getPluginManager().callEvent(damageEvent);
         if (damageEvent.isCancelled()) {
+            event.setCancelled(true);
+            return;
+        }
+        event.setDamage(damageEvent.getDamage());
+    }
+
+    /**
+     * 广播 storm 真实闪电的逐受害者伤害事件，并应用 Triggered 事件确定的基础伤害。
+     */
+    public void handleStormDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof LightningStrike lightning)) return;
+        List<MetadataValue> skillMetadata = lightning.getMetadata("infernalmobs_skill_id");
+        if (skillMetadata.isEmpty() || !"storm".equals(skillMetadata.getFirst().asString())) return;
+        if (!(event.getEntity() instanceof LivingEntity victim)) return;
+
+        List<MetadataValue> damageMetadata = lightning.getMetadata("infernalmobs_damage");
+        if (damageMetadata.isEmpty()) return;
+        event.setDamage(Math.max(0.0, damageMetadata.getFirst().asDouble()));
+
+        List<MetadataValue> sourceMetadata = lightning.getMetadata("infernalmobs_source");
+        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
+        LivingEntity mob = findEntity(mobUuid);
+        if (mob == null || !mob.isValid()) return;
+
+        List<MetadataValue> handleMetadata = lightning.getMetadata("infernalmobs_storm_handle");
+        if (handleMetadata.isEmpty()
+                || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
+        List<MetadataValue> levelMetadata = lightning.getMetadata("infernalmobs_storm_level");
+        if (levelMetadata.isEmpty()) return;
+
+        InfernalMobStormDamageEvent damageEvent = new InfernalMobStormDamageEvent(
+                mob, victim, lightning, handle, levelMetadata.getFirst().asInt(), event.getDamage());
+        plugin.getServer().getPluginManager().callEvent(damageEvent);
+        if (damageEvent.isCancelled() || damageEvent.getDamage() <= 0.0) {
             event.setCancelled(true);
             return;
         }

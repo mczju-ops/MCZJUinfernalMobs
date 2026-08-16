@@ -726,7 +726,7 @@ skills:
     display: "&9Storm"
     cooldown-ticks: 0    # 参考原版：每次受击/攻击都 roll，无冷却
     chance: 0.22         # 约 2/9，与原版一致
-    damage: 5
+    damage: 5            # 真实闪电对每名受害者使用的基础伤害
 
   vengeance:
     type: PASSIVE

@@ -266,7 +266,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | sapper | `InfernalMobSapperEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | spear | `InfernalMobSpearEvent` | RANGE | — |
 | sprint | `InfernalMobSprintEvent` | STAT | `getAmplifier/setAmplifier`（无限时长速度效果；target=null） |
-| storm | `InfernalMobStormEvent` | DUAL | — |
+| storm | `InfernalMobStormEvent` | DUAL | `getStrikeLocation/setStrikeLocation`、`getDamage/setDamage`、`isEffectOnly/setEffectOnly` |
 | sulfur | `InfernalMobSulfurEvent` | PASSIVE | — |
 | swap | `InfernalMobSwapEvent` | PASSIVE | — |
 | thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
@@ -300,6 +300,12 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 可通过 `getDamageCause()` 区分伤害阶段、通过 `getDamage/setDamage` 修改基础伤害，
 或取消当前受害者的本次伤害。取消 Damage 事件不会影响其他受害者，
 也不会回滚已经发生的 necromancer 触发或冷却。
+
+**storm 的逐受害者伤害事件**：`InfernalMobStormDamageEvent` 不继承
+`InfernalAffixTriggeredEvent`。真实闪电对范围内实体产生伤害时，针对每个受害者分别广播，
+可通过 `getLightningStrike()` 获取闪电实体、通过 `getDamage/setDamage` 修改基础伤害，
+或取消当前受害者的本次伤害。取消 Damage 事件不会撤销点火、生物转化或其他受害者的伤害，
+也不会回滚已经发生的 storm 触发或冷却。视觉闪电不会广播该事件。
 
 **示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java
