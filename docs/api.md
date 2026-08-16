@@ -258,7 +258,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | molten | `InfernalMobMoltenEvent` | PASSIVE | — |
 | morph | `InfernalMobMorphEvent` | DUAL | `getTargetType/setTargetType` |
 | mounted | `InfernalMobMountedEvent` | STAT | —（target=null） |
-| necromancer | `InfernalMobNecromancerEvent` | RANGE | — |
+| necromancer | `InfernalMobNecromancerEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getExplosionPower/setExplosionPower`、`isCharged/setCharged`、`getLifetimeTicks/setLifetimeTicks` |
 | poisonous | `InfernalMobPoisonousEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | quicksand | `InfernalMobQuicksandEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | refrigerate | `InfernalMobRefrigerateEvent` | DUAL | — |
@@ -294,6 +294,12 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 可通过 `getDamageCause()` 区分伤害阶段、通过 `getDamage/setDamage` 修改基础伤害，
 或取消当前受害者的本次伤害。取消 Damage 事件不会影响其他受害者，
 也不会回滚已经发生的 ghastly 触发或冷却。
+
+**necromancer 的逐受害者伤害事件**：`InfernalMobNecromancerDamageEvent` 不继承
+`InfernalAffixTriggeredEvent`。凋灵之首直接命中或爆炸产生范围伤害时，针对每个受害者分别广播，
+可通过 `getDamageCause()` 区分伤害阶段、通过 `getDamage/setDamage` 修改基础伤害，
+或取消当前受害者的本次伤害。取消 Damage 事件不会影响其他受害者，
+也不会回滚已经发生的 necromancer 触发或冷却。
 
 **示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java

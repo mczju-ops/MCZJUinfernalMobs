@@ -5,6 +5,7 @@ import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobFireworkDamageEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobGhastlyDamageEvent;
+import com.infernalmobs.api.event.affix.effect.InfernalMobNecromancerDamageEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
@@ -21,6 +22,7 @@ import org.bukkit.entity.Fireball;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.WitherSkull;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
@@ -363,6 +365,37 @@ public class CombatService {
 
         InfernalMobGhastlyDamageEvent damageEvent = new InfernalMobGhastlyDamageEvent(
                 mob, victim, fireball, handle, levelMetadata.getFirst().asInt(), event.getCause(), event.getDamage());
+        plugin.getServer().getPluginManager().callEvent(damageEvent);
+        if (damageEvent.isCancelled()) {
+            event.setCancelled(true);
+            return;
+        }
+        event.setDamage(damageEvent.getDamage());
+    }
+
+    /**
+     * 广播 necromancer 凋灵之首的逐受害者伤害事件。
+     */
+    public void handleNecromancerDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof WitherSkull witherSkull)) return;
+        List<MetadataValue> skillMetadata = witherSkull.getMetadata("infernalmobs_skill_id");
+        if (skillMetadata.isEmpty() || !"necromancer".equals(skillMetadata.getFirst().asString())) return;
+        if (!(event.getEntity() instanceof LivingEntity victim)) return;
+
+        List<MetadataValue> sourceMetadata = witherSkull.getMetadata("infernalmobs_source");
+        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
+        LivingEntity mob = findEntity(mobUuid);
+        if (mob == null || !mob.isValid()) return;
+
+        List<MetadataValue> handleMetadata = witherSkull.getMetadata("infernalmobs_necromancer_handle");
+        if (handleMetadata.isEmpty()
+                || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
+        List<MetadataValue> levelMetadata = witherSkull.getMetadata("infernalmobs_necromancer_level");
+        if (levelMetadata.isEmpty()) return;
+
+        InfernalMobNecromancerDamageEvent damageEvent = new InfernalMobNecromancerDamageEvent(
+                mob, victim, witherSkull, handle, levelMetadata.getFirst().asInt(),
+                event.getCause(), event.getDamage());
         plugin.getServer().getPluginManager().callEvent(damageEvent);
         if (damageEvent.isCancelled()) {
             event.setCancelled(true);

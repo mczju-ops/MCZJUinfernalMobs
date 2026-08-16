@@ -667,6 +667,9 @@ skills:
     chance: 0.3
     cooldown-ticks: 100
     velocity: 1.0
+    explosion-power: 1.0
+    charged: false
+    entity-lifetime-ticks: 100
 
   firework:
     type: DUAL
