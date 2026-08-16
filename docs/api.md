@@ -251,7 +251,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | ender | `InfernalMobEnderEvent` | DUAL | `getDestination/setDestination` |
 | firework | `InfernalMobFireworkEvent` | DUAL | `getSpawnLocation/setSpawnLocation`、`getFireworkEffect/setFireworkEffect` |
 | ghastly | `InfernalMobGhastlyEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getDirectDamage/setDirectDamage`、`getFireTicks/setFireTicks`、`getExplosionPower/setExplosionPower`、`getLifetimeTicks/setLifetimeTicks` |
-| ghost | `InfernalMobGhostEvent` | DEATH | —（target=击杀者，可能 null） |
+| ghost | `InfernalMobGhostEvent` | DEATH | `getSpawnLocation/setSpawnLocation`、`getSummonLevel/setSummonLevel`、`getMaxHealth/setMaxHealth`、`getFloatSpeed/setFloatSpeed`、`getHelmet/setHelmet`、`getChestplate/setChestplate`、`getMainHand/setMainHand`、`getAffixIds/setAffixIds`（target=击杀者，可能 null） |
 | gravity | `InfernalMobGravityEvent` | RANGE | `get/setDurationTicks`、`get/setAmplifier` |
 | lifesteal | `InfernalMobLifestealEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getHealPerSecond/setHealPerSecond`（每 20 tick 治疗量） |
 | mama | `InfernalMobMamaEvent` | PASSIVE | `getCount/setCount`、`getChildType/setChildType`、`getSpawnLocation/setSpawnLocation`、`getChildLevelMin/setChildLevelMin`、`getChildLevelMax/setChildLevelMax`、`setChildLevelRange`、`isBaby/setBaby`、`getNoBabyScale/setNoBabyScale` |
