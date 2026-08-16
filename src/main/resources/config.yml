@@ -639,6 +639,7 @@ skills:
     cooldown-ticks: 40
     chance: 0.15
     sound: "BLOCK_COBWEB_PLACE"  # 蜘蛛网放置音效
+    web-lifetime-ticks: 100       # 普通蛛网存在时间（5s）；0 表示不自动清理
     giant-sphere-chance: 0.15    # 蜘蛛网球概率（每只蜘蛛仅会以这种方式释放技能一次）
     giant-sphere-radius: 6       # 蜘蛛网球半径
     giant-sphere-thickness: 0.5  # 蜘蛛网球密度（0.01-1，越大越密越厚度）

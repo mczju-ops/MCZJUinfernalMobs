@@ -275,13 +275,18 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | `getSummonCount/setSummonCount`、`getSpawnLocation/setSpawnLocation` |
 | wardenwrath | `InfernalMobWardenWrathEvent` | PASSIVE | `getDamage/setDamage`、`getKnockbackHorizontal/setKnockbackHorizontal`、`getKnockbackVertical/setKnockbackVertical`（均为距离衰减后的参数） |
 | weakness | `InfernalMobWeaknessEvent` | DUAL | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
-| webber | `InfernalMobWebberEvent` | DUAL | — |
+| webber | `InfernalMobWebberEvent` | DUAL | `isGiantSphere`、`getCenter/setCenter`、`getLifetimeTicks/setLifetimeTicks`、`getRadius/setRadius`、`getThickness/setThickness` |
 | withering | `InfernalMobWitheringEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 
 **sulfur 的逐玩家喷发事件**：`InfernalMobSulfurLaunchEvent` 不继承 `InfernalAffixTriggeredEvent`。
 它在硫泉完成预警、准备顶起范围内某一名玩家时单独广播，可通过
 `getPlayer()` 获取该玩家、通过 `getUpward/setUpward` 修改本次竖直速度，或取消该玩家本次被顶起。
 取消 Launch 事件不会取消已经发生的 sulfur 触发，也不会回滚或重复提交其冷却。
+
+**webber 的逐方块放置事件**：`InfernalMobWebberPlaceEvent` 不继承
+`InfernalAffixTriggeredEvent`。普通蛛网或巨型空心网球准备将某个空气方块替换为蛛网时逐块广播，
+可通过 `getBlock()` 获取候选方块、通过 `isGiantSphere()` 区分变体，或取消当前方块。
+取消 Place 事件不会影响其他方块，也不会回滚已经发生的 webber 触发、冷却或巨型网球的一次性机会。
 
 **firework 的逐受害者伤害事件**：`InfernalMobFireworkDamageEvent` 不继承
 `InfernalAffixTriggeredEvent`。原版烟花爆炸为每个受影响实体计算出基础伤害后分别广播，
