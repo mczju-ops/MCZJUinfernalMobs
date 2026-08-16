@@ -13,6 +13,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.skill.impl.RangeSpearSkill;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -266,6 +267,13 @@ public class CombatService {
         if (damageBonus > 0) {
             event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) + damageBonus);
         }
+        for (Affix affix : mobState.getProfile().getAffixes()) {
+            if (affix.getSkill() instanceof RangeSpearSkill spear
+                    && spear.handleMeleeHit(event, damager, victim)) {
+                break;
+            }
+        }
+        if (event.isCancelled()) return;
         triggerActiveSkills(event, damager, victim, mobState);
         triggerDualSkills(damager, victim, mobState);
     }

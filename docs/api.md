@@ -263,7 +263,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | refrigerate | `InfernalMobRefrigerateEvent` | DUAL | `getFreezeTicks/setFreezeTicks`（目标冻结计数器的最低值，实际应用不超过目标上限） |
 | rust | `InfernalMobRustEvent` | PASSIVE | `getItemStack`（只读快照）、`getDamageAmount/setDamageAmount`（标准耐久损耗量） |
 | sapper | `InfernalMobSapperEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
-| spear | `InfernalMobSpearEvent` | RANGE | `getChargeTicks/setChargeTicks`、`getLungeTicks/setLungeTicks`、`getLungeSpeedAmplifier/setLungeSpeedAmplifier`、`getSpearItem/setSpearItem`、`getHitRadius/setHitRadius`、`getDamage/setDamage` |
+| spear | `InfernalMobSpearEvent` | RANGE | `getChargeTicks/setChargeTicks`、`getLungeTicks/setLungeTicks`、`getLungeSpeedAmplifier/setLungeSpeedAmplifier`、`getSpearItem/setSpearItem` |
 | sprint | `InfernalMobSprintEvent` | STAT | `getAmplifier/setAmplifier`（无限时长速度效果；target=null） |
 | storm | `InfernalMobStormEvent` | DUAL | `getStrikeLocation/setStrikeLocation`、`getDamage/setDamage`、`isEffectOnly/setEffectOnly` |
 | sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight`、`getWarnSound/setWarnSound`、`getEruptSound/setEruptSound`、`getSoundVolume/setSoundVolume` |
@@ -278,10 +278,10 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | withering | `InfernalMobWitheringEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 
 **spear 的单次命中事件**：`InfernalMobSpearHitEvent` 不继承 `InfernalAffixTriggeredEvent`。
-`InfernalMobSpearEvent#getDamage()` 表示本轮强化追逐共用的基础额外伤害；怪物首次进入命中半径时，
-本体再以该值广播一次 Hit 事件。监听器可通过 `getPlayer()` 获取目标、通过
-`getDamage/setDamage` 修改最终伤害，或取消本次额外伤害。取消或将伤害改为 0 仍会消耗本轮唯一命中机会，
-不会回滚 spear 的触发或冷却；未取消的伤害仍会继续进入标准 Bukkit/Paper 伤害事件。
+它只在怪物进入冲锋阶段后，以临时长矛对本轮锁定玩家造成真实近战攻击时广播；距离接近本身不会触发。
+`getDamage/setDamage` 读写的是这一次原始近战伤害，不会另外调用 `damage(...)` 产生第二次伤害。
+取消 Hit 事件会取消对应的原始近战伤害；取消或将伤害改为 0 仍会消费本轮命中并立即结束持矛状态，
+不会回滚 spear 的触发或冷却。
 
 **sulfur 的逐玩家喷发事件**：`InfernalMobSulfurLaunchEvent` 不继承 `InfernalAffixTriggeredEvent`。
 `InfernalMobSulfurEvent#getUpward()` 表示整座硫泉共用的基础竖直速度；完成预警后，
