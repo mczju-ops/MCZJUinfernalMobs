@@ -7,6 +7,7 @@ import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.util.DisplacementImmunityHelper;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -46,56 +47,82 @@ public class PassiveSulfurSkill implements Skill {
 
         double chance = config.getDouble("chance", 0.25);
         if (Math.random() >= chance) return;
-        if (DisplacementImmunityHelper.isImmuneAndCleanup(target, ctx.getCurrentTick())) return;
+        if (DisplacementImmunityHelper.isImmuneAndCleanup(target, Bukkit.getCurrentTick())) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;
 
-        if (!ctx.fire(new InfernalMobSulfurEvent(mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
         int warnTicks = config.getInt("warn-ticks", 20);
-
         Location playerLoc = target.getLocation();
         Location center = toGroundLocation(playerLoc);
         double radius = config.getDouble("radius", 1.0);
         double upward = config.getDouble("upward", 1.15);
         double columnHeight = config.getDouble("column-height", 2.5);
         float soundVolume = (float) config.getDouble("sound-volume", 2.0);
+        Sound warnSound = parseSound(
+                config.getString("warn-sound", "BLOCK_BUBBLE_COLUMN_WHIRLPOOL_AMBIENT"),
+                Sound.BLOCK_BUBBLE_COLUMN_WHIRLPOOL_AMBIENT);
+        Sound eruptSound = parseSound(
+                config.getString("erupt-sound", "BLOCK_BUBBLE_COLUMN_UPWARDS_INSIDE"),
+                Sound.BLOCK_BUBBLE_COLUMN_UPWARDS_INSIDE);
+
+        InfernalMobSulfurEvent event = new InfernalMobSulfurEvent(
+                mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                center, warnTicks, radius, upward, columnHeight, warnSound, eruptSound, soundVolume);
+        if (!ctx.fire(event)) return;
+
+        center = event.getCenter();
+        if (center.getWorld() == null) return;
+        warnTicks = event.getWarnTicks();
+        radius = event.getRadius();
+        upward = event.getUpward();
+        columnHeight = event.getColumnHeight();
+        soundVolume = event.getSoundVolume();
+        warnSound = event.getWarnSound();
+        eruptSound = event.getEruptSound();
 
         // 预警音效
-        center.getWorld().playSound(center,
-                parseSound(config.getString("warn-sound", "BLOCK_BUBBLE_COLUMN_WHIRLPOOL_AMBIENT")),
-                soundVolume, 0.8f);
+        center.getWorld().playSound(center, warnSound, soundVolume, 0.8f);
+
+        Location finalCenter = center;
+        int finalWarnTicks = warnTicks;
+        double finalRadius = radius;
+        double finalUpward = upward;
+        double finalColumnHeight = columnHeight;
+        float finalSoundVolume = soundVolume;
+        Sound finalEruptSound = eruptSound;
 
         new BukkitRunnable() {
             private int tick;
 
             @Override
             public void run() {
-                if (tick < warnTicks) {
+                if (tick < finalWarnTicks) {
                     for (int i = 0; i < 16; i++) {
                         double angle = Math.PI * 2 * i / 16 + tick * 0.15;
-                        double x = Math.cos(angle) * radius;
-                        double z = Math.sin(angle) * radius;
-                        center.getWorld().spawnParticle(Particle.NOXIOUS_GAS,
-                                center.getX() + x, center.getY() + 0.1, center.getZ() + z,
+                        double x = Math.cos(angle) * finalRadius;
+                        double z = Math.sin(angle) * finalRadius;
+                        finalCenter.getWorld().spawnParticle(Particle.NOXIOUS_GAS,
+                                finalCenter.getX() + x, finalCenter.getY() + 0.1, finalCenter.getZ() + z,
                                 1, 0, 0, 0, 0);
                     }
                     tick++;
                     return;
                 }
 
-                if (tick == warnTicks) {
-                    center.getWorld().playSound(center,
-                            parseSound(config.getString("erupt-sound", "BLOCK_BUBBLE_COLUMN_UPWARDS_INSIDE")),
-                            soundVolume, 1.0f);
+                if (tick == finalWarnTicks) {
+                    finalCenter.getWorld().playSound(
+                            finalCenter, finalEruptSound, finalSoundVolume, 1.0f);
 
-                    for (Player p : center.getWorld().getNearbyPlayers(center, radius, radius, radius)) {
+                    for (Player p : finalCenter.getWorld().getNearbyPlayers(
+                            finalCenter, finalRadius, finalRadius, finalRadius)) {
                         if (!p.isOnline() || p.isDead()) continue;
                         if (p.equals(target)
-                                && DisplacementImmunityHelper.isImmuneAndCleanup(p, ctx.getCurrentTick())) continue;
+                                && DisplacementImmunityHelper.isImmuneAndCleanup(
+                                        p, Bukkit.getCurrentTick())) continue;
                         double factor = 1.0;
                         if (ctx.isWeakened() && p.equals(target)) factor *= 0.5;
                         InfernalMobSulfurLaunchEvent launchEvent = new InfernalMobSulfurLaunchEvent(
                                 mob, p, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
-                                upward * factor);
+                                finalUpward * factor);
                         // 这是喷发后的逐玩家阶段事件，不改变 sulfur 已经成功触发及提交冷却的事实。
                         if (!ctx.fire(launchEvent)) continue;
 
@@ -106,16 +133,16 @@ public class PassiveSulfurSkill implements Skill {
                     }
                 }
 
-                int columnTick = tick - warnTicks;
+                int columnTick = tick - finalWarnTicks;
                 if (columnTick > 10) {
                     cancel();
                     return;
                 }
-                double currentHeight = columnHeight * columnTick / 10.0;
+                double currentHeight = finalColumnHeight * columnTick / 10.0;
                 for (double y = 0; y < currentHeight; y += 0.3) {
-                    double spread = y / columnHeight * 0.4;
-                    center.getWorld().spawnParticle(Particle.NOXIOUS_GAS,
-                            center.getX(), center.getY() + y, center.getZ(),
+                    double spread = y / finalColumnHeight * 0.4;
+                    finalCenter.getWorld().spawnParticle(Particle.NOXIOUS_GAS,
+                            finalCenter.getX(), finalCenter.getY() + y, finalCenter.getZ(),
                             2, spread, 0.1, spread, 0.02);
                 }
                 tick++;
@@ -136,11 +163,12 @@ public class PassiveSulfurSkill implements Skill {
         return ground;
     }
 
-    private Sound parseSound(String name) {
+    private Sound parseSound(String name, Sound fallback) {
         try {
+            if (name == null) return fallback;
             return Sound.valueOf(name.trim().toUpperCase().replace('.', '_'));
         } catch (IllegalArgumentException ignored) {
-            return Sound.BLOCK_BUBBLE_COLUMN_WHIRLPOOL_AMBIENT;
+            return fallback;
         }
     }
 }

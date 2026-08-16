@@ -267,7 +267,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | spear | `InfernalMobSpearEvent` | RANGE | — |
 | sprint | `InfernalMobSprintEvent` | STAT | `getAmplifier/setAmplifier`（无限时长速度效果；target=null） |
 | storm | `InfernalMobStormEvent` | DUAL | `getStrikeLocation/setStrikeLocation`、`getDamage/setDamage`、`isEffectOnly/setEffectOnly` |
-| sulfur | `InfernalMobSulfurEvent` | PASSIVE | — |
+| sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight`、`getWarnSound/setWarnSound`、`getEruptSound/setEruptSound`、`getSoundVolume/setSoundVolume` |
 | swap | `InfernalMobSwapEvent` | PASSIVE | `getMobDestination/setMobDestination`、`getPlayerDestination/setPlayerDestination` |
 | thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
 | tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |
@@ -279,6 +279,8 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | withering | `InfernalMobWitheringEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 
 **sulfur 的逐玩家喷发事件**：`InfernalMobSulfurLaunchEvent` 不继承 `InfernalAffixTriggeredEvent`。
+`InfernalMobSulfurEvent#getUpward()` 表示整座硫泉共用的基础竖直速度；完成预警后，
+本体再以该值为基础为每名范围内玩家广播 Launch 事件。
 它在硫泉完成预警、准备顶起范围内某一名玩家时单独广播，可通过
 `getPlayer()` 获取该玩家、通过 `getUpward/setUpward` 修改本次竖直速度，或取消该玩家本次被顶起。
 取消 Launch 事件不会取消已经发生的 sulfur 触发，也不会回滚或重复提交其冷却。
