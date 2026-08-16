@@ -141,7 +141,7 @@ public class SkillContext {
     // === 死亡掉落收集（InfernalMobDropEvent 聚合用）===
 
     /**
-     * 死亡掉落的收集目标列表。非 null 时，产出掉落类技能（如 dye）改为加入此列表而非直接掉落到世界，
+     * 死亡掉落的收集目标列表。非 null 时，产出掉落类技能改为加入此列表而非直接掉落到世界，
      * 由 LootService 聚合后统一触发掉落事件再落世界。
      */
     private List<ItemStack> collectTo;

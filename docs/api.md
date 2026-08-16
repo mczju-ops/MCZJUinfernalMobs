@@ -151,7 +151,7 @@ public enum InfernalAffix {
     QUICKSAND("quicksand"), BULLWARK("bullwark"), CLOAKED("cloaked"), ENDER("ender"),
     GHASTLY("ghastly"), LIFESTEAL("lifesteal"), SPRINT("sprint"), SAPPER("sapper"),
     WEBBER("webber"), MOLTEN("molten"), ARCHER("archer"), NECROMANCER("necromancer"),
-    FIREWORK("firework"), GHOST("ghost"), DYE("dye"), CONFUSING("confusing"),
+    FIREWORK("firework"), GHOST("ghost"), CONFUSING("confusing"),
     THIEF("thief"), TOSSER("tosser"), STORM("storm"), VENGEANCE("vengeance"),
     WEAKNESS("weakness"), BERSERK("berserk"), MAMA("mama"), GRAVITY("gravity"),
     MOUNTED("mounted"), SPEAR("spear"), SULFUR("sulfur"), MORPH("morph"),
@@ -235,7 +235,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | `int getLevel()` | 等级 |
 | `setCancelled(true)` | 阻止本次效果生效，但仍视为成功触发并进入冷却 |
 
-**Post 事件全表**（共 38 个）：
+**Post 事件全表**（共 37 个）：
 
 | 词条 | 事件类 | 类型 | 额外字段 |
 | --- | --- | --- | --- |
@@ -247,7 +247,6 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | bullwark | `InfernalMobBullwarkEvent` | STAT | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier`（target=null） |
 | cloaked | `InfernalMobCloakedEvent` | STAT | `getDurationTicks/setDurationTicks`、`getHelmet/setHelmet`（target=null） |
 | confusing | `InfernalMobConfusingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
-| dye | `InfernalMobDyeEvent` | DEATH | —（target=击杀者，可能 null） |
 | ender | `InfernalMobEnderEvent` | DUAL | `getDestination/setDestination` |
 | firework | `InfernalMobFireworkEvent` | DUAL | `getSpawnLocation/setSpawnLocation`、`getFireworkEffect/setFireworkEffect` |
 | ghastly | `InfernalMobGhastlyEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getDirectDamage/setDirectDamage`、`getFireTicks/setFireTicks`、`getExplosionPower/setExplosionPower`、`getLifetimeTicks/setLifetimeTicks` |
@@ -372,7 +371,7 @@ public void onSpawn(InfernalMobSpawnEvent e) {
 
 ### 3.5 InfernalMobDropEvent —— 掉落（可取消）
 
-**时机**：插件产出掉落（等级池加权 + special + 保底 + dye 特殊掉落）聚合后、落世界前。**不包含原版掉落。**
+**时机**：插件产出掉落（等级池加权 + special + 保底）聚合后、落世界前。**不包含原版掉落。**
 
 | 字段 | 说明 |
 | --- | --- |

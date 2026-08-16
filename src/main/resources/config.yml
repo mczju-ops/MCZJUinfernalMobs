@@ -94,7 +94,6 @@ skill-weights:
   necromancer: 10
   firework: 10
   ghost: 10
-  dye: 10
   confusing: 10
   # 黄色词条
   thief: 10
@@ -280,7 +279,6 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
-      dye: 10
       confusing: 10
       # 黄色词条
       thief: 1
@@ -388,7 +386,6 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
-      dye: 10
       confusing: 10
       # 黄色词条
       thief: 10
@@ -498,7 +495,6 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
-      dye: 10
       confusing: 10
       # 黄色词条
       thief: 10
@@ -688,12 +684,6 @@ skills:
     summon-level: 4   
     health: 40
     float-speed: 0.3
-
-  dye:
-    type: DEATH
-    display: "&dDye"
-    item-id: "infernal_dye"
-    hex: "#FFFFFF"
 
   confusing:
     type: PASSIVE
