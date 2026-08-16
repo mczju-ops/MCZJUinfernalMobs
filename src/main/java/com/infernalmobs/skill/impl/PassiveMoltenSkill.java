@@ -36,7 +36,12 @@ public class PassiveMoltenSkill implements Skill {
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
         int fireTicks = config.getInt("fire-ticks", 60);
-        if (!ctx.fire(new InfernalMobMoltenEvent(ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
-        ctx.getTargetPlayer().setFireTicks(Math.max(ctx.getTargetPlayer().getFireTicks(), fireTicks));
+        InfernalMobMoltenEvent event = new InfernalMobMoltenEvent(
+                ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(),
+                ctx.getMobState().getProfile().getLevel(), fireTicks);
+        if (!ctx.fire(event) || event.getFireTicks() == 0) return;
+
+        ctx.getTargetPlayer().setFireTicks(Math.max(
+                ctx.getTargetPlayer().getFireTicks(), event.getFireTicks()));
     }
 }

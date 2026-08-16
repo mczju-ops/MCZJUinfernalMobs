@@ -255,7 +255,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | gravity | `InfernalMobGravityEvent` | RANGE | `get/setDurationTicks`、`get/setAmplifier` |
 | lifesteal | `InfernalMobLifestealEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getHealPerSecond/setHealPerSecond`（每 20 tick 治疗量） |
 | mama | `InfernalMobMamaEvent` | PASSIVE | `getCount/setCount`、`getChildType/setChildType`、`getSpawnLocation/setSpawnLocation`、`getChildLevelMin/setChildLevelMin`、`getChildLevelMax/setChildLevelMax`、`setChildLevelRange`、`isBaby/setBaby`、`getNoBabyScale/setNoBabyScale` |
-| molten | `InfernalMobMoltenEvent` | PASSIVE | — |
+| molten | `InfernalMobMoltenEvent` | PASSIVE | `getFireTicks/setFireTicks`（攻击者的最低剩余燃烧时间） |
 | morph | `InfernalMobMorphEvent` | DUAL | `getTargetType/setTargetType` |
 | mounted | `InfernalMobMountedEvent` | STAT | —（target=null） |
 | necromancer | `InfernalMobNecromancerEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getExplosionPower/setExplosionPower`、`isCharged/setCharged`、`getLifetimeTicks/setLifetimeTicks` |
