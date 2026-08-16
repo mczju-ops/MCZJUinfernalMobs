@@ -273,7 +273,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |
 | vengeance | `InfernalMobVengeanceEvent` | PASSIVE | `getDamage/setDamage`（使用原生 THORNS 伤害来源） |
 | vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | `getSummonCount/setSummonCount`、`getSpawnLocation/setSpawnLocation` |
-| wardenwrath | `InfernalMobWardenWrathEvent` | PASSIVE | — |
+| wardenwrath | `InfernalMobWardenWrathEvent` | PASSIVE | `getDamage/setDamage`、`getKnockbackHorizontal/setKnockbackHorizontal`、`getKnockbackVertical/setKnockbackVertical`（均为距离衰减后的参数） |
 | weakness | `InfernalMobWeaknessEvent` | DUAL | — |
 | webber | `InfernalMobWebberEvent` | DUAL | — |
 | withering | `InfernalMobWitheringEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
