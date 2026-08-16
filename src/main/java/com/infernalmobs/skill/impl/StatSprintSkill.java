@@ -28,12 +28,17 @@ public class StatSprintSkill implements Skill {
     public void onEquip(SkillContext ctx, SkillConfig config) {
         LivingEntity entity = ctx.getEntity();
         if (entity == null || !entity.isValid()) return;
-        if (!ctx.fire(new InfernalMobSprintEvent(entity, null, ctx.getOrCreateHandle(), ctx.getMobState().getProfile().getLevel()))) return;
+
         int amplifier = config != null ? config.getInt("amplifier", 1) : 1;
+        InfernalMobSprintEvent event = new InfernalMobSprintEvent(
+                entity, null, ctx.getOrCreateHandle(),
+                ctx.getMobState().getProfile().getLevel(), amplifier);
+        if (!ctx.fire(event)) return;
+
         entity.addPotionEffect(new PotionEffect(
                 PotionEffectType.SPEED,
                 PotionEffect.INFINITE_DURATION,
-                amplifier,
+                event.getAmplifier(),
                 false,
                 true));
     }
