@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.effect.InfernalMobSpearHitEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMobSpearEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
@@ -28,9 +29,9 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * 蓄力后锁定方向，以长矛突刺玩家。
+ * 蓄力后获得速度效果，以长矛强化追逐玩家。
  * 仅对 enabled-holders 白名单中的怪物生效，不在白名单内则跳过。
- * 蓄力期间主手换矛、粒子环绕、冲刺时锁定方向高速突进并拖粒子尾迹。
+ * 蓄力期间主手换矛、粒子环绕，强化追逐时由原版 AI 寻路并拖粒子尾迹。
  */
 public class RangeSpearSkill implements Skill {
 
@@ -63,24 +64,42 @@ public class RangeSpearSkill implements Skill {
         EntityEquipment equip = mob.getEquipment();
         if (equip == null) return;
 
-        Vector direction = target.getLocation().toVector().subtract(mob.getLocation().toVector());
-        direction.setY(0);
-        if (direction.lengthSquared() < 0.01) return;
-        direction.normalize();
+        Vector horizontalOffset = target.getLocation().toVector().subtract(mob.getLocation().toVector());
+        horizontalOffset.setY(0);
+        if (horizontalOffset.lengthSquared() < 0.01) return;
 
         int chargeTicks = Math.max(1, config.getInt("charge-ticks", 48));
         int lungeTicks = Math.max(1, config.getInt("lunge-ticks", 30));
-        int speedAmplifier = config.getInt("lunge-speed-amplifier", 4);
+        int speedAmplifier = Math.max(0, config.getInt("lunge-speed-amplifier", 4));
         int sharpnessLevel = Math.max(0, config.getInt("sharpness-level", 5));
         double hitRadius = config.getDouble("hit-radius", 1.5);
-
-        if (!ctx.fire(new InfernalMobSpearEvent(mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel()))) return;
+        double damage = config.getDouble("damage", 8.0);
         ItemStack spearItem = createSpearItem(config.getString("item", "NETHERITE_SPEAR"), sharpnessLevel);
+
+        InfernalMobSpearEvent event = new InfernalMobSpearEvent(
+                mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                chargeTicks, lungeTicks, speedAmplifier, spearItem, hitRadius, damage);
+        if (!ctx.fire(event)) return;
+
+        chargeTicks = event.getChargeTicks();
+        lungeTicks = event.getLungeTicks();
+        speedAmplifier = event.getLungeSpeedAmplifier();
+        spearItem = event.getSpearItem();
+        hitRadius = event.getHitRadius();
+        damage = event.getDamage();
+
         ItemStack savedHand = equip.getItemInMainHand();
+        float savedHandDropChance = equip.getItemInMainHandDropChance();
         equip.setItemInMainHand(spearItem);
         equip.setItemInMainHandDropChance(0f);
 
         mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_STUNNED, 1.0f, 2.0f);
+
+        int finalChargeTicks = chargeTicks;
+        int finalLungeTicks = lungeTicks;
+        int finalSpeedAmplifier = speedAmplifier;
+        double finalHitRadius = hitRadius;
+        double finalDamage = damage;
 
         new BukkitRunnable() {
             private int tick;
@@ -89,18 +108,16 @@ public class RangeSpearSkill implements Skill {
 
             @Override
             public void run() {
-                if (!mob.isValid() || mob.isDead() || !target.isOnline() || target.isDead()) {
+                if (!mob.isValid() || mob.isDead() || !target.isOnline() || target.isDead()
+                        || target.getWorld() != mob.getWorld()
+                        || target.getGameMode() == GameMode.CREATIVE
+                        || target.getGameMode() == GameMode.SPECTATOR) {
                     cleanup();
                     cancel();
                     return;
                 }
 
-                Vector trackingDir = target.getLocation().toVector()
-                        .subtract(mob.getLocation().toVector()).setY(0);
-                if (trackingDir.lengthSquared() < 0.01) trackingDir = mob.getLocation().getDirection().setY(0);
-                trackingDir.normalize();
-
-                if (tick < chargeTicks) {
+                if (tick < finalChargeTicks) {
                     mob.setVelocity(new Vector(0, mob.getVelocity().getY(), 0));
                     if (tick % 2 == 0) {
                         double angle = tick * 0.4;
@@ -108,7 +125,7 @@ public class RangeSpearSkill implements Skill {
                                 Math.cos(angle) * 1.2, mob.getHeight() * 0.6, Math.sin(angle) * 1.2);
                         mob.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, ringLoc, 1, 0, 0, 0, 0);
                     }
-                    if (tick == chargeTicks / 2) {
+                    if (tick == finalChargeTicks / 2) {
                         mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_STUNNED, 1.0f, 2.0f);
                     }
                     tick++;
@@ -116,25 +133,36 @@ public class RangeSpearSkill implements Skill {
                 }
 
                 if (!lunged) {
-                    mob.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, lungeTicks, speedAmplifier,
+                    mob.addPotionEffect(new PotionEffect(
+                            PotionEffectType.SPEED, finalLungeTicks, finalSpeedAmplifier,
                             false, false, true));
                     mob.getWorld().playSound(mob.getLocation(), Sound.ITEM_SPEAR_LUNGE_3, 1.0f, 2.0f);
                     lunged = true;
                 }
 
                 Vector facing = mob.getLocation().getDirection().setY(0);
-                if (facing.lengthSquared() < 0.01) facing = trackingDir;
+                if (facing.lengthSquared() < 0.01) {
+                    facing = target.getLocation().toVector().subtract(mob.getLocation().toVector()).setY(0);
+                }
+                if (facing.lengthSquared() < 0.01) facing = new Vector(0, 0, 1);
+                else facing.normalize();
                 Location trailLoc = mob.getLocation().add(
                         facing.clone().multiply(-0.6).setY(mob.getHeight() * 0.5));
                 mob.getWorld().spawnParticle(Particle.CRIT, trailLoc, 2, 0.15, 0.1, 0.15, 0.02);
 
-                if (!hit && mob.getLocation().distanceSquared(target.getLocation()) <= hitRadius * hitRadius) {
-                    target.damage(8.0, mob);
+                if (!hit && mob.getLocation().distanceSquared(target.getLocation())
+                        <= finalHitRadius * finalHitRadius) {
                     hit = true;
+                    InfernalMobSpearHitEvent hitEvent = new InfernalMobSpearHitEvent(
+                            mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                            finalDamage);
+                    if (ctx.fire(hitEvent) && hitEvent.getDamage() > 0.0) {
+                        target.damage(hitEvent.getDamage(), mob);
+                    }
                 }
 
                 tick++;
-                if (tick >= chargeTicks + lungeTicks) {
+                if (tick >= finalChargeTicks + finalLungeTicks) {
                     mob.setVelocity(new Vector(0, mob.getVelocity().getY(), 0));
                     cleanup();
                     cancel();
@@ -143,6 +171,7 @@ public class RangeSpearSkill implements Skill {
 
             private void cleanup() {
                 equip.setItemInMainHand(savedHand);
+                equip.setItemInMainHandDropChance(savedHandDropChance);
             }
         }.runTaskTimer(ctx.getPlugin(), 0L, 1L);
     }

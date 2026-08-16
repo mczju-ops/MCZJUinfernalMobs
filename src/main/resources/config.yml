@@ -846,6 +846,7 @@ skills:
     lunge-speed-amplifier: 4
     sharpness-level: 5
     hit-radius: 1.5
+    damage: 8.0
     item: NETHERITE_SPEAR
     enabled-holders:
       - ZOMBIE
