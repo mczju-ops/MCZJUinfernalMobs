@@ -1,7 +1,7 @@
 package com.infernalmobs.skill.impl;
 
-import com.infernalmobs.api.event.affix.triggered.InfernalMobMountedEvent;
-import com.infernalmobs.api.event.affix.triggered.InfernalMobMountedEvent.MountCandidate;
+import com.infernalmobs.api.event.affix.equipped.InfernalMobMountedEvent;
+import com.infernalmobs.api.event.affix.equipped.InfernalMobMountedEvent.MountCandidate;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.InfernalMobsPlugin;
