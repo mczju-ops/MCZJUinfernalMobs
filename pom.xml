@@ -6,7 +6,7 @@
 
     <groupId>com.infernalmobs</groupId>
     <artifactId>MCZJUInfernalMob</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>InfernalMobs</name>
     <description>炒鸡怪 - 丰富原版怪物战斗的 Infernal 风格插件</description>

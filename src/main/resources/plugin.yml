@@ -3,7 +3,7 @@ version: ${project.version}
 main: com.infernalmobs.InfernalMobsPlugin
 api-version: '1.21.4'
 description: 炒鸡怪 - 丰富原版怪物战斗的 Infernal 风格插件
-author: yourname
+author: MCZJU
 softdepend:
   - MCZJUItemCreator
 
