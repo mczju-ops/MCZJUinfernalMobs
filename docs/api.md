@@ -90,6 +90,7 @@ public final class MyPlugin extends JavaPlugin {
 | `List<ItemStack> rollLevelLootItems(int mobLevel)` | 按怪物等级执行一次等级池抽取，只返回生成成功的物品 |
 | `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为 |
 | `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照 |
+| `List<InfernalPlayerKillStats> getAllPlayerKillStats()` | 获取所有已有记录玩家的 UUID、最近名称与击杀统计快照 |
 | `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息 |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`） |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射） |
@@ -180,6 +181,12 @@ public enum InfernalAffix {
 ```java
 InfernalKillStats stats = api.getKillStats(player.getUniqueId());
 int totalKills = stats.totalKills();
+
+for (InfernalPlayerKillStats playerStats : api.getAllPlayerKillStats()) {
+    UUID playerId = playerStats.playerId();
+    String lastKnownName = playerStats.playerName(); // 旧数据中可能为 null
+    int playerTotalKills = playerStats.stats().totalKills();
+}
 
 for (InfernalGuaranteedLootStatus status
         : api.getGuaranteedLootStatuses(player.getUniqueId())) {

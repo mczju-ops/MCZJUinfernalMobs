@@ -5,6 +5,7 @@ import com.infernalmobs.api.InfernalGuaranteedLootStatus;
 import com.infernalmobs.api.InfernalKillStats;
 import com.infernalmobs.api.InfernalLootReward;
 import com.infernalmobs.api.InfernalMobsApi;
+import com.infernalmobs.api.InfernalPlayerKillStats;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
@@ -19,6 +20,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -134,6 +136,29 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         Map<Integer, Integer> killsByLevel = killStatsService.getKillsByLevel(id);
         int totalKills = killsByLevel.values().stream().mapToInt(Integer::intValue).sum();
         return new InfernalKillStats(killsByLevel, totalKills);
+    }
+
+    @Override
+    public List<InfernalPlayerKillStats> getAllPlayerKillStats() {
+        if (killStatsService == null) return List.of();
+
+        List<InfernalPlayerKillStats> result = new ArrayList<>();
+        for (KillStatsService.PlayerStatsSnapshot snapshot : killStatsService.getAllPlayerStats()) {
+            try {
+                UUID playerId = UUID.fromString(snapshot.playerId());
+                Map<Integer, Integer> killsByLevel = snapshot.killsByLevel();
+                int totalKills = killsByLevel.values().stream().mapToInt(Integer::intValue).sum();
+                result.add(new InfernalPlayerKillStats(
+                        playerId,
+                        snapshot.displayName(),
+                        new InfernalKillStats(killsByLevel, totalKills)
+                ));
+            } catch (IllegalArgumentException ignored) {
+                // 历史文件中的非法 UUID 键不属于有效玩家统计，不向外暴露。
+            }
+        }
+        result.sort(Comparator.comparing(InfernalPlayerKillStats::playerId));
+        return List.copyOf(result);
     }
 
     @Override
