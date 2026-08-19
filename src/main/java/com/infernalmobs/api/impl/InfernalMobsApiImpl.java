@@ -1,6 +1,8 @@
 package com.infernalmobs.api.impl;
 
 import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.api.InfernalGuaranteedLootProgress;
+import com.infernalmobs.api.InfernalKillStats;
 import com.infernalmobs.api.InfernalLootReward;
 import com.infernalmobs.api.InfernalMobsApi;
 import com.infernalmobs.config.ConfigLoader;
@@ -8,6 +10,8 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
+import com.infernalmobs.service.GuaranteedLootService;
+import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
@@ -16,7 +20,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -28,17 +34,23 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
     private final MobFactory mobFactory;
     private final ConfigLoader configLoader;
     private final Supplier<LootService> lootServiceSupplier;
+    private final KillStatsService killStatsService;
+    private final Supplier<GuaranteedLootService> guaranteedLootServiceSupplier;
 
     public InfernalMobsApiImpl(
             CombatService combatService,
             MobFactory mobFactory,
             ConfigLoader configLoader,
-            Supplier<LootService> lootServiceSupplier
+            Supplier<LootService> lootServiceSupplier,
+            KillStatsService killStatsService,
+            Supplier<GuaranteedLootService> guaranteedLootServiceSupplier
     ) {
         this.combatService = combatService;
         this.mobFactory = mobFactory;
         this.configLoader = configLoader;
         this.lootServiceSupplier = lootServiceSupplier;
+        this.killStatsService = killStatsService;
+        this.guaranteedLootServiceSupplier = guaranteedLootServiceSupplier;
     }
 
     @Override
@@ -112,6 +124,31 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         if (mobLevel < 1 || lootServiceSupplier == null) return List.of();
         LootService lootService = lootServiceSupplier.get();
         return lootService != null ? lootService.rollLevelLootRewards(mobLevel) : List.of();
+    }
+
+    @Override
+    public InfernalKillStats getKillStats(UUID playerId) {
+        if (playerId == null || killStatsService == null) return InfernalKillStats.empty();
+        String id = playerId.toString();
+        Map<Integer, Integer> killsByLevel = killStatsService.getKillsByLevel(id);
+        int totalKills = killsByLevel.values().stream().mapToInt(Integer::intValue).sum();
+        return new InfernalKillStats(killsByLevel, totalKills);
+    }
+
+    @Override
+    public List<InfernalGuaranteedLootProgress> getGuaranteedLootProgress(UUID playerId) {
+        if (playerId == null || guaranteedLootServiceSupplier == null) return List.of();
+        GuaranteedLootService service = guaranteedLootServiceSupplier.get();
+        if (service == null) return List.of();
+
+        return service.getProgressById(playerId.toString()).entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new InfernalGuaranteedLootProgress(
+                        entry.getKey(),
+                        Math.max(0, entry.getValue()),
+                        entry.getValue() < 0
+                ))
+                .toList();
     }
 
     @Override

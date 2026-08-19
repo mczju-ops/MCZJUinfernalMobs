@@ -141,6 +141,14 @@ public class GuaranteedLootService {
         return triggered;
     }
 
+    /** 获取某玩家按 progressId 记录的保底进度副本；负数表示不重置型保底已经触发。 */
+    public Map<String, Integer> getProgressById(String playerId) {
+        if (playerId == null || playerId.isBlank()) return Map.of();
+        Map<String, Integer> byProgressId = progress.get(playerId);
+        if (byProgressId == null || byProgressId.isEmpty()) return Map.of();
+        return Map.copyOf(byProgressId);
+    }
+
     public void markDirty() {
         dirty = true;
     }
