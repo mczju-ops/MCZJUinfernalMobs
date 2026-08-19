@@ -18,20 +18,8 @@ public final class Keys {
     }
 
     // === InfernalMobs 数据 ===
-    /** 炒鸡道具 ID，String，用于识别全知之眼等炒鸡道具 */
-    public static final NamespacedKey IM_ITEM_ID = key("infernal_item");
-    /** 炒鸡物品稀有度，String */
+    /** 炒鸡物品稀有度，String，拥有该 PDC 时视为炒鸡物品（影响缴械效果） */
     public static final NamespacedKey IM_RARITY = key("im_rarity");
-    /** 免疫缴械词条，Boolean */
+    /** 免疫缴械词条，Boolean，为 true 时无条件免疫缴械 */
     public static final NamespacedKey IM_THIEF_RESISTANCE = key("im_thief_resistance");
-
-    // === MCZJUMagicItems 数据 ===
-    /** 内置 ID，String，ItemCreator 的 magicItemId 写入此键 */
-    public static final NamespacedKey MI_ID = key("mi_id");
-    /** 版本号，int */
-    public static final NamespacedKey MI_VERSION = key("mi_version");
-    /** 冷却(ms)，long */
-    public static final NamespacedKey MI_CD = key("mi_cd");
-    /** 剩余使用次数，int */
-    public static final NamespacedKey MI_USES = key("mi_uses");
 }
