@@ -1,7 +1,8 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.InfernalMobDropEvent;
+import com.infernalmobs.api.InfernalLootReward;
+import com.infernalmobs.api.event.mob.InfernalMobDropEvent;
 import com.infernalmobs.config.GuaranteedLootConfig;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;
@@ -31,6 +32,9 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class LootService {
 
+    private static final String DEFAULT_BROADCAST_MESSAGE =
+            "<gold>恭喜欧皇<green><player></green><gold>获得了<white><item></white>!";
+
     private final JavaPlugin plugin;
     private final LootConfig config;
     private final boolean itemCreatorAvailable;
@@ -45,17 +49,54 @@ public class LootService {
         return config != null && config.isEnable() && itemCreatorAvailable;
     }
 
+    /** 获取掉落物品的配置显示名；未配置时返回物品 ID。 */
+    public String getLootDisplayName(String itemId) {
+        if (config == null) return itemId != null ? itemId : "";
+        return config.getLootDisplayName(itemId);
+    }
+
     /**
      * 与 {@link #onInfernalMobDeath(EntityDeathEvent, LivingEntity, MobState, int)} 一致：仅在会执行等级池加权抽取时
      * 调用 {@link LootConfig#rollDropTimes(int)}，否则返回 0。供保底进度与死亡掉落共用同一次 roll。
      */
     public int rollDeathLootTimes(int level) {
         if (!isEnabled()) return 0;
-        List<RewardEntry> rewards = config.getRewardsForLevel(level);
-        if (rewards.isEmpty()) return 0;
-        List<RewardEntry> eligible = filterByRotation(rewards);
-        if (eligible.isEmpty()) return 0;
+        if (getEligibleLevelRewards(level).isEmpty()) return 0;
         return config.rollDropTimes(level);
+    }
+
+    /** 按等级执行一次完整抽取，只返回物品，不执行奖励附带的命令或广播。 */
+    public List<ItemStack> rollLevelLootItems(int level) {
+        if (level < 1) return List.of();
+        List<RolledReward> rolled = rollLevelRewards(level);
+        if (rolled.isEmpty()) return List.of();
+
+        List<ItemStack> items = new ArrayList<>(rolled.size());
+        for (RolledReward reward : rolled) {
+            items.add(reward.itemStack().clone());
+        }
+        return List.copyOf(items);
+    }
+
+    /** 按等级执行一次完整抽取，返回物品与原始奖励元数据，不执行命令或广播。 */
+    public List<InfernalLootReward> rollLevelLootRewards(int level) {
+        if (level < 1) return List.of();
+        List<RolledReward> rolled = rollLevelRewards(level);
+        if (rolled.isEmpty()) return List.of();
+
+        List<InfernalLootReward> rewards = new ArrayList<>(rolled.size());
+        for (RolledReward reward : rolled) {
+            RewardEntry entry = reward.entry();
+            rewards.add(new InfernalLootReward(
+                    entry.id,
+                    config.getLootDisplayName(entry.id),
+                    reward.itemStack(),
+                    entry.commands,
+                    entry.broadcast,
+                    resolveBroadcastMessage(entry)
+            ));
+        }
+        return List.copyOf(rewards);
     }
 
     /**
@@ -69,38 +110,28 @@ public class LootService {
         boolean vanillaDropsCleared = false;
         // 1. 等级表按权重掉落（与普通炒鸡怪相同）
         if (isEnabled()) {
-            List<RewardEntry> rewards = config.getRewardsForLevel(mobState.getProfile().getLevel());
-            if (!rewards.isEmpty()) {
-                List<RewardEntry> eligible = filterByRotation(rewards);
-                if (!eligible.isEmpty()) {
-                    if (config.isReplaceVanillaDrops()) {
-                        event.getDrops().clear();
-                        vanillaDropsCleared = true;
+            int level = mobState.getProfile().getLevel();
+            List<RewardEntry> eligible = getEligibleLevelRewards(level);
+            if (!eligible.isEmpty()) {
+                if (config.isReplaceVanillaDrops()) {
+                    event.getDrops().clear();
+                    vanillaDropsCleared = true;
+                }
+                Player killer = entity.getKiller();
+                String playerName = killer != null ? killer.getName() : "";
+                int dropTimes = preRolledDropTimes >= 0
+                        ? preRolledDropTimes
+                        : config.rollDropTimes(level);
+                for (RolledReward reward : rollRewards(eligible, dropTimes)) {
+                    RewardEntry chosen = reward.entry();
+                    collectDrop(collect, entity, reward.itemStack());
+                    for (String cmd : chosen.commands) {
+                        if (cmd == null || cmd.isEmpty()) continue;
+                        String run = cmd.replace("{player}", playerName);
+                        Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
                     }
-                    Player killer = entity.getKiller();
-                    String playerName = killer != null ? killer.getName() : "";
-                    int dropTimes = preRolledDropTimes >= 0 ? preRolledDropTimes : config.rollDropTimes(mobState.getProfile().getLevel());
-                    for (int i = 0; i < dropTimes; i++) {
-                        RewardEntry chosen = pickByWeight(eligible);
-                        if (chosen == null) break;
-
-                        ItemStack toDrop = null;
-                        Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, chosen.id, chosen.amount);
-                        if (opt != null && opt.isPresent() && !opt.get().getType().isAir()) {
-                            toDrop = opt.get().clone();
-                        }
-
-                        if (toDrop != null && !toDrop.getType().isAir()) {
-                            collectDrop(collect, entity, toDrop);
-                            for (String cmd : chosen.commands) {
-                                if (cmd == null || cmd.isEmpty()) continue;
-                                String run = cmd.replace("{player}", playerName);
-                                Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
-                            }
-                            if (chosen.broadcast) {
-                                broadcastLootDrop(chosen, playerName, mobState.getProfile().getLevel());
-                            }
-                        }
+                    if (chosen.broadcast) {
+                        broadcastLootDrop(chosen, playerName, level);
                     }
                 }
             }
@@ -166,6 +197,31 @@ public class LootService {
         return out;
     }
 
+    private List<RewardEntry> getEligibleLevelRewards(int level) {
+        if (!isEnabled()) return List.of();
+        List<RewardEntry> rewards = config.getRewardsForLevel(level);
+        return rewards.isEmpty() ? List.of() : filterByRotation(rewards);
+    }
+
+    private List<RolledReward> rollLevelRewards(int level) {
+        List<RewardEntry> eligible = getEligibleLevelRewards(level);
+        if (eligible.isEmpty()) return List.of();
+        return rollRewards(eligible, config.rollDropTimes(level));
+    }
+
+    private List<RolledReward> rollRewards(List<RewardEntry> eligible, int times) {
+        if (eligible == null || eligible.isEmpty() || times <= 0) return List.of();
+        List<RolledReward> result = new ArrayList<>(times);
+        for (int i = 0; i < times; i++) {
+            RewardEntry chosen = pickByWeight(eligible);
+            if (chosen == null) break;
+            Optional<ItemStack> created = ItemCreatorBridge.createItem(plugin, chosen.id, chosen.amount);
+            if (created.isEmpty() || created.get().getType().isAir()) continue;
+            result.add(new RolledReward(chosen, created.get().clone()));
+        }
+        return List.copyOf(result);
+    }
+
     /** 按概率 roll：prob=8.8 → 80% 返回 9，20% 返回 8。 */
     private static int rollSpecialLootAmount(double prob) {
         if (prob <= 0) return 0;
@@ -195,6 +251,8 @@ public class LootService {
         }
         return rewards.get(rewards.size() - 1);
     }
+
+    private record RolledReward(RewardEntry entry, ItemStack itemStack) {}
 
     /**
      * 处理保底掉落：在怪物死亡位置掉落物品（无敌实体），并触发 loot config 中对应条目的命令和广播。
@@ -240,10 +298,7 @@ public class LootService {
     }
 
     private void broadcastLootDrop(RewardEntry chosen, String playerName, int level) {
-        String template = chosen.broadcastMessage;
-        if (template == null || template.isEmpty()) {
-            template = "<gold>恭喜欧皇 <yellow><player></yellow> <gold>获得了 <aqua><item></aqua><white>x<amount></white>!";
-        }
+        String template = resolveBroadcastMessage(chosen);
         // 兼容 {player}/{item}/{amount}/{level} 写法
         template = template
                 .replace("{player}", "<player>")
@@ -258,6 +313,12 @@ public class LootService {
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendMessage(msg);
         }
+    }
+
+    private static String resolveBroadcastMessage(RewardEntry reward) {
+        return reward.broadcastMessage == null || reward.broadcastMessage.isEmpty()
+                ? DEFAULT_BROADCAST_MESSAGE
+                : reward.broadcastMessage;
     }
 
 }

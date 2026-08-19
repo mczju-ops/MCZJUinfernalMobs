@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobBlindingEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -32,13 +33,18 @@ public class PassiveBlindingSkill implements Skill {
     @Override
     public void onTrigger(SkillContext ctx, SkillConfig config) {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
-        if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
+        var target = ctx.getTargetPlayer();
+        if (target == null || !target.isOnline()) return;
 
-        int durationTicks = config.getInt("duration-ticks", 60);
+        int durationTicks = config.getDurationTicks("duration-ticks", 60);
         int amplifier = config.getInt("amplifier", 0);
         if (ctx.isWeakened()) durationTicks = Math.max(1, durationTicks / 2);
 
-        ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
-                PotionEffectType.BLINDNESS, durationTicks, amplifier, false, true));
+        InfernalMobBlindingEvent event = new InfernalMobBlindingEvent(
+                ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                durationTicks, amplifier);
+        if (!ctx.fire(event)) return;
+        target.addPotionEffect(new PotionEffect(
+                PotionEffectType.BLINDNESS, event.getDurationTicks(), event.getAmplifier(), false, true));
     }
 }

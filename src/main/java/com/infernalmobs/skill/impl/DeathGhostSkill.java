@@ -1,17 +1,20 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobGhostEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.MiniMessageHelper;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Zombie;
-import com.infernalmobs.util.MiniMessageHelper;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
@@ -20,9 +23,8 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 亡灵：怪物死亡时召唤一只幽灵僵尸。
@@ -51,11 +53,8 @@ public class DeathGhostSkill implements Skill {
         Location loc = ctx.getEntity().getLocation();
         if (loc.getWorld() == null) return;
 
-        boolean evil = new Random().nextInt(3) == 1;
-
-        Zombie ghost = (Zombie) loc.getWorld().spawnEntity(loc, org.bukkit.entity.EntityType.ZOMBIE);
-        ghost.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, PotionEffect.INFINITE_DURATION, 0));
-        ghost.setCanPickupItems(false);
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        boolean evil = random.nextInt(3) == 1;
 
         // 皮甲：邪恶=黑色，普通=白色，随机保护附魔
         ItemStack chest = new ItemStack(Material.LEATHER_CHESTPLATE, 1);
@@ -64,7 +63,7 @@ public class DeathGhostSkill implements Skill {
             chestMeta.setColor(evil ? Color.BLACK : Color.WHITE);
             chest.setItemMeta(chestMeta);
         }
-        chest.addUnsafeEnchantment(Enchantment.PROTECTION, new Random().nextInt(10) + 1);
+        chest.addUnsafeEnchantment(Enchantment.PROTECTION, random.nextInt(1, 11));
 
         // 头盔：邪恶=凋零头，普通=骷髅头
         ItemStack skull = new ItemStack(evil ? Material.WITHER_SKELETON_SKULL : Material.SKELETON_SKULL, 1);
@@ -74,41 +73,52 @@ public class DeathGhostSkill implements Skill {
             skull.setItemMeta(skullMeta);
         }
 
-        ghost.getEquipment().setHelmet(skull);
-        ghost.getEquipment().setChestplate(chest);
-        ghost.getEquipment().setHelmetDropChance(0);
-        ghost.getEquipment().setChestplateDropChance(0);
+        ItemStack mainHand = random.nextInt(5) == 0 ? new ItemStack(Material.STONE_HOE, 1) : null;
+        double floatSpeed = config.getDouble("float-speed", 0.3);
+        int summonLevel = Math.max(1, config.getInt("summon-level", 1));
+        double maxHealth = config.getDouble("health", 40);
+        List<String> skillIds = evil
+                ? List.of("ender", "necromancer", "withering", "blinding")
+                : List.of("ender", "ghastly", "sapper", "confusing");
 
-        if (new Random().nextInt(5) == 0) {
-            ghost.getEquipment().setItemInMainHand(new ItemStack(Material.STONE_HOE, 1));
+        InfernalMobGhostEvent event = new InfernalMobGhostEvent(
+                ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle(),
+                ctx.getMobState().getProfile().getLevel(), loc, summonLevel, maxHealth, floatSpeed,
+                skull, chest, mainHand, skillIds);
+        if (!ctx.fire(event)) return;
+
+        Location spawnLocation = event.getSpawnLocation();
+        if (spawnLocation.getWorld() == null) return;
+
+        Zombie ghost = (Zombie) spawnLocation.getWorld().spawnEntity(spawnLocation, EntityType.ZOMBIE);
+        ghost.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, PotionEffect.INFINITE_DURATION, 0));
+        ghost.setCanPickupItems(false);
+        ItemStack helmet = event.getHelmet();
+        ItemStack chestplate = event.getChestplate();
+        ItemStack eventMainHand = event.getMainHand();
+        ghost.getEquipment().setHelmet(helmet);
+        ghost.getEquipment().setChestplate(chestplate);
+        ghost.getEquipment().setItemInMainHand(eventMainHand);
+        if (helmet != null && !helmet.getType().isAir()) ghost.getEquipment().setHelmetDropChance(0);
+        if (chestplate != null && !chestplate.getType().isAir()) ghost.getEquipment().setChestplateDropChance(0);
+        if (eventMainHand != null && !eventMainHand.getType().isAir()) {
             ghost.getEquipment().setItemInMainHandDropChance(0);
         }
 
-        double floatSpeed = config.getDouble("float-speed", 0.3);
-        ghostMove(ghost, ctx.getPlugin(), floatSpeed);
-
-        List<String> skillIds = new ArrayList<>();
-        skillIds.add("ender");
-        if (evil) {
-            skillIds.add("necromancer");
-            skillIds.add("withering");
-            skillIds.add("blinding");
-        } else {
-            skillIds.add("ghastly");
-            skillIds.add("sapper");
-            skillIds.add("confusing");
+        if (event.getFloatSpeed() > 0.0) {
+            ghostMove(ghost, ctx.getPlugin(), event.getFloatSpeed());
         }
 
         MobFactory factory = ctx.getMobFactory();
-        if (factory != null) {
-            int level = Math.max(1, config.getInt("summon-level", 1));
-            factory.mechanizeWithAffixes(ghost, loc, level, skillIds);
+        if (factory != null && !event.getAffixIds().isEmpty()) {
+            factory.mechanizeWithAffixes(
+                    ghost, spawnLocation, event.getSummonLevel(), event.getAffixIds());
         }
 
-        double hp = config.getDouble("health", 40);
-        if (ghost.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH) != null) {
-            ghost.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(hp);
-            ghost.setHealth(hp);
+        var maxHealthAttribute = ghost.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttribute != null) {
+            maxHealthAttribute.setBaseValue(event.getMaxHealth());
+            ghost.setHealth(Math.min(ghost.getMaxHealth(), event.getMaxHealth()));
         }
     }
 

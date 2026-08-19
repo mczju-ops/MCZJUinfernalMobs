@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobRefrigerateEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -10,6 +11,8 @@ import org.bukkit.entity.Player;
  * 冰冻：攻击或受击时，概率冰冻玩家。
  */
 public class DualRefrigerateSkill implements Skill {
+
+    private static final int VANILLA_THAW_TICKS_PER_TICK = 2;
 
     @Override
     public String getId() {
@@ -35,9 +38,16 @@ public class DualRefrigerateSkill implements Skill {
         double chance = config.getDouble("chance", 0.3);
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        ctx.setTriggered(true);
 
-        int ticks = config.getInt("freeze-ticks", 140);
-        target.setFreezeTicks(Math.max(target.getFreezeTicks(), ticks));
+        int freezeTicks = config.getInt("freeze-ticks", 100);
+        InfernalMobRefrigerateEvent event = new InfernalMobRefrigerateEvent(
+                ctx.getEntity(), target, ctx.getHandle(),
+                ctx.getMobState().getProfile().getLevel(), freezeTicks);
+        if (!ctx.fire(event) || event.getFreezeTicks() == 0) return;
+
+        long requiredFreezeTicks = (long) target.getMaxFreezeTicks()
+                + (long) event.getFreezeTicks() * VANILLA_THAW_TICKS_PER_TICK;
+        int effectiveTicks = (int) Math.min(requiredFreezeTicks, Integer.MAX_VALUE);
+        target.setFreezeTicks(Math.max(target.getFreezeTicks(), effectiveTicks));
     }
 }

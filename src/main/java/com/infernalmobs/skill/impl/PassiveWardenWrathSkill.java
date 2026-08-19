@@ -1,10 +1,10 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobWardenWrathEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import com.infernalmobs.util.DisplacementImmunityHelper;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -63,38 +63,49 @@ public class PassiveWardenWrathSkill implements Skill {
 
         double minMultiplier = config.getDouble("decay-min-multiplier", 0.2);
         double decayMultiplier = 1.0 - (distance / maxRange) * (1.0 - minMultiplier);
+        double damage = config.getDouble("damage", 10) * decayMultiplier;
+        double knockbackHorizontal = config.getDouble("knockback-horizontal", 2.5) * decayMultiplier;
+        double knockbackVertical = config.getDouble("knockback-vertical", 0.5) * decayMultiplier;
+
+        InfernalMobWardenWrathEvent event = new InfernalMobWardenWrathEvent(
+                ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                damage, knockbackHorizontal, knockbackVertical);
+        if (!ctx.fire(event)) return;
         debugLog(ctx, "生效 distance=" + String.format("%.1f", distance) + " decay=" + String.format("%.2f", decayMultiplier));
 
-        boolean displacementImmune = DisplacementImmunityHelper.isImmuneAndCleanup(player, ctx.getCurrentTick());
-        debugLog(ctx, "位移免疫判定 tick=" + ctx.getCurrentTick() + " immune=" + displacementImmune
-                + " velBefore=" + formatVec(player.getVelocity()));
-        double damage = config.getDouble("damage", 10) * decayMultiplier;
-        if (damage > 0.01) {
-            if (displacementImmune) {
-                // 免疫位移时避免携带攻击者来源，减少原版受击方向击退
-                player.damage(damage);
-                debugLog(ctx, "位移免疫: 以无来源伤害结算 damage=" + String.format("%.2f", damage));
-            } else {
-                player.damage(damage, ctx.getEntity());
-                debugLog(ctx, "普通结算: 以攻击者来源伤害 damage=" + String.format("%.2f", damage));
-            }
+        debugLog(ctx, "velBefore=" + formatVec(player.getVelocity()));
+        damage = event.getDamage();
+        if (damage > 0.0) {
+            player.damage(damage, ctx.getEntity());
+            debugLog(ctx, "伤害结算 damage=" + String.format("%.2f", damage));
         }
 
-        if (displacementImmune) {
-            debugLog(ctx, "跳过击退: 目标位移免疫生效");
-        } else {
-            Vector dir = ctx.getEntity().getLocation().toVector().subtract(player.getLocation().toVector());
-            if (dir.lengthSquared() < 1.0e-6) {
-                // 重叠时兜底使用怪物朝向，避免零向量导致无击退
-                dir = ctx.getEntity().getLocation().getDirection().setY(0);
-            }
-            if (dir.lengthSquared() > 1.0e-6) {
-                dir.normalize();
-                double knockbackStrength = config.getDouble("knockback-horizontal", 2.5) * decayMultiplier;
-                player.knockback(knockbackStrength, dir.getX(), dir.getZ());
-                debugLog(ctx, "已应用原版击退 strength=" + String.format("%.2f", knockbackStrength));
-            } else {
-                debugLog(ctx, "跳过击退: 无有效方向向量");
+        double horizontal = event.getKnockbackHorizontal();
+        double vertical = event.getKnockbackVertical();
+        double velocityYBeforeKnockback = player.getVelocity().getY();
+        boolean horizontalApplied = false;
+        Vector dir = ctx.getEntity().getLocation().toVector().subtract(player.getLocation().toVector());
+        if (dir.lengthSquared() < 1.0e-6) {
+            // 重叠时兜底使用怪物朝向，避免零向量导致无击退
+            dir = ctx.getEntity().getLocation().getDirection().setY(0);
+        }
+        if (horizontal > 0.0 && dir.lengthSquared() > 1.0e-6) {
+            dir.normalize();
+            player.knockback(horizontal, dir.getX(), dir.getZ());
+            horizontalApplied = true;
+            debugLog(ctx, "已应用原版击退 strength=" + String.format("%.2f", horizontal));
+        } else if (horizontal > 0.0) {
+            debugLog(ctx, "跳过击退: 无有效方向向量");
+        }
+
+        if (horizontalApplied || vertical > 0.0) {
+            Vector velocity = player.getVelocity();
+            velocity.setY(vertical > 0.0
+                    ? Math.max(velocityYBeforeKnockback, vertical)
+                    : velocityYBeforeKnockback);
+            player.setVelocity(velocity);
+            if (vertical > 0.0) {
+                debugLog(ctx, "已应用竖直击退 minimumY=" + String.format("%.2f", vertical));
             }
         }
         debugLog(ctx, "触发结束 velAfter=" + formatVec(player.getVelocity()));

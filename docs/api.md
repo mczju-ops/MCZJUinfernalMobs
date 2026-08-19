@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.1.0</version>   <!-- 发布 tag；开发期可用 master-SNAPSHOT 或 commit hash -->
+        <version>1.4.0</version>   <!-- 发布 tag；开发期可用分支名或 commit hash -->
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -87,6 +87,11 @@ public final class MyPlugin extends JavaPlugin {
 | `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条 |
 | `String getAffixDisplayName(String affixId)` | 查询词条显示名（优先 `skill_name.yml`，否则 `config.yml` 的 `display`，再退回英文 `id`） |
 | `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名 |
+| `List<ItemStack> rollLevelLootItems(int mobLevel)` | 按怪物等级执行一次等级池抽取，只返回生成成功的物品 |
+| `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为 |
+| `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照 |
+| `List<InfernalPlayerKillStats> getAllPlayerKillStats()` | 获取所有已有记录玩家的 UUID、最近名称与击杀统计快照 |
+| `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息 |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`） |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射） |
 | `int apiVersion()` | API 版本（当前 1） |
@@ -151,7 +156,7 @@ public enum InfernalAffix {
     QUICKSAND("quicksand"), BULLWARK("bullwark"), CLOAKED("cloaked"), ENDER("ender"),
     GHASTLY("ghastly"), LIFESTEAL("lifesteal"), SPRINT("sprint"), SAPPER("sapper"),
     WEBBER("webber"), MOLTEN("molten"), ARCHER("archer"), NECROMANCER("necromancer"),
-    FIREWORK("firework"), GHOST("ghost"), DYE("dye"), CONFUSING("confusing"),
+    FIREWORK("firework"), GHOST("ghost"), CONFUSING("confusing"),
     THIEF("thief"), TOSSER("tosser"), STORM("storm"), VENGEANCE("vengeance"),
     WEAKNESS("weakness"), BERSERK("berserk"), MAMA("mama"), GRAVITY("gravity"),
     MOUNTED("mounted"), SPEAR("spear"), SULFUR("sulfur"), MORPH("morph"),
@@ -163,60 +168,234 @@ public enum InfernalAffix {
 }
 ```
 
+### 2.3 掉落抽取与玩家进度
+
+`rollLevelLootItems` 与 `rollLevelLootRewards` 每次调用都会进行一次新的独立随机抽取，应用当前轮换套和
+`drop-times`。它们不包含原版掉落、特殊实体掉落、保底掉落或词条掉落，也不会触发掉落事件。
+完整奖励中的命令和广播只作为数据返回，由调用方决定是否及如何执行。
+
+`getGuaranteedLootStatuses` 只返回保底全局启用且当前轮换生效的规则。尚未开始累计的规则也会返回，
+此时 `currentProgress()` 为 0。进度单位是等级掉落池抽取次数，不一定等同于击杀数；
+`maximumMobLevel()` 为 `null` 表示没有等级上限。
+
+```java
+InfernalKillStats stats = api.getKillStats(player.getUniqueId());
+int totalKills = stats.totalKills();
+
+for (InfernalPlayerKillStats playerStats : api.getAllPlayerKillStats()) {
+    UUID playerId = playerStats.playerId();
+    String lastKnownName = playerStats.playerName(); // 旧数据中可能为 null
+    int playerTotalKills = playerStats.stats().totalKills();
+}
+
+for (InfernalGuaranteedLootStatus status
+        : api.getGuaranteedLootStatuses(player.getUniqueId())) {
+    int current = status.currentProgress();
+    int required = status.requiredProgress();
+    int remaining = status.remainingProgress();
+    String rewardName = status.rewardDisplayName();
+}
+```
+
+> `InfernalMobKillEvent` 当前早于保底进度累计触发。在该事件处理器内同步查询会得到本次击杀前的快照；
+> 如需读取本次击杀后的结果，可延迟到下一 tick 查询。
+
 ---
 
 ## 3. 事件（`com.infernalmobs.api.event`）
 
 注册方式：实现 `Listener`，`@EventHandler` 监听对应事件类即可（与监听任何 Bukkit 事件相同）。
 
-### 3.1 InfernalAffixTriggerEvent —— 词条触发（可取消）
+### 3.1 事件体系概览
 
-**时机**：词条技能 chance/cooldown 判定通过后、效果真正生效前。用于免疫 / 削弱 / 改数值。
+运行期发动的词条遵循以下触发链路：
+
+```text
+内部资格检查
+→ InfernalAffixAttemptEvent
+→ 技能条件与概率判定
+→ 计算最终效果参数
+→ 专用 InfernalAffixTriggeredEvent
+→ 提交冷却
+→ 应用效果
+```
+
+| 链路 | 事件 | 时机 | 用途 |
+| --- | --- | --- | --- |
+| **尝试触发** | `InfernalAffixAttemptEvent` | 内部资格检查通过、技能条件与概率判定之前 | 阻止本次尝试 |
+| **真正触发** | `InfernalAffixTriggeredEvent` 各技能子类 | 条件与概率判定通过、效果即将生效 | 精确监听某技能、修改类型化效果参数 |
+| **装配生效** | `InfernalAffixEquippedEvent` 各技能子类 | 怪物装配词条、初始或常驻效果即将应用 | 修改或阻止本次装配效果 |
+
+- 装配型 `STAT` 词条不经过 Attempt/Triggered 链路；`1up` 虽为 `STAT`，但在血量跨过阈值时运行期发动，因此属于 Triggered。
+- 每个词条仍有专属事件类：运行期发动事件位于 `event.affix.triggered`，装配生效事件位于 `event.affix.equipped`。
+- Attempt、Triggered 与 Equipped 事件都继承公共抽象基类 `InfernalAffixEvent`。
+- 另有 3 个与词条触发无关的生命周期事件：`InfernalMobSpawnEvent`（生成）、`InfernalMobDropEvent`（掉落）、`InfernalMobKillEvent`（击杀）。
+
+### 3.2 InfernalAffixAttemptEvent —— 尝试触发（可取消）
+
+**时机**：非 `STAT` 词条通过冷却、目标等内部资格检查后，进入技能自身条件与概率判定之前。
 
 | 字段 | 说明 |
 | --- | --- |
-| `String getAffixId()` | 触发的词条 id（如 `"gravity"`） |
-| `SkillType getSkillType()` | 技能类型（PASSIVE / DUAL / RANGE / ACTIVE / DEATH） |
+| `String getAffixId()` | 尝试触发的词条 id（如 `"gravity"`） |
+| `SkillType getSkillType()` | 技能类型（ACTIVE / PASSIVE / DEATH / RANGE / DUAL） |
 | `LivingEntity getMob()` | 炒鸡怪 |
-| `LivingEntity getTarget()` | 作用目标（死亡类技能为击杀者，可能 null） |
+| `LivingEntity getTarget()` | 本次交互目标（可能 null） |
 | `InfernalMobHandle getHandle()` | 门面（等级 / 词条只读） |
 | `int getLevel()` | 等级 |
-| `Object getParam(String key)` | 读取参数袋 |
-| `void setParam(String key, Object value)` | 修改参数（改数值） |
-| `setCancelled(true)` | 取消本次触发（免疫） |
+| `setCancelled(true)` | 结束本次尝试：不再判定、不进入新冷却 |
 
-**常用参数 key 常量**：`PARAM_DURATION_TICKS` / `PARAM_AMPLIFIER` / `PARAM_CHANCE` / `PARAM_COOLDOWN_TICKS` / `PARAM_RANGE` / `PARAM_DAMAGE` / `PARAM_FORCE` / `PARAM_UPWARD` / `PARAM_VELOCITY` / `PARAM_FIRE_TICKS`。参数袋初始值为该词条在 config.yml 中的配置。
-
-**示例：重力护符（MagicItems）——玩家快捷栏有护符时取消 gravity、否则把失重时长减半**
+**示例：阻止玩家受到 gravity 的本次触发尝试**
 ```java
 @EventHandler
-public void onAffix(InfernalAffixTriggerEvent e) {
+public void onAffixAttempt(InfernalAffixAttemptEvent e) {
     if (!"gravity".equals(e.getAffixId())) return;
-    Player p = (Player) e.getTarget();
-    if (p == null) return;
-
-    if (countGravityCharm(p) > 0) {
-        e.setCancelled(true);                       // 免疫
-    } else {
-        int t = e.getParam(InfernalAffixTriggerEvent.PARAM_DURATION_TICKS, 100);
-        e.setParam(InfernalAffixTriggerEvent.PARAM_DURATION_TICKS, t / 2);  // 减半
-    }
+    if (e.getTarget() instanceof Player player && isImmune(player)) e.setCancelled(true);
 }
 ```
 
-**示例：法王套免疫指定词条**
+> Attempt 不提供通用参数袋。需要修改效果数值时，请监听 §3.3 或 §3.4 中对应技能的类型化事件。
+
+### 3.3 InfernalAffixTriggeredEvent —— 词条真正触发
+
+**时机**：运行期技能的条件与概率判定通过、最终效果参数已经计算、效果即将生效时。每个运行期发动技能一个专属子类。
+
+到达 Triggered 事件即表示本次词条已经成功触发。`setCancelled(true)` 会阻止效果生效，但不会改回“未触发”状态，本体仍会保留本次冷却或一次性机会等触发成本。条件失败或概率未通过时，不广播 Triggered 事件，也不产生新的触发成本。
+
+**基类公共字段**：
+
+| 字段 | 说明 |
+| --- | --- |
+| `String getAffixId()` | 触发的词条 id |
+| `SkillType getSkillType()` | 技能类型（ACTIVE / PASSIVE / STAT / DEATH / RANGE / DUAL） |
+| `LivingEntity getMob()` | 炒鸡怪 |
+| `LivingEntity getTarget()` | 效果作用目标；死亡类等部分场景为 null |
+| `InfernalMobHandle getHandle()` | 门面（只读） |
+| `int getLevel()` | 等级 |
+| `setCancelled(true)` | 阻止本次效果生效，但仍视为成功触发并保留冷却或一次性机会等成本 |
+
+**Triggered 事件全表**（共 32 个）：
+
+| 词条 | 事件类 | 类型 | 额外字段 |
+| --- | --- | --- | --- |
+| 1up | `InfernalMob1upEvent` | STAT | `getRecoveryAmount/setRecoveryAmount`（免除伤害后额外回复的生命值；target=攻击者，可能 null） |
+| archer | `InfernalMobArcherEvent` | DUAL | `getArrowCount/setArrowCount`、`getSpeed/setSpeed`、`getDirectionSpread/setDirectionSpread`、`getProjectileSpread/setProjectileSpread` |
+| berserk | `InfernalMobBerserkEvent` | ACTIVE | `getSelfDamage/setSelfDamage`、`getBonusDamage/setBonusDamage` |
+| blinding | `InfernalMobBlindingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+| confusing | `InfernalMobConfusingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+| ender | `InfernalMobEnderEvent` | DUAL | `getDestination/setDestination` |
+| firework | `InfernalMobFireworkEvent` | DUAL | `getSpawnLocation/setSpawnLocation`、`getFireworkEffect/setFireworkEffect` |
+| ghastly | `InfernalMobGhastlyEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getDirectDamage/setDirectDamage`、`getFireTicks/setFireTicks`、`getExplosionPower/setExplosionPower`、`getLifetimeTicks/setLifetimeTicks` |
+| ghost | `InfernalMobGhostEvent` | DEATH | `getSpawnLocation/setSpawnLocation`、`getSummonLevel/setSummonLevel`、`getMaxHealth/setMaxHealth`、`getFloatSpeed/setFloatSpeed`、`getHelmet/setHelmet`、`getChestplate/setChestplate`、`getMainHand/setMainHand`、`getAffixIds/setAffixIds`（target=击杀者，可能 null） |
+| gravity | `InfernalMobGravityEvent` | RANGE | `get/setDurationTicks`、`get/setAmplifier` |
+| lifesteal | `InfernalMobLifestealEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getHealPerSecond/setHealPerSecond`（每 20 tick 治疗量） |
+| mama | `InfernalMobMamaEvent` | PASSIVE | `getCount/setCount`、`getChildType/setChildType`、`getSpawnLocation/setSpawnLocation`、`getChildLevelMin/setChildLevelMin`、`getChildLevelMax/setChildLevelMax`、`setChildLevelRange`、`isBaby/setBaby`、`getNoBabyScale/setNoBabyScale` |
+| molten | `InfernalMobMoltenEvent` | PASSIVE | `getFireTicks/setFireTicks`（攻击者的最低剩余燃烧时间） |
+| morph | `InfernalMobMorphEvent` | DUAL | `getTargetType/setTargetType` |
+| necromancer | `InfernalMobNecromancerEvent` | RANGE | `getSpawnLocation/setSpawnLocation`、`getVelocity/setVelocity`、`getExplosionPower/setExplosionPower`、`isCharged/setCharged`、`getLifetimeTicks/setLifetimeTicks` |
+| poisonous | `InfernalMobPoisonousEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+| quicksand | `InfernalMobQuicksandEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+| refrigerate | `InfernalMobRefrigerateEvent` | DUAL | `getFreezeTicks/setFreezeTicks`（目标处于完全冻结状态的持续 tick 数；0 表示不改变冻结状态） |
+| rust | `InfernalMobRustEvent` | PASSIVE | `getItemStack`（只读快照）、`getDamageAmount/setDamageAmount`（标准耐久损耗量） |
+| sapper | `InfernalMobSapperEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+| spear | `InfernalMobSpearEvent` | RANGE | `getChargeTicks/setChargeTicks`、`getLungeTicks/setLungeTicks`、`getLungeSpeedAmplifier/setLungeSpeedAmplifier`、`getSpearItem/setSpearItem` |
+| storm | `InfernalMobStormEvent` | DUAL | `getStrikeLocation/setStrikeLocation`、`getDamage/setDamage`、`isEffectOnly/setEffectOnly` |
+| sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight`、`getWarnSound/setWarnSound`、`getEruptSound/setEruptSound`、`getSoundVolume/setSoundVolume` |
+| swap | `InfernalMobSwapEvent` | PASSIVE | `getMobDestination/setMobDestination`、`getPlayerDestination/setPlayerDestination` |
+| thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
+| tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |
+| vengeance | `InfernalMobVengeanceEvent` | PASSIVE | `getDamage/setDamage`（使用原生 THORNS 伤害来源） |
+| vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | `getSummonCount/setSummonCount`、`getSpawnLocation/setSpawnLocation` |
+| wardenwrath | `InfernalMobWardenWrathEvent` | PASSIVE | `getDamage/setDamage`、`getKnockbackHorizontal/setKnockbackHorizontal`、`getKnockbackVertical/setKnockbackVertical`（均为距离衰减后的参数） |
+| weakness | `InfernalMobWeaknessEvent` | DUAL | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+| webber | `InfernalMobWebberEvent` | DUAL | `isGiantSphere`、`getCenter/setCenter`、`getLifetimeTicks/setLifetimeTicks`、`getRadius/setRadius`、`getThickness/setThickness` |
+| withering | `InfernalMobWitheringEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+
+**spear 的单次命中事件**：`InfernalMobSpearHitEvent` 不继承 `InfernalAffixTriggeredEvent`。
+它只在怪物进入冲锋阶段后，以临时长矛对本轮锁定玩家造成真实近战攻击时广播；距离接近本身不会触发。
+`getDamage/setDamage` 读写的是这一次原始近战伤害，不会另外调用 `damage(...)` 产生第二次伤害。
+取消 Hit 事件会取消对应的原始近战伤害；取消或将伤害改为 0 仍会消费本轮命中并立即结束持矛状态，
+不会回滚 spear 的触发或冷却。
+
+**sulfur 的逐玩家喷发事件**：`InfernalMobSulfurLaunchEvent` 不继承 `InfernalAffixTriggeredEvent`。
+`InfernalMobSulfurEvent#getUpward()` 表示整座硫泉共用的基础竖直速度；完成预警后，
+本体再以该值为基础为每名范围内玩家广播 Launch 事件。
+它在硫泉完成预警、准备顶起范围内某一名玩家时单独广播，可通过
+`getPlayer()` 获取该玩家、通过 `getUpward/setUpward` 修改本次竖直速度，或取消该玩家本次被顶起。
+取消 Launch 事件不会取消已经发生的 sulfur 触发，也不会回滚或重复提交其冷却。
+
+**webber 的逐方块放置事件**：`InfernalMobWebberPlaceEvent` 不继承
+`InfernalAffixTriggeredEvent`。普通蛛网或巨型空心网球准备将某个空气方块替换为蛛网时逐块广播，
+可通过 `getBlock()` 获取候选方块、通过 `isGiantSphere()` 区分变体，或取消当前方块。
+取消 Place 事件不会影响其他方块，也不会回滚已经发生的 webber 触发、冷却或巨型网球的一次性机会。
+
+**firework 的逐受害者伤害事件**：`InfernalMobFireworkDamageEvent` 不继承
+`InfernalAffixTriggeredEvent`。原版烟花爆炸为每个受影响实体计算出基础伤害后分别广播，
+可通过 `getVictim()` 获取当前受害者、通过 `getDamage/setDamage` 修改重新结算的基础伤害，
+或取消当前受害者的本次伤害。取消 Damage 事件不会影响同次爆炸中的其他实体，
+也不会回滚已经发生的 firework 触发或冷却。
+
+**ghastly 的逐受害者伤害事件**：`InfernalMobGhastlyDamageEvent` 不继承
+`InfernalAffixTriggeredEvent`。火球直接命中或爆炸产生范围伤害时，针对每个受害者分别广播，
+可通过 `getDamageCause()` 区分伤害阶段、通过 `getDamage/setDamage` 修改基础伤害，
+或取消当前受害者的本次伤害。取消 Damage 事件不会影响其他受害者，
+也不会回滚已经发生的 ghastly 触发或冷却。
+
+**necromancer 的逐受害者伤害事件**：`InfernalMobNecromancerDamageEvent` 不继承
+`InfernalAffixTriggeredEvent`。凋灵之首直接命中或爆炸产生范围伤害时，针对每个受害者分别广播，
+可通过 `getDamageCause()` 区分伤害阶段、通过 `getDamage/setDamage` 修改基础伤害，
+或取消当前受害者的本次伤害。取消 Damage 事件不会影响其他受害者，
+也不会回滚已经发生的 necromancer 触发或冷却。
+
+**storm 的逐受害者伤害事件**：`InfernalMobStormDamageEvent` 不继承
+`InfernalAffixTriggeredEvent`。真实闪电对范围内实体产生伤害时，针对每个受害者分别广播，
+可通过 `getLightningStrike()` 获取闪电实体、通过 `getDamage/setDamage` 修改基础伤害，
+或取消当前受害者的本次伤害。取消 Damage 事件不会撤销点火、生物转化或其他受害者的伤害，
+也不会回滚已经发生的 storm 触发或冷却。视觉闪电不会广播该事件。
+
+**示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java
 @EventHandler
-public void onAffix(InfernalAffixTriggerEvent e) {
-    if (e.getTarget() instanceof Player p && wearingMagicKingChest(p)) {
-        if (Set.of("poisonous", "withering", "lifesteal", "molten", "weakness", "rust").contains(e.getAffixId())) {
-            e.setCancelled(true);
-        }
-    }
+public void onThief(InfernalMobThiefEvent e) {
+    e.setDropLocation(e.getPlayer().getLocation());   // 掉到玩家脚下
+    e.setCooldownTicks(e.getCooldownTicks() / 2);     // 冷却减半
 }
 ```
 
-### 3.2 InfernalMobSpawnEvent —— 炒鸡怪生成（可取消）
+**示例：mama 母体——翻倍产子**
+```java
+@EventHandler
+public void onMama(InfernalMobMamaEvent e) {
+    e.setCount(e.getCount() * 2);
+}
+```
+
+### 3.4 InfernalAffixEquippedEvent —— 词条装配生效
+
+**时机**：怪物装配词条、对应的初始或常驻效果即将应用时。装配事件没有条件、概率和冷却，也不经过 Attempt/Triggered 链路。
+
+`setCancelled(true)` 只阻止本次装配效果，不会从怪物的 Profile 中删除该词条。若要在首次炒鸡化时移除词条，应在 `InfernalMobSpawnEvent` 中修改词条列表。
+
+Equipped 事件继承 `InfernalAffixEvent` 的公共字段；目前五种事件的 `target` 均为 null，作用对象是 `getMob()`。
+
+| 词条 | 事件类 | 类型 | 额外字段 |
+| --- | --- | --- | --- |
+| armoured | `InfernalMobArmouredEvent` | STAT | `getHelmet/setHelmet`、`getChestplate/setChestplate`、`getLeggings/setLeggings`、`getBoots/setBoots` |
+| bullwark | `InfernalMobBullwarkEvent` | STAT | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+| cloaked | `InfernalMobCloakedEvent` | STAT | `getDurationTicks/setDurationTicks`、`getHelmet/setHelmet` |
+| mounted | `InfernalMobMountedEvent` | STAT | `getMountCandidates/setMountCandidates`（有序 `MountCandidate` 列表，包含 `mountType` 与 `infernal`）、`getSpawnLocation/setSpawnLocation` |
+| sprint | `InfernalMobSprintEvent` | STAT | `getAmplifier/setAmplifier`（无限时长速度效果） |
+
+**示例：armoured 装配——只监听高等级事件并记录**
+```java
+@EventHandler
+public void onArmoured(InfernalMobArmouredEvent e) {
+    if (e.getLevel() < 3) return;          // 只看 3 级+
+    log("armoured 装配生效: Lv." + e.getLevel() + " @ " + e.getMob().getName());
+}
+```
+
+### 3.5 InfernalMobSpawnEvent —— 炒鸡怪生成（可取消）
 
 **时机**：等级/词条已计算之后、装配/数值/命名/注册之前。用于编辑生成内容或阻止炒鸡化。
 
@@ -239,9 +418,9 @@ public void onSpawn(InfernalMobSpawnEvent e) {
 }
 ```
 
-### 3.3 InfernalMobDropEvent —— 掉落（可取消）
+### 3.6 InfernalMobDropEvent —— 掉落（可取消）
 
-**时机**：插件产出掉落（等级池加权 + special + 保底 + dye 特殊掉落）聚合后、落世界前。**不包含原版掉落。**
+**时机**：插件产出掉落（等级池加权 + special + 保底）聚合后、落世界前。**不包含原版掉落。**
 
 | 字段 | 说明 |
 | --- | --- |
@@ -261,7 +440,7 @@ public void onDrop(InfernalMobDropEvent e) {
 }
 ```
 
-### 3.4 InfernalMobKillEvent —— 玩家击杀（不可取消）
+### 3.7 InfernalMobKillEvent —— 玩家击杀（不可取消）
 
 **时机**：确认击杀者为玩家后同步触发。供进度 / 成就插件使用。
 
@@ -311,6 +490,6 @@ public void onFish(ProjectileHitEvent e) {
 ## 5. 注意事项
 
 - **thief 缴械物**不在掉落事件聚合内（它是战斗中从玩家手上掉的物品，时机在死亡之外）。
-- **1up**（STAT 型）不在词条触发事件线路上（STAT 词条是装配时生效，无 onTrigger）。
+- **装配型 STAT / DEATH / 1up 词条均有专属事件**：装配型 STAT 继承 `InfernalAffixEquippedEvent`（`target` 为 null）；DEATH 与 1up 继承 `InfernalAffixTriggeredEvent`。
 - **不可在异步线程**调用 `spawnInfernalMob` 或直接操作实体，请切主线程（`runTask`）。
 - 事件类均在 `com.infernalmobs.api.event`，包结构即对外契约；调用逻辑在插件本体（对使用方不可见）。

@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.equipped.InfernalMobSprintEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -27,11 +28,17 @@ public class StatSprintSkill implements Skill {
     public void onEquip(SkillContext ctx, SkillConfig config) {
         LivingEntity entity = ctx.getEntity();
         if (entity == null || !entity.isValid()) return;
+
         int amplifier = config != null ? config.getInt("amplifier", 1) : 1;
+        InfernalMobSprintEvent event = new InfernalMobSprintEvent(
+                entity, null, ctx.getOrCreateHandle(),
+                ctx.getMobState().getProfile().getLevel(), amplifier);
+        if (!ctx.fire(event)) return;
+
         entity.addPotionEffect(new PotionEffect(
                 PotionEffectType.SPEED,
                 PotionEffect.INFINITE_DURATION,
-                amplifier,
+                event.getAmplifier(),
                 false,
                 true));
     }

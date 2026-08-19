@@ -1,12 +1,14 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobGhastlyEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Fireball;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 /**
@@ -32,32 +34,43 @@ public class RangeGhastlySkill implements Skill {
 
     @Override
     public void onTrigger(SkillContext ctx, SkillConfig config) {
-        if (ctx.getEntity() == null || !ctx.getEntity().isValid()) return;
-        if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
+        LivingEntity mob = ctx.getEntity();
+        Player target = ctx.getTargetPlayer();
+        if (mob == null || !mob.isValid() || target == null || !target.isOnline()) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
-        double damage = config.getDouble("damage", 8);
-        double velocity = config.getDouble("velocity", 1.2);
+        Vector direction = target.getEyeLocation().toVector().subtract(mob.getEyeLocation().toVector());
+        if (direction.lengthSquared() < 0.01) return;
+        direction.normalize();
+
+        Location spawnLocation = mob.getEyeLocation().add(direction);
+        Vector velocity = direction.clone().multiply(config.getDouble("velocity", 1.2));
+        double directDamage = config.getDouble("damage", 8);
         int fireTicks = config.getInt("fire-ticks", 60);
         float explosionPower = (float) config.getDouble("explosion-power", 1);
-
-        Vector dir = ctx.getTargetPlayer().getEyeLocation().toVector()
-                .subtract(ctx.getEntity().getEyeLocation().toVector()).normalize();
-        var spawnAt = ctx.getEntity().getEyeLocation().add(dir);
-
-        LivingEntity mob = ctx.getEntity();
         int lifetimeTicks = config.getInt("entity-lifetime-ticks", 100);
-        Fireball fb = mob.getWorld().spawn(spawnAt, Fireball.class, f -> {
-            f.setDirection(dir.multiply(velocity));
+
+        InfernalMobGhastlyEvent event = new InfernalMobGhastlyEvent(
+                mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                spawnLocation, velocity, directDamage, fireTicks, explosionPower, lifetimeTicks);
+        if (!ctx.fire(event) || event.getLifetimeTicks() == 0) return;
+
+        Vector projectileVelocity = event.getVelocity();
+        Fireball fb = event.getSpawnLocation().getWorld().spawn(event.getSpawnLocation(), Fireball.class, f -> {
+            f.setShooter(mob);
+            f.setDirection(projectileVelocity);
+            f.setVelocity(projectileVelocity);
             f.setFireTicks(0);  // 熄灭火球本体，避免擦肩而过时点燃玩家
-            f.setYield(Math.max(0, explosionPower));  // ExplosionPower，击中时爆炸
+            f.setYield(event.getExplosionPower());  // ExplosionPower，击中时爆炸
             f.setIsIncendiary(false);  // 爆炸不生成方块火
-            f.setMetadata("infernalmobs_damage", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), damage));
-            f.setMetadata("infernalmobs_fire_ticks", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), fireTicks));
+            f.setMetadata("infernalmobs_damage", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getDirectDamage()));
+            f.setMetadata("infernalmobs_fire_ticks", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getFireTicks()));
             f.setMetadata("infernalmobs_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), mob.getUniqueId()));
+            f.setMetadata("infernalmobs_ghastly_handle", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getHandle()));
+            f.setMetadata("infernalmobs_ghastly_level", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getLevel()));
             f.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
         });
-        scheduleProjectileLifetime(fb, ctx.getPlugin(), lifetimeTicks);
+        scheduleProjectileLifetime(fb, ctx.getPlugin(), event.getLifetimeTicks());
     }
 
     private static void scheduleProjectileLifetime(org.bukkit.entity.Entity entity, org.bukkit.plugin.Plugin plugin, int maxTicks) {

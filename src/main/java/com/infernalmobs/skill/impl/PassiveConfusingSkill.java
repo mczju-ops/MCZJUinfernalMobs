@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobConfusingEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -32,13 +33,18 @@ public class PassiveConfusingSkill implements Skill {
     @Override
     public void onTrigger(SkillContext ctx, SkillConfig config) {
         if (!(ctx.getTriggerEvent() instanceof EntityDamageByEntityEvent)) return;
-        if (ctx.getTargetPlayer() == null || !ctx.getTargetPlayer().isOnline()) return;
+        var target = ctx.getTargetPlayer();
+        if (target == null || !target.isOnline()) return;
 
-        int duration = config.getInt("duration-ticks", 80);
+        int duration = config.getDurationTicks("duration-ticks", 80);
         int amplifier = config.getInt("amplifier", 2);
         if (ctx.isWeakened()) duration = Math.max(1, duration / 2);
 
-        ctx.getTargetPlayer().addPotionEffect(new PotionEffect(
-                PotionEffectType.NAUSEA, duration, amplifier, false, true));
+        InfernalMobConfusingEvent event = new InfernalMobConfusingEvent(
+                ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                duration, amplifier);
+        if (!ctx.fire(event)) return;
+        target.addPotionEffect(new PotionEffect(
+                PotionEffectType.NAUSEA, event.getDurationTicks(), event.getAmplifier(), false, true));
     }
 }

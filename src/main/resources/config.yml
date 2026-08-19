@@ -94,7 +94,6 @@ skill-weights:
   necromancer: 10
   firework: 10
   ghost: 10
-  dye: 10
   confusing: 10
   # 黄色词条
   thief: 10
@@ -280,7 +279,6 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
-      dye: 10
       confusing: 10
       # 黄色词条
       thief: 1
@@ -388,7 +386,6 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
-      dye: 10
       confusing: 10
       # 黄色词条
       thief: 10
@@ -498,7 +495,6 @@ regions:
       necromancer: 10
       firework: 10
       ghost: 10
-      dye: 10
       confusing: 10
       # 黄色词条
       thief: 10
@@ -613,6 +609,7 @@ skills:
     velocity: 1.2
     fire-ticks: 60
     explosion-power: 1   # ExplosionPower，击中时爆炸威力，0=不爆炸
+    entity-lifetime-ticks: 100
 
   lifesteal:
     type: PASSIVE
@@ -638,6 +635,7 @@ skills:
     cooldown-ticks: 40
     chance: 0.15
     sound: "BLOCK_COBWEB_PLACE"  # 蜘蛛网放置音效
+    web-lifetime-ticks: 100       # 普通蛛网存在时间（5s）；0 表示不自动清理
     giant-sphere-chance: 0.15    # 蜘蛛网球概率（每只蜘蛛仅会以这种方式释放技能一次）
     giant-sphere-radius: 6       # 蜘蛛网球半径
     giant-sphere-thickness: 0.5  # 蜘蛛网球密度（0.01-1，越大越密越厚度）
@@ -666,6 +664,9 @@ skills:
     chance: 0.3
     cooldown-ticks: 100
     velocity: 1.0
+    explosion-power: 1.0
+    charged: false
+    entity-lifetime-ticks: 100
 
   firework:
     type: DUAL
@@ -684,12 +685,6 @@ skills:
     health: 40
     float-speed: 0.3
 
-  dye:
-    type: DEATH
-    display: "&dDye"
-    item-id: "infernal_dye"
-    hex: "#FFFFFF"
-
   confusing:
     type: PASSIVE
     display: "&dConfusing"
@@ -703,14 +698,8 @@ skills:
     cooldown-ticks: 80
     chance: 0.33
     sound: "entity.wind_charge.throw"
-        # --- 反制缴械：副手持有 thief_counter 时触发 ---
-    # 本次缴械仍会成功，但会把该怪的 thief 冷却延长 counter-duration-ticks，从而封住缴械能力
-    counter-duration-ticks: 200
-    counter-sound: "item.crossbow.quick_charge_1"
-    # 螺旋粒子（围绕怪物转圈）。如果服务器该粒子名不存在，会自动回退到 SPELL_WITCH
-    counter-particle: "item_cobweb"
     # 绘制线粒子：玩家眼睛 -> 本次缴械落点
-    counter-line-particle: "small_gust"
+    line-particle: "small_gust"
 
 
   tosser:
@@ -728,7 +717,7 @@ skills:
     display: "&9Storm"
     cooldown-ticks: 0    # 参考原版：每次受击/攻击都 roll，无冷却
     chance: 0.22         # 约 2/9，与原版一致
-    damage: 5
+    damage: 5            # 真实闪电对每名受害者使用的基础伤害
 
   vengeance:
     type: PASSIVE
@@ -809,8 +798,9 @@ skills:
       - BLAZE
       - BOGGED
       - STRIDER
-    # 坐骑白名单（核心池）：从此列表随机生成坐骑，且生成后会被炒鸡化
-    # 留空=不生成坐骑（mounted 实际不生效）
+    # 炒鸡坐骑池：成功挂载后会被炒鸡化；与 enabled-mounts 合并后随机尝试
+    infernal-mounts: []
+    # 普通坐骑池：成功挂载后保持普通实体；两个坐骑池均留空时 mounted 实际不生效
     enabled-mounts:
       - SPIDER
       - SKELETON_HORSE
@@ -845,7 +835,6 @@ skills:
     lunge-ticks: 30
     lunge-speed-amplifier: 4
     sharpness-level: 5
-    hit-radius: 1.5
     item: NETHERITE_SPEAR
     enabled-holders:
       - ZOMBIE

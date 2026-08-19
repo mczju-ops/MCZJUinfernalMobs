@@ -1,7 +1,6 @@
 # 掉落条目 id -> 显示名（用于 broadcast-message 里的 {item} / <item>）
 # 规则：有映射用这里的名字；无映射回退为原始 id。
 cooldown_core: "冷静之核"
-thief_counter: "缴械反制器"
 infernal_exchange_token: "炒鸡兑换币"
 monster_proof_basic: "初级怪物证明"
 

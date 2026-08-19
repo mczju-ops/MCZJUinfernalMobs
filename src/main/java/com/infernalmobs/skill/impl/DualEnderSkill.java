@@ -1,14 +1,13 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobEnderEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import com.infernalmobs.util.Keys;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 
 /**
@@ -37,30 +36,31 @@ public class DualEnderSkill implements Skill {
         if (ctx.getEntity() == null || !ctx.getEntity().isValid()) return;
         Player target = ctx.getTargetPlayer();
         if (target == null || !target.isOnline()) return;
-        Integer suppressedExpiresAt = ctx.getEntity().getPersistentDataContainer()
-                .get(Keys.IM_ENDER_SUPPRESSED_EXPIRES_AT, PersistentDataType.INTEGER);
-        if (suppressedExpiresAt != null) {
-            if (ctx.getCurrentTick() < suppressedExpiresAt) return;
-            ctx.getEntity().getPersistentDataContainer().remove(Keys.IM_ENDER_SUPPRESSED_EXPIRES_AT);
-        }
 
         double chance = config.getDouble("chance", 1.0);
         if (chance < 1.0 && Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        ctx.setTriggered(true);
 
-        Vector behind = target.getLocation().getDirection().multiply(-1).setY(0).normalize();
+        Location targetLocation = target.getLocation();
+        Vector behind = targetLocation.getDirection().multiply(-1).setY(0).normalize();
         double dist = config.getDouble("distance", 2);
-        Location dest = target.getLocation().add(behind.multiply(dist));
-        dest.setY(target.getLocation().getY());
+        Location dest = targetLocation.clone().add(behind.multiply(dist));
+        dest.setY(targetLocation.getY());
 
+        Location destination = null;
         for (int i = 0; i < 5; i++) {
             Location tryLoc = dest.clone().add(0, i, 0);
             if (tryLoc.getBlock().getType().isAir() && tryLoc.clone().add(0, 1, 0).getBlock().getType().isAir()) {
-                ctx.getEntity().teleport(tryLoc);
+                destination = tryLoc;
                 break;
             }
         }
+        if (destination == null) return;
+
+        InfernalMobEnderEvent event = new InfernalMobEnderEvent(
+                ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(), destination);
+        if (!ctx.fire(event)) return;
+        if (!ctx.getEntity().teleport(event.getDestination())) return;
 
         try {
             ctx.getEntity().getWorld().playSound(ctx.getEntity().getLocation(),

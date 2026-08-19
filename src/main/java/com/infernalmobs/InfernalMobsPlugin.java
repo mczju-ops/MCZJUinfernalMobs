@@ -4,7 +4,6 @@ import com.infernalmobs.api.InfernalMobsApi;
 import com.infernalmobs.api.impl.InfernalMobsApiImpl;
 import com.infernalmobs.command.InfernalMobCommand;
 import com.infernalmobs.config.ConfigLoader;
-import com.infernalmobs.config.DyeConfig;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
@@ -49,7 +48,6 @@ public class InfernalMobsPlugin extends JavaPlugin {
     private MobFactory mobFactory;
     private SkillService skillService;
     private InfernalMobsApi infernalMobsApi;
-    private DyeConfig dyeConfig = DyeConfig.defaults();
 
     @Override
     public void onEnable() {
@@ -61,12 +59,10 @@ public class InfernalMobsPlugin extends JavaPlugin {
         if (!new File(getDataFolder(), "loot_name.yml").exists()) saveResource("loot_name.yml", false);
         if (!new File(getDataFolder(), "special_loot.yml").exists()) saveResource("special_loot.yml", false);
         if (!new File(getDataFolder(), "guaranteed_loot.yml").exists()) saveResource("guaranteed_loot.yml", false);
-        if (!new File(getDataFolder(), "dye.yml").exists()) saveResource("dye.yml", false);
         File lootDir = new File(getDataFolder(), "loot");
         if (!lootDir.exists()) lootDir.mkdirs();
         saveDefaultLootFiles(lootDir);
         reloadLootConfig();
-        reloadDyeConfig();
 
         MobLevelService levelService = new MobLevelService(configLoader);
         AffixRollService affixRollService = new AffixRollService(configLoader);
@@ -94,7 +90,14 @@ public class InfernalMobsPlugin extends JavaPlugin {
         combatService.startTickTask();
 
         // 注册对外 API，供 MagicItems 等插件通过 ServicesManager 获取
-        infernalMobsApi = new InfernalMobsApiImpl(combatService, mobFactory, configLoader);
+        infernalMobsApi = new InfernalMobsApiImpl(
+                combatService,
+                mobFactory,
+                configLoader,
+                this::getLootService,
+                killStatsService,
+                this::getGuaranteedLootService
+        );
         getServer().getServicesManager().register(InfernalMobsApi.class, infernalMobsApi, this, ServicePriority.Normal);
 
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
@@ -173,11 +176,6 @@ public class InfernalMobsPlugin extends JavaPlugin {
             mobFactory.reloadRuntimeConfig();
         }
         reloadLootConfig();
-        reloadDyeConfig();
-    }
-
-    public void reloadDyeConfig() {
-        dyeConfig = DyeConfig.load(getDataFolder());
     }
 
     @Override
@@ -206,10 +204,6 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
     public GuaranteedLootService getGuaranteedLootService() {
         return guaranteedLootService;
-    }
-
-    public DyeConfig getDyeConfig() {
-        return dyeConfig;
     }
 
     public MobFactory getMobFactory() {

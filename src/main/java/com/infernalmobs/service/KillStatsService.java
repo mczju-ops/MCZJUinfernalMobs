@@ -130,6 +130,30 @@ public class KillStatsService {
         return byLevel.values().stream().mapToInt(Integer::intValue).sum();
     }
 
+    /** 获取所有已有记录玩家的击杀统计内存快照。 */
+    public List<PlayerStatsSnapshot> getAllPlayerStats() {
+        return data.entrySet().stream()
+                .map(entry -> new PlayerStatsSnapshot(
+                        entry.getKey(),
+                        displayNames.get(entry.getKey()),
+                        entry.getValue()
+                ))
+                .toList();
+    }
+
+    /** API 映射使用的单玩家内部快照。 */
+    public record PlayerStatsSnapshot(
+            String playerId,
+            String displayName,
+            Map<Integer, Integer> killsByLevel
+    ) {
+        public PlayerStatsSnapshot {
+            playerId = Objects.requireNonNull(playerId, "playerId");
+            displayName = displayName != null && !displayName.isBlank() ? displayName.trim() : null;
+            killsByLevel = killsByLevel != null ? Map.copyOf(killsByLevel) : Map.of();
+        }
+    }
+
     /** 标记为脏，用于外部需要强制保存时。 */
     public void markDirty() {
         dirty = true;

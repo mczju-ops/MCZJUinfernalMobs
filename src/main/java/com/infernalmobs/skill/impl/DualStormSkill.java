@@ -1,9 +1,12 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobStormEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import org.bukkit.Location;
+import org.bukkit.entity.LightningStrike;
 import org.bukkit.entity.Player;
 
 /**
@@ -36,8 +39,32 @@ public class DualStormSkill implements Skill {
         double chance = config.getDouble("chance", 0.22);
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        ctx.setTriggered(true);
 
-        target.getWorld().strikeLightning(target.getLocation());
+        Location strikeLocation = target.getLocation().clone();
+        double damage = config.getDouble("damage", 5.0);
+        InfernalMobStormEvent event = new InfernalMobStormEvent(
+                ctx.getEntity(), target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                strikeLocation, damage, false);
+        if (!ctx.fire(event)) return;
+
+        Location finalLocation = event.getStrikeLocation().clone();
+        if (finalLocation.getWorld() == null) return;
+
+        if (event.isEffectOnly()) {
+            finalLocation.getWorld().strikeLightningEffect(finalLocation);
+            return;
+        }
+
+        LightningStrike lightning = finalLocation.getWorld().strikeLightning(finalLocation);
+        lightning.setMetadata("infernalmobs_skill_id",
+                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
+        lightning.setMetadata("infernalmobs_source",
+                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getEntity().getUniqueId()));
+        lightning.setMetadata("infernalmobs_storm_handle",
+                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getHandle()));
+        lightning.setMetadata("infernalmobs_storm_level",
+                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getLevel()));
+        lightning.setMetadata("infernalmobs_damage",
+                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getDamage()));
     }
 }

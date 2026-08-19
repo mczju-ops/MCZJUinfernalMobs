@@ -1,10 +1,10 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobSwapEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import com.infernalmobs.util.DisplacementImmunityHelper;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
@@ -35,23 +35,35 @@ public class PassiveSwapSkill implements Skill {
         if (ctx.getEntity() == null || !ctx.getEntity().isValid()) return;
         Player player = ctx.getTargetPlayer();
         if (player == null || !player.isOnline()) return;
-        if (DisplacementImmunityHelper.isImmuneAndCleanup(player, ctx.getCurrentTick())) return;
 
         double chance = config.getDouble("chance", 0.25);
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
 
-        Location mobLoc = ctx.getEntity().getLocation().clone();
-        Location playerLoc = player.getLocation().clone();
+        Location mobOrigin = ctx.getEntity().getLocation().clone();
+        Location playerOrigin = player.getLocation().clone();
+        InfernalMobSwapEvent event = new InfernalMobSwapEvent(
+                ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                playerOrigin.clone(), mobOrigin.clone());
+        if (!ctx.fire(event)) return;
 
-        ctx.getEntity().teleport(playerLoc);
-        player.teleport(mobLoc);
+        Location mobDestination = event.getMobDestination().clone();
+        Location playerDestination = event.getPlayerDestination().clone();
+        if (mobDestination.getWorld() == null || playerDestination.getWorld() == null) return;
+
+        if (!ctx.getEntity().teleport(mobDestination)) return;
+        if (!player.teleport(playerDestination)) {
+            ctx.getEntity().teleport(mobOrigin);
+            return;
+        }
 
         String soundKey = config.getString("sound", "ENTITY_SHULKER_TELEPORT");
         try {
             org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            mobLoc.getWorld().playSound(mobLoc, sound, 0.8f, 1f);
-            playerLoc.getWorld().playSound(playerLoc, sound, 0.8f, 1f);
+            Location finalMobLocation = ctx.getEntity().getLocation();
+            Location finalPlayerLocation = player.getLocation();
+            finalMobLocation.getWorld().playSound(finalMobLocation, sound, 0.8f, 1f);
+            finalPlayerLocation.getWorld().playSound(finalPlayerLocation, sound, 0.8f, 1f);
         } catch (IllegalArgumentException ignored) {}
     }
 }

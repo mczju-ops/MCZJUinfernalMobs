@@ -32,7 +32,9 @@ public interface Skill {
     void onUnequip(SkillContext ctx);
 
     /**
-     * 被动/主动技能在特定时机触发时调用。
+     * 非 STAT 技能在 Attempt 事件未被取消后调用。
+     * 实现应在此完成技能条件与概率判定；确认成功触发后，先通过
+     * {@link SkillContext#fire(org.bukkit.event.Event)} 广播对应的 Triggered 事件，再应用效果。
      * 数值类技能通常不实现此方法。
      */
     default void onTrigger(SkillContext ctx, SkillConfig config) {

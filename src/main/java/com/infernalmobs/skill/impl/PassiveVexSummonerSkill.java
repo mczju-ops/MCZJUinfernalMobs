@@ -1,10 +1,12 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobVexSummonerEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -55,16 +57,24 @@ public class PassiveVexSummonerSkill implements Skill {
         int toSummon = Math.min(summonCount, maxNearby - (int) vexCount);
         if (toSummon <= 0) return;
 
-        Location loc = mob.getLocation();
+        InfernalMobVexSummonerEvent event = new InfernalMobVexSummonerEvent(
+                mob, player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                toSummon, mob.getLocation());
+        if (!ctx.fire(event) || event.getSummonCount() == 0) return;
+
+        Location loc = event.getSpawnLocation();
+        World world = loc.getWorld();
+        if (world == null) return;
+
         String soundKey = config.getString("sound", "ENTITY_EVOKER_PREPARE_SUMMON");
         float pitch = (float) config.getDouble("sound-pitch", 0.8);
         try {
             org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            mob.getWorld().playSound(loc, sound, 0.8f, pitch);
+            mob.getWorld().playSound(mob.getLocation(), sound, 0.8f, pitch);
         } catch (IllegalArgumentException ignored) {}
 
-        for (int i = 0; i < toSummon; i++) {
-            Vex vex = (Vex) mob.getWorld().spawnEntity(loc, EntityType.VEX);
+        for (int i = 0; i < event.getSummonCount(); i++) {
+            Vex vex = (Vex) world.spawnEntity(loc, EntityType.VEX);
             vex.setTarget(player);
         }
     }

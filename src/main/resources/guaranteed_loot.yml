@@ -19,7 +19,7 @@ rules:
     # 只统计此等级范围内的击杀（含边界）
     level-min: 10
     level-max: 100
-    # 累计击杀数达到此值触发保底
+    # 累计等级池抽取次数达到此值触发保底；每次有效击杀按当次 drop-times 结果增加
     count: 1000
     item-id: nether_star
     item-amount: 1

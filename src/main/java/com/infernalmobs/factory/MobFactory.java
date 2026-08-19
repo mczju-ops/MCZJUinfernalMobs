@@ -2,7 +2,7 @@ package com.infernalmobs.factory;
 
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.InfernalMobSpawnEvent;
+import com.infernalmobs.api.event.mob.InfernalMobSpawnEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.DeathMessageConfig;
 import com.infernalmobs.config.PresetConfig;
@@ -18,7 +18,6 @@ import com.infernalmobs.service.SkillService;
 import com.infernalmobs.util.MiniMessageHelper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Item;

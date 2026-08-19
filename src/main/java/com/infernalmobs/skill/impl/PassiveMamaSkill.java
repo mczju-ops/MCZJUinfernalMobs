@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobMamaEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
@@ -77,6 +78,10 @@ public class PassiveMamaSkill implements Skill {
             debugLog(ctx, "跳过: " + parent.getType() + " 不支持 mama");
             return;
         }
+        if (!parent.getType().isSpawnable()) {
+            debugLog(ctx, "跳过: " + parent.getType() + " 不是可生成的实体类型");
+            return;
+        }
 
         Set<EntityType> blocked = parseBlockedTypes(config);
         if (!blocked.isEmpty() && blocked.contains(parent.getType())) {
@@ -134,14 +139,31 @@ public class PassiveMamaSkill implements Skill {
 
         boolean baby = config.getBoolean("baby", true);
         double noBabyScale = config.getDouble("no-baby-scale", 0.5);
+        Location spawnLocation = parent.getLocation().clone();
+        EntityType childType = parent.getType();
 
-        Location loc = parent.getLocation().clone();
-        EntityType parentType = parent.getType();
-        debugLog(ctx, "已调度下一 tick 生成 count=" + count + " 档位=" + tier + " 等级区间 " + levelRange[0] + "-" + levelRange[1] + " baby=" + baby + " noBabyScale=" + noBabyScale);
+        InfernalMobMamaEvent ev = new InfernalMobMamaEvent(
+                parent, ctx.getTargetPlayer(), ctx.getHandle(), parentLevel,
+                count, childType, spawnLocation, levelRange[0], levelRange[1], baby, noBabyScale);
+        if (!ctx.fire(ev)) return;
+        count = ev.getCount();
+        if (count == 0) {
+            debugLog(ctx, "事件将 count 设为 0，不生成子怪");
+            return;
+        }
+
+        Location loc = ev.getSpawnLocation().clone();
+        childType = ev.getChildType();
+        debugLog(ctx, "已调度下一 tick 生成 count=" + count + " 档位=" + tier + " 类型=" + childType
+                + " 等级区间 " + ev.getChildLevelMin() + "-" + ev.getChildLevelMax()
+                + " baby=" + ev.isBaby() + " noBabyScale=" + ev.getNoBabyScale());
 
         final int effCount = count;
-        final int effMin = levelRange[0];
-        final int effMax = Math.max(levelRange[0], levelRange[1]);
+        final EntityType effChildType = childType;
+        final int effMin = ev.getChildLevelMin();
+        final int effMax = ev.getChildLevelMax();
+        final boolean effBaby = ev.isBaby();
+        final double effNoBabyScale = ev.getNoBabyScale();
 
         new BukkitRunnable() {
             @Override
@@ -150,23 +172,23 @@ public class PassiveMamaSkill implements Skill {
                     debugLog(ctx, "延迟任务: world 为 null，取消生成");
                     return;
                 }
-                debugLog(ctx, "延迟任务执行: 开始生成 " + effCount + " 只 " + parentType + " 于 " + loc);
+                debugLog(ctx, "延迟任务执行: 开始生成 " + effCount + " 只 " + effChildType + " 于 " + loc);
                 for (int i = 0; i < effCount; i++) {
-                    LivingEntity child = (LivingEntity) loc.getWorld().spawnEntity(loc, parentType);
+                    LivingEntity child = (LivingEntity) loc.getWorld().spawnEntity(loc, effChildType);
                     boolean useScale = false;
-                    if (baby) {
+                    if (effBaby) {
                         // Paper 26.2: 优先检查实体是否具备 IsBaby 数据能力（Ageable 接口）
                         if (hasBabyCapability(child)) {
                             ((Ageable) child).setBaby();
-                            debugLog(ctx, "子怪 " + parentType + " 使用幼年形态 (IsBaby)");
+                            debugLog(ctx, "子怪 " + effChildType + " 使用幼年形态 (IsBaby)");
                         } else {
                             useScale = true;
-                            debugLog(ctx, "子怪 " + parentType + " 不支持幼年形态，回退到 SCALE 缩放");
+                            debugLog(ctx, "子怪 " + effChildType + " 不支持幼年形态，回退到 SCALE 缩放");
                         }
                     }
-                    int childLevel = effMin + ThreadLocalRandom.current().nextInt(effMax - effMin + 1);
+                    int childLevel = (int) ThreadLocalRandom.current().nextLong(effMin, (long) effMax + 1L);
                     factory.mechanizeWithExcludedAffixes(child, loc, childLevel, List.of("mama"));
-                    if (useScale) applyScale(ctx, child, noBabyScale);
+                    if (useScale) applyScale(ctx, child, effNoBabyScale);
                 }
                 try {
                     loc.getWorld().playSound(loc, org.bukkit.Sound.ENTITY_ZOMBIE_INFECT, 0.8f, 0.8f);

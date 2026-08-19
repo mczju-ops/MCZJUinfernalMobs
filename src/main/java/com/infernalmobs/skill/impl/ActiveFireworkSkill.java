@@ -1,5 +1,6 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobFireworkEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -40,24 +41,31 @@ public class ActiveFireworkSkill implements Skill {
         double chance = config.getDouble("chance", 1.0);
         if (chance < 1.0 && Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率减小50%
-        ctx.setTriggered(true);
 
         // 需求：烟花的小爆炸发生在“玩家位置”。
         Location targetLoc = target.getLocation().clone();
-
-        Firework fw = targetLoc.getWorld().spawn(targetLoc, Firework.class);
-        fw.setMetadata("infernalmobs_firework_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getEntity().getUniqueId()));
-        fw.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
-        FireworkMeta meta = fw.getFireworkMeta();
-        meta.setPower(config.getInt("power", 1));
-
-        meta.addEffect(FireworkEffect.builder()
+        FireworkEffect fireworkEffect = FireworkEffect.builder()
                 .withColor(Color.RED)
                 .withFade(Color.RED)
                 .with(FireworkEffect.Type.BALL)
                 .trail(config.getSection().getBoolean("trail", false))
                 .flicker(config.getSection().getBoolean("flicker", false))
-                .build());
+                .build();
+
+        int level = ctx.getMobState().getProfile().getLevel();
+        InfernalMobFireworkEvent event = new InfernalMobFireworkEvent(
+                ctx.getEntity(), target, ctx.getHandle(), level, targetLoc, fireworkEffect);
+        if (!ctx.fire(event)) return;
+
+        Location spawnLocation = event.getSpawnLocation();
+        Firework fw = spawnLocation.getWorld().spawn(spawnLocation, Firework.class);
+        fw.setMetadata("infernalmobs_firework_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getEntity().getUniqueId()));
+        fw.setMetadata("infernalmobs_firework_handle", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getHandle()));
+        fw.setMetadata("infernalmobs_firework_level", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), level));
+        fw.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
+        FireworkMeta meta = fw.getFireworkMeta();
+        meta.setPower(config.getInt("power", 1));
+        meta.addEffect(event.getFireworkEffect());
         fw.setFireworkMeta(meta);
 
         // 保持静止，避免下一 tick 漂移导致爆点偏移。

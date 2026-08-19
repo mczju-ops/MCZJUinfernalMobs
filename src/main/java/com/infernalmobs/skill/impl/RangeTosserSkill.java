@@ -1,10 +1,10 @@
 package com.infernalmobs.skill.impl;
 
+import com.infernalmobs.api.event.affix.triggered.InfernalMobTosserEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import com.infernalmobs.util.DisplacementImmunityHelper;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -37,7 +37,6 @@ public class RangeTosserSkill implements Skill {
         if (player == null || !player.isOnline()) return;
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
         if (player.isSneaking()) return;
-        if (DisplacementImmunityHelper.isImmuneAndCleanup(player, ctx.getCurrentTick())) return;
 
         var mobLoc = ctx.getEntity().getLocation();
         Vector toMob = mobLoc.toVector().subtract(player.getLocation().toVector()).setY(0);
@@ -50,9 +49,11 @@ public class RangeTosserSkill implements Skill {
             force *= 0.5;
             up *= 0.5;
         }
-        // 原快捷栏 gravity_charm 抵抗逻辑已移除：由 MagicItems 监听 InfernalAffixTriggerEvent(affixId=tosser) 接管
-
-        player.setVelocity(toMob.multiply(force).setY(up));
+        InfernalMobTosserEvent event = new InfernalMobTosserEvent(
+                ctx.getEntity(), player, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                force, up);
+        if (!ctx.fire(event)) return;
+        player.setVelocity(toMob.multiply(event.getForce()).setY(event.getUpward()));
 
         String soundKey = config.getString("sound", "ENTITY_BREEZE_JUMP");
         try {

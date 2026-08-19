@@ -6,7 +6,7 @@
 
     <groupId>com.infernalmobs</groupId>
     <artifactId>MCZJUInfernalMob</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>InfernalMobs</name>
     <description>炒鸡怪 - 丰富原版怪物战斗的 Infernal 风格插件</description>
@@ -17,7 +17,7 @@
         <itemcreator.groupId>com.github.tozero0</itemcreator.groupId>
         <itemcreator.artifactId>itemcreator-api</itemcreator.artifactId>
         <itemcreator.version>1.0.0</itemcreator.version>
-        <infernalapi.version>1.1.0</infernalapi.version>
+        <infernalapi.version>1.4.0</infernalapi.version>
     </properties>
 
     <repositories>
@@ -85,6 +85,9 @@
                     <!-- JDK 25 下 plexus-compiler 进程内编译(javax.tools)会抛 ConcurrentModificationException；
                          改用 fork 出进程 javac 编译以规避（见 JavaxToolsCompiler.compileInProcess 已知问题）。 -->
                     <fork>true</fork>
+                    <compilerArgs>
+                        <arg>-Xlint:-removal</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <!-- 将对外 API（MCZJUInfernalMobs-API 中的 com.infernalmobs.api.** 与 SkillType）shade 进插件 jar，
