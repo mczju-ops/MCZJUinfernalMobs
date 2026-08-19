@@ -6,8 +6,6 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import com.infernalmobs.util.DisplacementImmunityHelper;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -47,7 +45,6 @@ public class PassiveSulfurSkill implements Skill {
 
         double chance = config.getDouble("chance", 0.25);
         if (Math.random() >= chance) return;
-        if (DisplacementImmunityHelper.isImmuneAndCleanup(target, Bukkit.getCurrentTick())) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;
 
         int warnTicks = config.getInt("warn-ticks", 20);
@@ -115,9 +112,6 @@ public class PassiveSulfurSkill implements Skill {
                     for (Player p : finalCenter.getWorld().getNearbyPlayers(
                             finalCenter, finalRadius, finalRadius, finalRadius)) {
                         if (!p.isOnline() || p.isDead()) continue;
-                        if (p.equals(target)
-                                && DisplacementImmunityHelper.isImmuneAndCleanup(
-                                        p, Bukkit.getCurrentTick())) continue;
                         double factor = 1.0;
                         if (ctx.isWeakened() && p.equals(target)) factor *= 0.5;
                         InfernalMobSulfurLaunchEvent launchEvent = new InfernalMobSulfurLaunchEvent(
