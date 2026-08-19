@@ -1,7 +1,7 @@
 package com.infernalmobs.api.impl;
 
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.InfernalGuaranteedLootProgress;
+import com.infernalmobs.api.InfernalGuaranteedLootStatus;
 import com.infernalmobs.api.InfernalKillStats;
 import com.infernalmobs.api.InfernalLootReward;
 import com.infernalmobs.api.InfernalMobsApi;
@@ -19,6 +19,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -136,18 +137,35 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
     }
 
     @Override
-    public List<InfernalGuaranteedLootProgress> getGuaranteedLootProgress(UUID playerId) {
+    public List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId) {
         if (playerId == null || guaranteedLootServiceSupplier == null) return List.of();
         GuaranteedLootService service = guaranteedLootServiceSupplier.get();
         if (service == null) return List.of();
 
-        return service.getProgressById(playerId.toString()).entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> new InfernalGuaranteedLootProgress(
-                        entry.getKey(),
-                        Math.max(0, entry.getValue()),
-                        entry.getValue() < 0
-                ))
+        Map<String, Integer> progressById = service.getProgressById(playerId.toString());
+        LootService lootService = lootServiceSupplier != null ? lootServiceSupplier.get() : null;
+        return service.getActiveRules().stream()
+                .sorted(Comparator.comparing(rule -> rule.id))
+                .map(rule -> {
+                    int storedProgress = progressById.getOrDefault(rule.progressId, 0);
+                    boolean completed = storedProgress < 0;
+                    String rewardDisplayName = lootService != null
+                            ? lootService.getLootDisplayName(rule.itemId)
+                            : rule.itemId;
+                    return new InfernalGuaranteedLootStatus(
+                            rule.id,
+                            rule.progressId,
+                            completed ? rule.count : storedProgress,
+                            rule.count,
+                            completed,
+                            rule.resetOnDrop,
+                            rule.levelMin,
+                            rule.levelMax >= 0 ? rule.levelMax : null,
+                            rule.itemId,
+                            rewardDisplayName,
+                            rule.itemAmount
+                    );
+                })
                 .toList();
     }
 

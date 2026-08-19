@@ -149,6 +149,14 @@ public class GuaranteedLootService {
         return Map.copyOf(byProgressId);
     }
 
+    /** 获取当前轮换中有效的保底规则快照；保底全局未启用时返回空列表。 */
+    public List<GuaranteedRule> getActiveRules() {
+        if (config == null || !config.isEnable() || config.getRules().isEmpty()) return List.of();
+        return config.getRules().values().stream()
+                .filter(config::isRuleActiveNow)
+                .toList();
+    }
+
     public void markDirty() {
         dirty = true;
     }

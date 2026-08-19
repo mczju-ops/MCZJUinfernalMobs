@@ -49,6 +49,12 @@ public class LootService {
         return config != null && config.isEnable() && itemCreatorAvailable;
     }
 
+    /** 获取掉落物品的配置显示名；未配置时返回物品 ID。 */
+    public String getLootDisplayName(String itemId) {
+        if (config == null) return itemId != null ? itemId : "";
+        return config.getLootDisplayName(itemId);
+    }
+
     /**
      * 与 {@link #onInfernalMobDeath(EntityDeathEvent, LivingEntity, MobState, int)} 一致：仅在会执行等级池加权抽取时
      * 调用 {@link LootConfig#rollDropTimes(int)}，否则返回 0。供保底进度与死亡掉落共用同一次 roll。

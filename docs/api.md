@@ -87,6 +87,10 @@ public final class MyPlugin extends JavaPlugin {
 | `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条 |
 | `String getAffixDisplayName(String affixId)` | 查询词条显示名（优先 `skill_name.yml`，否则 `config.yml` 的 `display`，再退回英文 `id`） |
 | `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名 |
+| `List<ItemStack> rollLevelLootItems(int mobLevel)` | 按怪物等级执行一次等级池抽取，只返回生成成功的物品 |
+| `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为 |
+| `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照 |
+| `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息 |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`） |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射） |
 | `int apiVersion()` | API 版本（当前 1） |
@@ -162,6 +166,32 @@ public enum InfernalAffix {
     static Optional<InfernalAffix> fromId(String id); // 按 id 反向查找
 }
 ```
+
+### 2.3 掉落抽取与玩家进度
+
+`rollLevelLootItems` 与 `rollLevelLootRewards` 每次调用都会进行一次新的独立随机抽取，应用当前轮换套和
+`drop-times`。它们不包含原版掉落、特殊实体掉落、保底掉落或词条掉落，也不会触发掉落事件。
+完整奖励中的命令和广播只作为数据返回，由调用方决定是否及如何执行。
+
+`getGuaranteedLootStatuses` 只返回保底全局启用且当前轮换生效的规则。尚未开始累计的规则也会返回，
+此时 `currentProgress()` 为 0。进度单位是等级掉落池抽取次数，不一定等同于击杀数；
+`maximumMobLevel()` 为 `null` 表示没有等级上限。
+
+```java
+InfernalKillStats stats = api.getKillStats(player.getUniqueId());
+int totalKills = stats.totalKills();
+
+for (InfernalGuaranteedLootStatus status
+        : api.getGuaranteedLootStatuses(player.getUniqueId())) {
+    int current = status.currentProgress();
+    int required = status.requiredProgress();
+    int remaining = status.remainingProgress();
+    String rewardName = status.rewardDisplayName();
+}
+```
+
+> `InfernalMobKillEvent` 当前早于保底进度累计触发。在该事件处理器内同步查询会得到本次击杀前的快照；
+> 如需读取本次击杀后的结果，可延迟到下一 tick 查询。
 
 ---
 
