@@ -26,6 +26,7 @@ import com.infernalmobs.service.SkillService;
 import com.infernalmobs.util.ItemCreatorBridge;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.net.JarURLConnection;
@@ -50,6 +51,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
     private MobFactory mobFactory;
     private SkillService skillService;
     private InfernalMobsApi infernalMobsApi;
+    private final Object dataSaveLock = new Object();
+    private BukkitTask dataSaveTask;
 
     @Override
     public void onEnable() {
@@ -64,6 +67,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
         File lootDir = new File(getDataFolder(), "loot");
         if (!lootDir.exists()) lootDir.mkdirs();
         saveDefaultLootFiles(lootDir);
+        guaranteedLootService = new GuaranteedLootService(this);
+        guaranteedLootService.load();
         reloadLootConfig();
 
         MobLevelService levelService = new MobLevelService(configLoader);
@@ -106,9 +111,11 @@ public class InfernalMobsPlugin extends JavaPlugin {
         );
         getServer().getServicesManager().register(InfernalMobsApi.class, infernalMobsApi, this, ServicePriority.Normal);
 
-        getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
-            killStatsService.saveIfDirty();
-            if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
+        dataSaveTask = getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+            synchronized (dataSaveLock) {
+                killStatsService.saveIfDirty();
+                guaranteedLootService.saveIfDirty();
+            }
         }, 20 * 60, 20 * 60);
 
         getLogger().info("InfernalMobs 已启用");
@@ -170,8 +177,6 @@ public class InfernalMobsPlugin extends JavaPlugin {
         }
 
         lootService = new LootService(this, lootConfig, itemCreatorAvailable);
-        guaranteedLootService = new GuaranteedLootService(this);
-        guaranteedLootService.load();
         guaranteedLootService.setConfig(GuaranteedLootConfig.load(getDataFolder()));
     }
 
@@ -182,8 +187,11 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
-        if (killStatsService != null) killStatsService.saveIfDirty();
+        if (dataSaveTask != null) dataSaveTask.cancel();
+        synchronized (dataSaveLock) {
+            if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
+            if (killStatsService != null) killStatsService.saveIfDirty();
+        }
         if (mobFactory != null) mobFactory.persistLoadedStates();
         if (combatService != null) combatService.shutdown();
         getLogger().info("InfernalMobs 已禁用");

@@ -350,7 +350,7 @@ rules:
     rotation-set: 1              # 可选，仅限指定轮换套期间
 ```
 
-进度数据存储在 `guaranteed_loot_progress.yml`（自动创建）。
+进度数据存储在 `data/guaranteed_loot_progress.yml`。
 
 ---
 
@@ -398,5 +398,5 @@ thief_counter: "缴械反制器"
 ## 击杀统计
 
 - `/im stats <玩家>` 显示该玩家对各等级炒鸡怪的击杀次数与总计。
-- 数据存储于 `kill_stats.yml`（自动创建目录与文件）。
-- 定时自动落盘，服务器关闭时强制保存。
+- 数据存储于 `data/kill_stats.yml`，运行期间查询和更新只访问内存。
+- 两类运行数据每分钟异步保存一次，插件关闭时执行最终保存；失败会在下个周期重试。
