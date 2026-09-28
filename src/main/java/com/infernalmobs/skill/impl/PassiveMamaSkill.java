@@ -8,7 +8,6 @@ import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Ageable;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -122,19 +121,9 @@ public class PassiveMamaSkill implements Skill {
             levelRange = new int[] { levelMin, levelMax };
         } else {
             int[] def = TIER_LEVEL_RANGE[tier - 1];
-            ConfigurationSection tierSec = config.getSection() != null ? config.getSection().getConfigurationSection("tier-level-ranges") : null;
-            if (tierSec != null && tierSec.contains(String.valueOf(tier))) {
-                ConfigurationSection t = tierSec.getConfigurationSection(String.valueOf(tier));
-                if (t != null) {
-                    int min = t.getInt("min", def[0]);
-                    int max = t.getInt("max", def[1]);
-                    levelRange = new int[] { min, Math.max(min, max) };
-                } else {
-                    levelRange = def;
-                }
-            } else {
-                levelRange = def;
-            }
+            int min = config.getInt("tier-level-ranges." + tier + ".min", def[0]);
+            int max = config.getInt("tier-level-ranges." + tier + ".max", def[1]);
+            levelRange = new int[] { min, Math.max(min, max) };
         }
 
         boolean baby = config.getBoolean("baby", true);

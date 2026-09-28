@@ -69,15 +69,15 @@ public class StatMountedSkill implements Skill {
         }
         debugLog(ctx, "触发 onEquip rider=" + rider.getType() + "@" + rider.getUniqueId());
 
-        Set<EntityType> enabledRiders = parseEntityTypeSet(config, "enabled-riders", "enabledRiders");
+        Set<EntityType> enabledRiders = parseEntityTypeSet(config, "enabled-riders");
         if (!enabledRiders.isEmpty() && !enabledRiders.contains(rider.getType())) {
             debugLog(ctx, "跳过：rider 不在 enabled-riders 白名单内 rider=" + rider.getType());
             return;
         }
 
         // infernal-mounts：炒鸡坐骑候选；enabled-mounts：普通坐骑候选
-        Set<EntityType> infernalMounts = parseEntityTypeSet(config, "infernal-mounts", "infernalMounts");
-        Set<EntityType> normalMounts  = parseEntityTypeSet(config, "enabled-mounts",  "enabledMounts");
+        Set<EntityType> infernalMounts = parseEntityTypeSet(config, "infernal-mounts");
+        Set<EntityType> normalMounts  = parseEntityTypeSet(config, "enabled-mounts");
 
         List<EntityType> infernalPool = infernalMounts.stream()
                 .filter(EntityType::isSpawnable)

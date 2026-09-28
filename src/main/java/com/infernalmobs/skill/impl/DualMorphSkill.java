@@ -10,7 +10,6 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -18,13 +17,6 @@ import java.util.List;
  * morph 词条被禁用（由外部插件通过 API 设置）时，由 MorphSuppressListener 在事件层阻止触发。
  */
 public class DualMorphSkill implements Skill {
-
-    private static final EntityType[] MORPH_TYPES = {
-            EntityType.ZOMBIE, EntityType.SKELETON, EntityType.CREEPER,
-            EntityType.SPIDER, EntityType.CAVE_SPIDER, EntityType.WITCH,
-            EntityType.HUSK, EntityType.STRAY, EntityType.DROWNED,
-            EntityType.ENDERMAN
-    };
 
     @Override
     public String getId() {
@@ -53,9 +45,9 @@ public class DualMorphSkill implements Skill {
         if (Math.random() >= chance) return;
         if (ctx.isWeakened() && Math.random() < 0.5) return;
 
-        // 优先使用区域 morph 池；未配置则回退全局 morph-types
-        List<EntityType> pool = ctx.getMobState() != null ? ctx.getMobState().getMorphTargetTypesOverride() : null;
-        if (pool == null || pool.isEmpty()) pool = parseMorphTypes(config);
+        List<EntityType> pool = ctx.getMobState() != null
+                ? ctx.getMobState().getMorphTargetTypes()
+                : List.of();
         EntityType current = entity.getType();
         EntityType target = pickTarget(pool, current);
         if (target == null) return;
@@ -90,19 +82,6 @@ public class DualMorphSkill implements Skill {
 
 
     // ── 工具方法 ──────────────────────────────────────────────────────
-
-    private List<EntityType> parseMorphTypes(SkillConfig config) {
-        List<String> raw = config.getStringList("morph-types");
-        if (raw == null || raw.isEmpty()) return List.of(MORPH_TYPES);
-        List<EntityType> out = new ArrayList<>();
-        for (String s : raw) {
-            try {
-                EntityType t = EntityType.valueOf(s.toUpperCase());
-                if (t.isSpawnable() && LivingEntity.class.isAssignableFrom(t.getEntityClass())) out.add(t);
-            } catch (IllegalArgumentException ignored) {}
-        }
-        return out.isEmpty() ? List.of(MORPH_TYPES) : out;
-    }
 
     private EntityType pickTarget(List<EntityType> pool, EntityType exclude) {
         List<EntityType> candidates = pool.stream().filter(t -> t != exclude).toList();

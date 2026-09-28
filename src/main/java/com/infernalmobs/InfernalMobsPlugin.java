@@ -4,6 +4,7 @@ import com.infernalmobs.api.InfernalMobsApi;
 import com.infernalmobs.api.impl.InfernalMobsApiImpl;
 import com.infernalmobs.command.InfernalMobCommand;
 import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.ConfigLoadResult;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
@@ -72,7 +73,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         killStatsService.load();
         DeathMessageService deathMessageService = new DeathMessageService(configLoader);
         deathMessageService.setCombatService(combatService);
-        RegionService regionService = new RegionService(configLoader.getRegions(), configLoader.getPresets());
+        RegionService regionService = new RegionService(configLoader);
 
         mobFactory = new MobFactory(this, configLoader, levelService, affixRollService, skillService, combatService, regionService);
         combatService.setMobFactory(mobFactory);
@@ -169,13 +170,9 @@ public class InfernalMobsPlugin extends JavaPlugin {
         guaranteedLootService.setConfig(GuaranteedLootConfig.load(getDataFolder()));
     }
 
-    /** 运行时重载：配置 + 区域/预设快照 + 掉落配置。 */
-    public void reloadRuntimeConfig() {
-        configLoader.reload();
-        if (mobFactory != null) {
-            mobFactory.reloadRuntimeConfig();
-        }
-        reloadLootConfig();
+    /** 本阶段只原子重载四个核心配置文件；掉落配置将在后续阶段接入。 */
+    public ConfigLoadResult reloadRuntimeConfig() {
+        return configLoader.reload();
     }
 
     @Override

@@ -87,7 +87,7 @@ if (affixIds.contains(InfernalAffix.WITHERING.id())) {
 }
 
 String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
-// 优先返回 skill_name.yml 中配置的值；否则 config.yml 的 display；再退回英文 id
+// 返回 skills.yml 中 skills.<id>.display；未知 ID 退回英文 id
 // 例："<dark_purple>凋零</dark_purple>"
 ```
 
@@ -97,7 +97,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 
 - **炒鸡怪生成**：自然/刷怪笼等触发的生物，以可配置概率被「炒鸡化」——分配 **等级**、**词条** 及 **头顶显示名**。
 - **词条系统**：每只炒鸡怪携带若干技能词条，影响其战斗行为（毒、盲目、变形、窃取武器等）。等级越高词条越多。
-- **区域配置**：按世界坐标范围划分独立区域，支持自定义等级范围、技能池、变形白名单。
+- **区域配置**：按世界坐标范围划分独立区域，支持覆写等级权重、命名词条池、词条数量和变形池。
 - **掉落奖励**：与 MCZJUItemCreator 联动，按等级池抽取道具；支持月份轮换套与额外广播。
 - **保底掉落**：累计击杀到阈值后必定掉落指定物品，进度持久化。
 - **击杀统计**：记录每位玩家对各等级炒鸡怪的击杀数，可指令查询。
@@ -220,7 +220,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 | `/im stats` | 显示当前追踪的炒鸡怪数量 |
 | `/im stats <玩家>` | 查看指定玩家的各等级击杀统计 |
 | `/im debug [on\|off]` | 临时开关调试输出（不写回配置） |
-| `/im reload` | 重载所有配置（含区域、loot、幻形白名单等） |
+| `/im reload` | 原子重载 `config.yml`、`skills.yml`、`regions.yml`、`messages.yml`；本阶段不重载掉落配置 |
 | `/im clear [半径]` | 清除周围炒鸡怪，半径默认 32（1–256） |
 | `/im cleantags` | 清理残留标签但未被管理的孤立实体 |
 
@@ -228,90 +228,64 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 
 ## 配置文件说明
 
+核心配置已经拆为四个文件。旧版配置不会被兼容读取或自动迁移，具体映射见 [配置迁移指南](docs/配置迁移指南.md)。
+
 ### config.yml
 
+只保存全局行为：配置版本、调试开关、经验倍率、启用世界、生成原因和全局实体白名单。
+
 ```yaml
+config-version: 1
 debug: false
-
-# 启用炒鸡系统的世界列表
-enabled-worlds:
-  - world
-
-# 触发炒鸡化的生成原因（CreatureSpawnEvent.SpawnReason）
-infernal-spawn-reasons:
-  - NATURAL
-  - SPAWNER
-
-defaults:
-  level:
-    fallback-min: 1   # 无区域时等级下限
-    fallback-max: 5   # 无区域时等级上限
-  infernal:
-    allow-types: []   # 全局白名单（空=全部允许）
-    deny-types: []    # 全局黑名单
-  affix:
-    count-formula: level  # level = 等级几就几个词条
-    min: 1
-    max: 5
-
-# 技能权重（全局池，区域可覆盖）
-skill-weights:
-  poisonous: 10
-  morph: 5
-  # ...
-
-# 死亡播报配置
-death-messages:
-  enabled: true
-  broadcast-level-threshold: 8  # 达到此等级才全服播报
-  level-colors:
-    1: "#aaaaaa"
-    5: "#ffff55"
-    10: "#ff5555"
-    # ...
-
-# 炒鸡小动物保护
-protected-animals:
-  enabled: true
-  types:
-    - CAT
-    - RABBIT
-    - CHICKEN
-  kill-broadcast: "<red>{player} 欺负炒鸡小动物！"
-
-# 区域配置（见下方区域系统章节）
-regions:
-  example_region:
-    world: world_the_end
-    min: [-500, 0, -500]
-    max: [500, 256, 500]
-    priority: 10
-    level-min: 8
-    level-max: 15
-    skill-pool:
-      morph: 20
-      ender: 15
-    morph-types:
-      - ENDERMAN
-      - SHULKER
-
-# 各技能数值参数
-skills:
-  morph:
-    type: DUAL
-    display: "变身"
-    chance: 0.15
-    cooldown-ticks: 100
-    suppress-particle: TRIAL_OMEN
-    suppress-sound: BLOCK_VAULT_REJECT_REWARDED_PLAYER
-  thief:
-    type: DUAL
-    display: "窃取"
-    chance: 0.3
-    delay-ticks: 40
-    counter-duration-ticks: 300
-  # ...
+exp-multiplier: 5.0
+enabled-worlds: [world]
+infernal-spawn-reasons: [NATURAL, SPAWNER]
+allow-types: [] # 空列表表示不限制
 ```
+
+### skills.yml
+
+保存命名词条池、词条显示名和技能参数。技能类型由源码注册，不再配置 `type`。
+
+```yaml
+pools:
+  default:
+    poisonous: 10
+    morph: 5
+
+skills:
+  poisonous:
+    display: "<dark_green>剧毒</dark_green>"
+    duration-ticks: 200
+    amplifier: 1
+```
+
+### regions.yml
+
+`base-rules` 是完整基础规则。区域只允许在 `overrides` 中整体替换 `levels.weights`、`skill-pool`、`affix-count` 或 `morph-pool`；未出现的字段继承基础规则。
+
+```yaml
+base-rules:
+  levels:
+    weights: { "1": 10, "2": 5 }
+  skill-pool: default
+  affix-count: { formula: level, min: 1, max: 15 }
+  morph-pool: [ZOMBIE, SKELETON]
+
+regions:
+  example:
+    world: world
+    min: [-500, -64, -500]
+    max: [500, 320, 500]
+    priority: 10
+    overrides:
+      levels:
+        weights: { "3": 10, "4": 5 }
+```
+
+### messages.yml
+
+保存死亡播报和保护动物消息。原版实体名使用客户端翻译，`mob_name.yml` 和 `skill_name.yml` 已删除。
 
 ---
 
@@ -392,20 +366,9 @@ thief_counter: "缴械反制器"
 
 ## 区域系统
 
-插件按世界 + 轴对齐包围盒（AABB）划分区域，每个区域可独立配置：
+插件按世界和轴对齐包围盒划分区域。重叠时取 `priority` 最高者；同优先级按 YAML 声明顺序取第一个。配置加载时，每个区域都会解析为完整的最终规则，生成过程中不再临时合并 YAML。
 
-| 配置项 | 说明 |
-|--------|------|
-| `world` | 世界名 |
-| `min` / `max` | 三维坐标 `[x, y, z]` |
-| `priority` | 优先级，多区域重叠时取最高值 |
-| `level-min` / `level-max` | 等级随机范围 |
-| `infernal-allow-types` | 区域内允许的实体类型（覆盖全局） |
-| `infernal-deny-types` | 区域内禁止的实体类型 |
-| `skill-pool` | 区域技能权重（完全覆盖全局池） |
-| `morph-types` | `morph` 词条的变形目标池（可选） |
-
-生成时，服务端按 **priority 从高到低** 找第一个坐标命中的区域；若无匹配区域则使用 `defaults.level.fallback-min/max`。
+区域只可覆写四项：逐等级权重 `levels.weights`、命名池引用 `skill-pool`、词条数量 `affix-count`、变形目标 `morph-pool`。字段存在时整体替换，缺失时继承 `base-rules`。第一版不支持区域实体过滤、任意深层合并或多层继承。
 
 ---
 

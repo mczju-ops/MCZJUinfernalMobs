@@ -5,7 +5,6 @@ import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.mob.InfernalMobSpawnEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.DeathMessageConfig;
-import com.infernalmobs.config.PresetConfig;
 import com.infernalmobs.config.RegionConfig;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobProfile;
@@ -18,8 +17,10 @@ import com.infernalmobs.service.SkillService;
 import com.infernalmobs.util.MiniMessageHelper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -31,7 +32,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 炒鸡怪工厂。根据生成位置匹配区域，计算等级、抽取词条或使用预设，装配技能。
@@ -64,15 +64,7 @@ public class MobFactory {
         this.regionService = regionService;
     }
 
-    /** 让区域、预设、morph 池在 /im reload 后即时生效。 */
-    public void reloadRuntimeConfig() {
-        regionService.reload(configLoader.getRegions(), configLoader.getPresets());
-    }
-
-    /**
-     * 按生成位置计算炒鸡怪等级（与无预设的 {@link #mechanize(LivingEntity, Location)} 相同：
-     * 区域 level-chances / level-ranges / level-min~max，无匹配区域则用全局与 fallback）。
-     */
+    /** 按生成位置命中的最终规则，从逐等级权重表抽取等级。 */
     public int computeLevelAt(Location spawnLocation) {
         RegionConfig region = null;
         if (spawnLocation != null && spawnLocation.getWorld() != null) {
@@ -92,38 +84,28 @@ public class MobFactory {
      * 调试：区域匹配与最终等级/词条数（需 config debug: true 或 /im debug on）。
      */
     private void logMechanizeDebug(String path, LivingEntity entity, Location loc,
-                                   RegionConfig region, PresetConfig preset, int level, List<Affix> affixes) {
+                                   RegionConfig region, int level, List<Affix> affixes) {
         if (!configLoader.isDebug()) return;
         String world = loc.getWorld() != null ? loc.getWorld().getName() : "?";
         boolean worldOk = loc.getWorld() != null && configLoader.isWorldEnabled(world);
         String regionStr = region != null
                 ? region.getId() + " Lv" + region.getLevelMin() + "-" + region.getLevelMax()
                 : "(none → fallback " + configLoader.getLevelFallbackMin() + "-" + configLoader.getLevelFallbackMax() + ")";
-        String presetStr = preset != null ? preset.getId() : "-";
         int affixCount = affixes != null ? affixes.size() : 0;
         boolean hasMounted = affixes != null && affixes.stream().anyMatch(a -> "mounted".equalsIgnoreCase(a.getSkillId()));
         String affixIds = affixes != null
                 ? affixes.stream().map(Affix::getSkillId).collect(java.util.stream.Collectors.joining(","))
                 : "";
         plugin.getLogger().info(String.format(
-                "[InfernalMobs:debug:mechanize] path=%s type=%s world=%s world-enabled=%s block=%d,%d,%d region=%s preset=%s final-level=%d affixes=%d has-mounted=%s affix-ids=[%s]",
+                "[InfernalMobs:debug:mechanize] path=%s type=%s world=%s world-enabled=%s block=%d,%d,%d region=%s final-level=%d affixes=%d has-mounted=%s affix-ids=[%s]",
                 path, entity.getType(), world, worldOk,
                 loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(),
-                regionStr, presetStr, level, affixCount, hasMounted, affixIds));
+                regionStr, level, affixCount, hasMounted, affixIds));
     }
 
-    /**
-     * 与 {@link #mechanize} / {@link #mechanizeWithLevel} 入口一致：区域 infernal-allow-types + defaults.infernal.allow-types。
-     */
-    private boolean passesInfernalWhitelist(EntityType type, RegionConfig region) {
-        if (type == null) return false;
-        if (region != null) {
-            if (!region.canInfernalize(type)) return false;
-            if (!region.hasExplicitAllowTypes() && !configLoader.canInfernalizeInDefaults(type)) return false;
-        } else {
-            if (!configLoader.canInfernalizeInDefaults(type)) return false;
-        }
-        return true;
+    /** 新版只保留全局实体白名单，第一版不提供区域级实体过滤。 */
+    private boolean passesInfernalWhitelist(EntityType type) {
+        return configLoader.canInfernalizeInDefaults(type);
     }
 
     /**
@@ -131,43 +113,30 @@ public class MobFactory {
      */
     public void mechanize(LivingEntity entity, Location spawnLocation) {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
-        if (!passesInfernalWhitelist(entity.getType(), region)) return;
-        List<EntityType> morphTargets = region != null ? region.getMorphTargetTypes() : null;
-        PresetConfig preset = null;
-        if (region != null) {
-            String worldName = spawnLocation.getWorld() != null ? spawnLocation.getWorld().getName() : "";
-            preset = regionService.rollPreset(region.getId(), worldName);
-        }
-
-        int level;
+        if (!passesInfernalWhitelist(entity.getType())) return;
+        List<EntityType> morphTargets = getMorphTargets(region);
+        int level = levelService.computeLevel(spawnLocation, region);
+        int affixCount = affixRollService.computeAffixCount(level, region);
+        List<String> excluded = getSkillExclusionsFor(entity.getType());
         List<Affix> affixes;
-
-        if (preset != null) {
-            level = preset.getLevel();
-            affixes = affixRollService.fromPreset(preset);
+        if (excluded.isEmpty()) {
+            affixes = affixRollService.rollAffixes(level, affixCount, region);
         } else {
-            level = levelService.computeLevel(spawnLocation, region);
-            int affixCount = affixRollService.computeAffixCount(level, region);
-            List<String> excluded = getSkillExclusionsFor(entity.getType());
-            if (excluded.isEmpty()) {
-                affixes = affixRollService.rollAffixes(level, affixCount, region);
-            } else {
-                affixes = affixRollService.rollAffixesWithExcluded(level, affixCount, region, excluded);
-            }
+            affixes = affixRollService.rollAffixesWithExcluded(level, affixCount, region, excluded);
         }
 
-        logMechanizeDebug("natural", entity, spawnLocation, region, preset, level, affixes);
+        logMechanizeDebug("natural", entity, spawnLocation, region, level, affixes);
 
         completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
     }
 
     /**
      * 使用固定等级炒鸡怪化实体（用于召唤物等）。
-     * 同样受区域 / defaults 白黑名单约束，不在白名单内的类型直接跳过。
+     * 同样受全局白名单约束，不在白名单内的类型直接跳过。
      */
     public void mechanizeWithLevel(LivingEntity entity, Location spawnLocation, int fixedLevel) {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
-        if (!passesInfernalWhitelist(entity.getType(), region)) return;
+        if (!passesInfernalWhitelist(entity.getType())) return;
         doMechanizeWithLevel(entity, spawnLocation, fixedLevel, region);
     }
 
@@ -180,7 +149,7 @@ public class MobFactory {
     }
 
     private void doMechanizeWithLevel(LivingEntity entity, Location spawnLocation, int fixedLevel, RegionConfig region) {
-        List<EntityType> morphTargets = region != null ? region.getMorphTargetTypes() : null;
+        List<EntityType> morphTargets = getMorphTargets(region);
         int affixCount = affixRollService.computeAffixCount(fixedLevel, region);
         List<String> excluded = getSkillExclusionsFor(entity.getType());
         List<Affix> affixes;
@@ -190,7 +159,7 @@ public class MobFactory {
             affixes = affixRollService.rollAffixesWithExcluded(fixedLevel, affixCount, region, excluded);
         }
 
-        logMechanizeDebug("fixed-level", entity, spawnLocation, region, null, fixedLevel, affixes);
+        logMechanizeDebug("fixed-level", entity, spawnLocation, region, fixedLevel, affixes);
 
         completeMechanize(entity, spawnLocation, fixedLevel, affixes, morphTargets);
     }
@@ -203,12 +172,12 @@ public class MobFactory {
      */
     public void mechanizeWithRequiredAffixes(LivingEntity entity, Location spawnLocation, int level, List<String> requiredSkillIds) {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
-        List<EntityType> morphTargets = region != null ? region.getMorphTargetTypes() : null;
+        List<EntityType> morphTargets = getMorphTargets(region);
         int affixCount = affixRollService.computeAffixCount(level, region);
         List<Affix> affixes = affixRollService.rollAffixesWithRequired(level, affixCount, region, requiredSkillIds);
         if (affixes.isEmpty()) return;
 
-        logMechanizeDebug("required-affixes", entity, spawnLocation, region, null, level, affixes);
+        logMechanizeDebug("required-affixes", entity, spawnLocation, region, level, affixes);
 
         completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
     }
@@ -221,12 +190,12 @@ public class MobFactory {
      */
     public void mechanizeWithExcludedAffixes(LivingEntity entity, Location spawnLocation, int level, List<String> excludedSkillIds) {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
-        List<EntityType> morphTargets = region != null ? region.getMorphTargetTypes() : null;
+        List<EntityType> morphTargets = getMorphTargets(region);
         int affixCount = affixRollService.computeAffixCount(level, region);
         List<Affix> affixes = affixRollService.rollAffixesWithExcluded(level, affixCount, region, excludedSkillIds);
         if (affixes.isEmpty()) return;
 
-        logMechanizeDebug("excluded-affixes", entity, spawnLocation, region, null, level, affixes);
+        logMechanizeDebug("excluded-affixes", entity, spawnLocation, region, level, affixes);
 
         completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
     }
@@ -250,17 +219,23 @@ public class MobFactory {
         return excluded;
     }
 
+    private List<EntityType> getMorphTargets(RegionConfig region) {
+        return region != null
+                ? region.rules().morphPool()
+                : configLoader.currentSnapshot().baseSpawnRules().morphPool();
+    }
+
     /**
      * 使用固定技能 ID 列表炒鸡怪化实体（用于 ghost 等召唤物）。
      */
     public void mechanizeWithAffixes(LivingEntity entity, Location spawnLocation, int level, List<String> skillIds) {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
-        List<EntityType> morphTargets = region != null ? region.getMorphTargetTypes() : null;
+        List<EntityType> morphTargets = getMorphTargets(region);
 
         List<Affix> affixes = affixRollService.buildAffixesFromIds(skillIds);
         if (affixes.isEmpty()) return;
 
-        logMechanizeDebug("fixed-affix-ids", entity, spawnLocation, region, null, level, affixes);
+        logMechanizeDebug("fixed-affix-ids", entity, spawnLocation, region, level, affixes);
 
         completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
     }
@@ -317,7 +292,7 @@ public class MobFactory {
         oldEntity.remove();
 
         LivingEntity newEntity = (LivingEntity) loc.getWorld().spawnEntity(loc, targetType);
-        MobState newState = new MobState(newEntity.getUniqueId(), oldState.getProfile(), oldState.getMorphTargetTypesOverride());
+        MobState newState = new MobState(newEntity.getUniqueId(), oldState.getProfile(), oldState.getMorphTargetTypes());
         // 继承跨形态持久化状态：1up 使用记录、morph_controller 禁用状态等
         newState.inheritPersistentState(oldState);
 
@@ -326,7 +301,8 @@ public class MobFactory {
         setMobDisplayName(newEntity, newState);
         setImLevelTag(newEntity, oldState.getProfile().getLevel());
 
-        double maxHp = newEntity.getMaxHealth();
+        var attribute = newEntity.getAttribute(Attribute.MAX_HEALTH);
+        double maxHp = attribute == null ? 20 : attribute.getValue();
         // 直接沿用变形前的绝对生命值，避免因为新生物血量上限不同而“回血”或“掉血”
         newEntity.setHealth(Math.min(maxHp, Math.max(0.1, health)));
         combatService.registerMob(newEntity.getUniqueId(), newState);
@@ -351,9 +327,7 @@ public class MobFactory {
         if (toDrop == null || toDrop.getType().isAir() || toDrop.getAmount() <= 0) return;
 
         Item dropped = loc.getWorld().dropItemNaturally(loc, toDrop);
-        if (dropped != null) {
-            dropped.setInvulnerable(true);
-        }
+        dropped.setInvulnerable(true);
     }
 
     /**
@@ -366,11 +340,11 @@ public class MobFactory {
 
         int level = mobState.getProfile().getLevel();
         String prefix = dm.getLevelPrefix(level);
-        String mobName = dm.getMobDisplayName(entity.getType());
         String color = dm.getLevelTierColor(level);
         String tagName = color.replaceAll("[<>]", "");
-        String template = color + "[Lv" + level + "]" + prefix + mobName + "</" + tagName + ">";
-        Component nameComponent = MiniMessageHelper.deserialize(template);
+        String template = color + "[Lv" + level + "]" + prefix + "<mob></" + tagName + ">";
+        Component nameComponent = MiniMessageHelper.deserialize(template,
+                Placeholder.component("mob", Component.translatable(entity.getType().translationKey())));
 
         List<Component> affixLines = mobState.getProfile().getAffixes().stream()
                 .map(a -> {
@@ -378,7 +352,7 @@ public class MobFactory {
                     String display = configLoader.getSkillDisplay(a.getSkillId(), sc);
                     return MiniMessageHelper.parseSkillDisplay(display);
                 })
-                .collect(Collectors.toList());
+                .toList();
         if (!affixLines.isEmpty()) {
             Component hoverLine = Component.text("词条：");
             for (int i = 0; i < affixLines.size(); i++) {

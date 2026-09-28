@@ -1,0 +1,126 @@
+# 未命中任何特殊区域时使用的完整基础规则。
+base-rules:
+  levels:
+    weights:
+      "1": 13
+      "2": 13
+      "3": 13
+      "4": 10
+      "5": 10
+      "6": 10
+      "7": 10
+      "8": 9
+      "9": 7
+      "10": 5
+  skill-pool: default
+  affix-count:
+    formula: level
+    min: 1
+    max: 15
+  morph-pool:
+    - BLAZE
+    - BOGGED
+    - CREEPER
+    - ELDER_GUARDIAN
+    - EVOKER
+    - GUARDIAN
+    - HUSK
+    - MAGMA_CUBE
+    - PILLAGER
+    - RAVAGER
+    - SKELETON
+    - STRAY
+    - VINDICATOR
+    - WARDEN
+    - WITCH
+    - WITHER_SKELETON
+    - ZOGLIN
+    - ZOMBIE
+    - ZOMBIE_VILLAGER
+    - CAVE_SPIDER
+    - DROWNED
+    - SPIDER
+    - ZOMBIFIED_PIGLIN
+    - WITHER
+    - PIG
+    - SHEEP
+    - COW
+    - CHICKEN
+    - MOOSHROOM
+    - HORSE
+    - POLAR_BEAR
+    - ARMADILLO
+    - DONKEY
+    - MULE
+    - SNIFFER
+    - GOAT
+    - TRADER_LLAMA
+    - SQUID
+    - GLOW_SQUID
+
+# overrides 中字段存在时整体替换，缺失时继承 base-rules。
+regions:
+  spawn_zone:
+    world: SuperResource
+    min: [-500, -256, -500]
+    max: [500, 256, 500]
+    priority: 10
+    overrides:
+      levels:
+        weights:
+          "1": 25
+          "2": 22
+          "3": 20
+          "4": 18
+          "5": 15
+      skill-pool: spawn
+
+  abyssal01:
+    world: Abyssal01
+    min: [-1000, -256, -1000]
+    max: [1000, 256, 1000]
+    priority: 100
+    overrides:
+      levels:
+        weights:
+          "1": 5
+          "2": 5
+          "3": 5
+          "4": 8
+          "5": 8
+          "6": 10
+          "7": 10
+          "8": 12
+          "9": 12
+          "10": 10
+          "11": 8
+          "12": 4
+          "13": 2
+          "14": 2
+          "15": 1
+      skill-pool: abyssal
+
+  abyssal02:
+    world: Abyssal02
+    min: [-1000, -256, -1000]
+    max: [1000, 256, 1000]
+    priority: 100
+    overrides:
+      levels:
+        weights:
+          "1": 5
+          "2": 5
+          "3": 5
+          "4": 8
+          "5": 8
+          "6": 10
+          "7": 10
+          "8": 12
+          "9": 12
+          "10": 10
+          "11": 8
+          "12": 4
+          "13": 2
+          "14": 2
+          "15": 1
+      skill-pool: abyssal

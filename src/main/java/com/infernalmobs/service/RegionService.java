@@ -1,60 +1,21 @@
 package com.infernalmobs.service;
 
-import com.infernalmobs.config.PresetConfig;
+import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.RegionConfig;
 import org.bukkit.Location;
 
-import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
+/** 位置到当前配置快照中最终区域规则的查询服务。 */
+public final class RegionService {
 
-/**
- * 区域与预设查询服务。
- */
-public class RegionService {
+    private final ConfigLoader config;
 
-    private final List<RegionConfig> regions;   // 按 priority 降序
-    private final Map<String, PresetConfig> presets;
-
-    public RegionService(List<RegionConfig> regions, Map<String, PresetConfig> presets) {
-        this.regions = regions != null ? new ArrayList<>(regions) : new ArrayList<>();
-        this.regions.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
-        this.presets = presets != null ? new HashMap<>(presets) : new HashMap<>();
+    public RegionService(ConfigLoader config) {
+        this.config = config;
     }
 
-    /** 运行时重载区域/预设快照，供 /im reload 生效。 */
-    public synchronized void reload(List<RegionConfig> newRegions, Map<String, PresetConfig> newPresets) {
-        regions.clear();
-        if (newRegions != null) regions.addAll(newRegions);
-        regions.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
-
-        presets.clear();
-        if (newPresets != null) presets.putAll(newPresets);
-    }
-
-    /**
-     * 获取位置所匹配的优先级最高的区域，无匹配则返回 null。
-     */
-    public RegionConfig getRegionAt(Location loc) {
-        for (RegionConfig r : regions) {
-            if (r.contains(loc)) return r;
-        }
-        return null;
-    }
-
-    /**
-     * 在指定区域、世界下，按权重随机返回一个预设，或 null 表示不替换。
-     */
-    public PresetConfig rollPreset(String regionId, String worldName) {
-        List<PresetConfig> candidates = presets.values().stream()
-                .filter(p -> p.canSpawnIn(regionId, worldName))
-                .filter(p -> p.getWeight() > 0)
-                .toList();
-        if (candidates.isEmpty()) return null;
-
-        for (PresetConfig p : candidates) {
-            if (ThreadLocalRandom.current().nextDouble() < p.getWeight()) {
-                return p;
-            }
+    public RegionConfig getRegionAt(Location location) {
+        for (RegionConfig region : config.currentSnapshot().regions()) {
+            if (region.contains(location)) return region;
         }
         return null;
     }

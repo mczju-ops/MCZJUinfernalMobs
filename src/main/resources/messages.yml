@@ -1,0 +1,76 @@
+death-messages:
+  enabled: true
+  default-weapon: "拳头"
+  level-tier-colors:
+    "1": "<white>"
+    "4": "<blue>"
+    "7": "<dark_purple>"
+    "10": "<gold>"
+    "13": "<red>"
+  player-color-normal: "<green>"
+  player-color-op: "<dark_red>"
+  global-broadcast-level-threshold: 11
+  messages:
+    - "<player><white>杀死了</white><mob><white>!</white>"
+    - "<mob><white>死于</white><player><white>之手!</white>"
+    - "<player><white>用</white><weapon><white>消灭了</white><mob><white>!</white>"
+    - "<player><white>用</white><weapon><white>埋葬了</white><mob><white>!</white>"
+    - "<mob><white>被</white><player><white>用</white><weapon><white>终结!</white>"
+    - "<player><white>向</white><mob><white>展现了残酷!</white>"
+    - "<mob><white>凄惨地死于</white><player><white>之手!</white>"
+  slain-by:
+    enabled: true
+    messages:
+      - "<player><white>惜败于</white><mob><white>!</white>"
+      - "<player><white>被</white><mob><white>击杀!</white>"
+      - "<mob><white>残忍地击杀了</white><player>"
+    with-weapon:
+      enabled: true
+      when: enchanted
+      messages:
+        - "<player><white>被</white><mob><white>用</white><weapon><white>杀死了!</white>"
+        - "<mob><white>用</white><weapon><white>终结了</white><player><white>!</white>"
+  kill-steal:
+    enabled: false
+    range: 48
+    messages:
+      - "<nearest_player><white>眼睁睁看着</white><mob><white>死于</white><source><white>！</white>"
+      - "<mob><white>没撑到</white><nearest_player><white>补刀，被</white><source><white>收割了！</white>"
+
+protected-animals:
+  enabled: true
+  clear-exp: true
+  types:
+    - COW
+    - MOOSHROOM
+    - SHEEP
+    - PIG
+    - CHICKEN
+    - GOAT
+    - RABBIT
+    - BEE
+    - AXOLOTL
+    - CAT
+    - OCELOT
+    - FOX
+    - PANDA
+    - TURTLE
+    - SQUID
+    - GLOW_SQUID
+    - DOLPHIN
+    - FROG
+    - SNIFFER
+    - CAMEL
+    - MULE
+    - DONKEY
+    - HORSE
+    - LLAMA
+    - TRADER_LLAMA
+    - PARROT
+    - BAT
+    - ARMADILLO
+    - SILVERFISH
+    - ENDERMITE
+    - ZOMBIE_HORSE
+    - SKELETON_HORSE
+  message: "<bold><red><player_name>欺负炒鸡小动物！"

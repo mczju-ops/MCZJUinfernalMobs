@@ -48,8 +48,8 @@ public class ActiveFireworkSkill implements Skill {
                 .withColor(Color.RED)
                 .withFade(Color.RED)
                 .with(FireworkEffect.Type.BALL)
-                .trail(config.getSection().getBoolean("trail", false))
-                .flicker(config.getSection().getBoolean("flicker", false))
+                .trail(config.getBoolean("trail", false))
+                .flicker(config.getBoolean("flicker", false))
                 .build();
 
         int level = ctx.getMobState().getProfile().getLevel();

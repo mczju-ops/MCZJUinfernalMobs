@@ -11,7 +11,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -75,8 +74,9 @@ public class DeathMessageService {
         Component weaponComponent = null;
 
         if (dm.slainByWithWeaponEnable() && killerMob instanceof Mob mob && !dm.slainByWithWeaponMessages().isEmpty()) {
-            ItemStack hand = mob.getEquipment() != null ? mob.getEquipment().getItemInMainHand() : null;
-            if (hand != null && !hand.getType().isAir() && isSpecialWeapon(hand, dm.slainByWithWeaponWhen())) {
+            mob.getEquipment();
+            ItemStack hand = mob.getEquipment().getItemInMainHand();
+            if (!hand.getType().isAir() && isSpecialWeapon(hand, dm.slainByWithWeaponWhen())) {
                 template = pickRandom(dm.slainByWithWeaponMessages());
                 weaponComponent = getMobWeaponComponent(hand, dm.defaultWeapon());
             }
@@ -205,7 +205,7 @@ public class DeathMessageService {
     private String extractSkillId(Entity entity) {
         if (!entity.hasMetadata("infernalmobs_skill_id")) return null;
         var values = entity.getMetadata("infernalmobs_skill_id");
-        return values.isEmpty() ? null : values.get(0).asString();
+        return values.isEmpty() ? null : values.getFirst().asString();
     }
 
     /** 从弹射物/烟花元数据还原施法炒鸡怪组件，找不到返回 null。 */
@@ -213,10 +213,10 @@ public class DeathMessageService {
         java.util.UUID casterUuid = null;
         if (damager.hasMetadata("infernalmobs_source")) {
             var v = damager.getMetadata("infernalmobs_source");
-            if (!v.isEmpty() && v.get(0).value() instanceof java.util.UUID u) casterUuid = u;
+            if (!v.isEmpty() && v.getFirst().value() instanceof java.util.UUID u) casterUuid = u;
         } else if (damager.hasMetadata("infernalmobs_firework_source")) {
             var v = damager.getMetadata("infernalmobs_firework_source");
-            if (!v.isEmpty() && v.get(0).value() instanceof java.util.UUID u) casterUuid = u;
+            if (!v.isEmpty() && v.getFirst().value() instanceof java.util.UUID u) casterUuid = u;
         }
         if (casterUuid == null || combatService == null) return null;
         com.infernalmobs.model.MobState state = combatService.getMobState(casterUuid);
@@ -282,26 +282,28 @@ public class DeathMessageService {
                 yield m != null && m.hasDisplayName();
             }
             case "non_air" -> !item.getType().isAir();
-            case "enchanted" -> item.getEnchantments() != null && !item.getEnchantments().isEmpty();
-            default -> item.getEnchantments() != null && !item.getEnchantments().isEmpty();
+            default -> {
+                item.getEnchantments();
+                yield !item.getEnchantments().isEmpty();
+            }
         };
     }
 
     private Component getMobWeaponComponent(ItemStack hand, String defaultWeapon) {
         if (hand == null || hand.getType().isAir()) return MiniMessageHelper.deserialize("<white>" + defaultWeapon + "</white>");
         Component name = hand.displayName();
-        if (name != null && !PlainTextComponentSerializer.plainText().serialize(name).isEmpty()) return name;
+        if (!PlainTextComponentSerializer.plainText().serialize(name).isEmpty()) return name;
         return MiniMessageHelper.deserialize("<white>" + formatMaterial(hand.getType().name()) + "</white>");
     }
 
     private Component buildMobComponentWithHover(LivingEntity entity, MobState mobState, DeathMessageConfig dm) {
         int level = mobState.getProfile().getLevel();
         String prefix = dm.getLevelPrefix(level);
-        String mobName = dm.getMobDisplayName(entity.getType());
         String color = dm.getLevelTierColor(level);
         String tagName = color.replaceAll("[<>]", "");
-        String template = color + "[Lv" + level + "]" + prefix + mobName + "</" + tagName + ">";
-        Component textComponent = MiniMessageHelper.deserialize(template);
+        String template = color + "[Lv" + level + "]" + prefix + "<mob></" + tagName + ">";
+        Component textComponent = MiniMessageHelper.deserialize(template,
+                Placeholder.component("mob", Component.translatable(entity.getType().translationKey())));
 
         List<Component> affixComps = new ArrayList<>();
         mobState.getProfile().getAffixes().forEach(affix -> {
@@ -323,7 +325,7 @@ public class DeathMessageService {
         ItemStack hand = killer.getInventory().getItemInMainHand();
         if (hand.getType().isAir()) return MiniMessageHelper.deserialize("<white>" + defaultWeapon + "</white>");
         Component name = hand.displayName();
-        if (name != null && !PlainTextComponentSerializer.plainText().serialize(name).isEmpty()) {
+        if (!PlainTextComponentSerializer.plainText().serialize(name).isEmpty()) {
             return name;
         }
         return MiniMessageHelper.deserialize("<white>" + formatMaterial(hand.getType().name()) + "</white>");

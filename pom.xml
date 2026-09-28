@@ -77,7 +77,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <release>21</release>
+                    <release>${java.version}</release>
                     <encoding>UTF-8</encoding>
                     <!-- JDK 25 下 plexus-compiler 进程内编译(javax.tools)会抛 ConcurrentModificationException；
                          改用 fork 出进程 javac 编译以规避（见 JavaxToolsCompiler.compileInProcess 已知问题）。 -->

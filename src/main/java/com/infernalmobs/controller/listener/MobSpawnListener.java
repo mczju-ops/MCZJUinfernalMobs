@@ -20,7 +20,7 @@ import java.util.Locale;
 
 /**
  * 监听 {@link CreatureSpawnEvent}，在启用世界且生成原因匹配配置时，对已生成的生物调用 {@link MobFactory#mechanize}。
- * 是否炒鸡化完全由区域 {@code infernal-allow-types} 与 {@code defaults.infernal.allow-types} 白名单决定，无额外硬编码生物表。
+ * 是否炒鸡化由新版全局 {@code allow-types} 白名单决定；第一版不提供区域级实体过滤。
  */
 public class MobSpawnListener implements Listener {
 
@@ -39,8 +39,7 @@ public class MobSpawnListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onCreatureSpawn(CreatureSpawnEvent event) {
-        if (!(event.getEntity() instanceof LivingEntity)) return;
-        LivingEntity entity = (LivingEntity) event.getEntity();
+        LivingEntity entity = event.getEntity();
         if (!config.isWorldEnabled(event.getLocation().getWorld().getName())) return;
 
         if (entity.getType() == EntityType.CAMEL_HUSK) {

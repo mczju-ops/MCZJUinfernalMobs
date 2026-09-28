@@ -85,7 +85,7 @@ public final class MyPlugin extends JavaPlugin {
 | `boolean isAffixSuppressed(LivingEntity entity, String skillId)` | 查询某个词条是否被禁用（未炒鸡化返回 `false`） |
 | `void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed)` | 设定词条禁用状态（未炒鸡化无效） |
 | `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条 |
-| `String getAffixDisplayName(String affixId)` | 查询词条显示名（优先 `skill_name.yml`，否则 `config.yml` 的 `display`，再退回英文 `id`） |
+| `String getAffixDisplayName(String affixId)` | 查询 `skills.yml` 中 `skills.<id>.display` 的词条显示名；未知 ID 退回英文 `id` |
 | `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名 |
 | `List<ItemStack> rollLevelLootItems(int mobLevel)` | 按怪物等级执行一次等级池抽取，只返回生成成功的物品 |
 | `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为 |
