@@ -9,6 +9,7 @@ import com.infernalmobs.config.RegionConfig;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobProfile;
 import com.infernalmobs.model.MobState;
+import com.infernalmobs.persistence.InfernalMobPdc;
 import com.infernalmobs.service.AffixRollService;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.MobLevelService;
@@ -19,26 +20,23 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 炒鸡怪工厂。根据生成位置匹配区域，计算等级、抽取词条或使用预设，装配技能。
+ * 炒鸡怪工厂。根据生成位置匹配规则、装配新实体，并恢复已有实体的持久状态。
  */
 public class MobFactory {
-
-    private static final String IM_LEVEL = "im_level";
 
     private final JavaPlugin plugin;
     private final ConfigLoader configLoader;
@@ -47,6 +45,7 @@ public class MobFactory {
     private final SkillService skillService;
     private final CombatService combatService;
     private final RegionService regionService;
+    private final InfernalMobPdc persistence;
 
     public MobFactory(JavaPlugin plugin,
                       ConfigLoader configLoader,
@@ -62,6 +61,7 @@ public class MobFactory {
         this.skillService = skillService;
         this.combatService = combatService;
         this.regionService = regionService;
+        this.persistence = new InfernalMobPdc(plugin);
     }
 
     /** 按生成位置命中的最终规则，从逐等级权重表抽取等级。 */
@@ -71,13 +71,6 @@ public class MobFactory {
             region = regionService.getRegionAt(spawnLocation);
         }
         return levelService.computeLevel(spawnLocation, region);
-    }
-
-    private void setImLevelTag(LivingEntity entity, int level) {
-        entity.getPersistentDataContainer().set(
-                new NamespacedKey(plugin, IM_LEVEL),
-                PersistentDataType.INTEGER,
-                level);
     }
 
     /**
@@ -268,8 +261,7 @@ public class MobFactory {
         } else {
             setMobDisplayName(entity, mobState);
         }
-        setImLevelTag(entity, profile.getLevel());
-        combatService.registerMob(entity.getUniqueId(), mobState);
+        attachState(entity, mobState, true);
     }
 
     /**
@@ -299,13 +291,63 @@ public class MobFactory {
         skillService.equip(newEntity, newState, affixes, this);
         combatService.applyStats(newEntity, newState);
         setMobDisplayName(newEntity, newState);
-        setImLevelTag(newEntity, oldState.getProfile().getLevel());
-
         var attribute = newEntity.getAttribute(Attribute.MAX_HEALTH);
         double maxHp = attribute == null ? 20 : attribute.getValue();
         // 直接沿用变形前的绝对生命值，避免因为新生物血量上限不同而“回血”或“掉血”
         newEntity.setHealth(Math.min(maxHp, Math.max(0.1, health)));
-        combatService.registerMob(newEntity.getUniqueId(), newState);
+        attachState(newEntity, newState, true);
+    }
+
+    /** 恢复 PDC 中的静态与跨加载状态，不重复执行技能装配或数值应用。 */
+    public boolean restoreFromPdc(LivingEntity entity) {
+        if (entity == null || entity instanceof Player || !entity.isValid()) return false;
+        if (combatService.getMobState(entity.getUniqueId()) != null) return false;
+
+        InfernalMobPdc.ReadResult result = persistence.read(entity);
+        if (result.status() != InfernalMobPdc.ReadResult.Status.VALID) return false;
+        InfernalMobPdc.StoredState stored = result.state();
+        List<Affix> affixes = affixRollService.buildAffixesFromIds(stored.affixes());
+        MobProfile profile = new MobProfile(stored.level(), affixes);
+        MobState state = new MobState(entity.getUniqueId(), profile, stored.morphTargets());
+        state.restorePersistentState(stored.suppressedAffixes(), stored.usedOneTime());
+        attachState(entity, state, false);
+        return true;
+    }
+
+    /** 插件启用时恢复当前已经加载的实体。 */
+    public int restoreLoadedEntities() {
+        int restored = 0;
+        for (org.bukkit.World world : plugin.getServer().getWorlds()) {
+            for (LivingEntity entity : world.getLivingEntities()) {
+                if (restoreFromPdc(entity)) restored++;
+            }
+        }
+        return restored;
+    }
+
+    /** 区块卸载前确保状态已同步，然后仅注销内存状态。 */
+    public void unregisterForUnload(LivingEntity entity) {
+        if (entity == null) return;
+        MobState state = combatService.getMobState(entity.getUniqueId());
+        if (state == null) return;
+        persistence.write(entity, state);
+        combatService.unregisterMob(entity.getUniqueId());
+    }
+
+    /** 插件关闭前对仍加载的实体再写一次完整快照。 */
+    public void persistLoadedStates() {
+        combatService.getTrackedMobs().forEach((uuid, state) -> {
+            org.bukkit.entity.Entity entity = plugin.getServer().getEntity(uuid);
+            if (entity instanceof LivingEntity living) persistence.write(living, state);
+        });
+    }
+
+    private void attachState(LivingEntity entity, MobState state, boolean writeImmediately) {
+        state.setPersistentStateListener(() -> {
+            if (entity.isValid()) persistence.write(entity, state);
+        });
+        if (writeImmediately) persistence.write(entity, state);
+        combatService.registerMob(entity.getUniqueId(), state);
     }
 
     private void dropPickedUpEquippedItemIfPresent(LivingEntity entity, java.util.UUID entityUuid, Location loc, EquipmentSlot slot) {

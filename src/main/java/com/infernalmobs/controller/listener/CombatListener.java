@@ -31,7 +31,6 @@ import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.event.world.EntitiesUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -289,13 +288,4 @@ public class CombatListener implements Listener {
         combatService.onProjectileHit(event);
     }
 
-    /** 区块卸载时，同步注销该区块内所有已追踪的炒鸡怪，避免内存泄漏。 */
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onEntitiesUnload(EntitiesUnloadEvent event) {
-        for (org.bukkit.entity.Entity e : event.getEntities()) {
-            if (combatService.getMobState(e.getUniqueId()) != null) {
-                combatService.unregisterMob(e.getUniqueId());
-            }
-        }
-    }
 }

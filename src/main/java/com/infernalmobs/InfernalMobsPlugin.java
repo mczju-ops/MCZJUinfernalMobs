@@ -9,6 +9,7 @@ import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
 import com.infernalmobs.controller.listener.MobSpawnListener;
+import com.infernalmobs.controller.listener.MobPersistenceListener;
 import com.infernalmobs.controller.listener.MorphSuppressListener;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
 import com.infernalmobs.factory.MobFactory;
@@ -83,10 +84,14 @@ public class InfernalMobsPlugin extends JavaPlugin {
         getCommand("im").setTabCompleter(imCmd);
 
         getServer().getPluginManager().registerEvents(new MobSpawnListener(configLoader, mobFactory, combatService, this), this);
+        getServer().getPluginManager().registerEvents(new MobPersistenceListener(mobFactory), this);
         getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService), this);
         getServer().getPluginManager().registerEvents(new MorphSuppressListener(), this);
         getServer().getPluginManager().registerEvents(new ThiefResistanceListener(), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
+
+        int restoredMobs = mobFactory.restoreLoadedEntities();
+        if (restoredMobs > 0) getLogger().info("已从 PDC 恢复 " + restoredMobs + " 只炒鸡怪");
 
         combatService.startTickTask();
 
@@ -179,7 +184,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
     public void onDisable() {
         if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
         if (killStatsService != null) killStatsService.saveIfDirty();
-        if (combatService != null) combatService.cleanupOnShutdown();
+        if (mobFactory != null) mobFactory.persistLoadedStates();
+        if (combatService != null) combatService.shutdown();
         getLogger().info("InfernalMobs 已禁用");
     }
 

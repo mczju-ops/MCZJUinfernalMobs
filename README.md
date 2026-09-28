@@ -103,6 +103,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 - **击杀统计**：记录每位玩家对各等级炒鸡怪的击杀数，可指令查询。
 - **小动物保护**：可配置的生物类型列表，炒鸡版本死亡时不产生奖励，并在全服广播警告。
 - **特殊道具**：全知之眼（查看词条）、幻形之锁（封印变形）、缴械反制器（抵御窃取）。
+- **实体恢复**：等级、词条和跨加载玩法状态保存在实体 PDC 中，区块重新加载或服务器重启后恢复；仍遵循原版自然消失规则。
 
 ---
 
@@ -222,7 +223,6 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 | `/im debug [on\|off]` | 临时开关调试输出（不写回配置） |
 | `/im reload` | 原子重载 `config.yml`、`skills.yml`、`regions.yml`、`messages.yml`；本阶段不重载掉落配置 |
 | `/im clear [半径]` | 清除周围炒鸡怪，半径默认 32（1–256） |
-| `/im cleantags` | 清理残留标签但未被管理的孤立实体 |
 
 ---
 

@@ -128,11 +128,6 @@ public final class ConfigLoader {
         return currentSnapshot.protectedAnimals();
     }
 
-    /** 旧清理功能将在后续阶段删除；新版配置中已无法再启用。 */
-    public MobRegistryConfig getMobRegistryConfig() {
-        return new MobRegistryConfig(false, 120, 64, 300, false);
-    }
-
     public double getExpMultiplier() {
         return currentSnapshot.global().expMultiplier();
     }

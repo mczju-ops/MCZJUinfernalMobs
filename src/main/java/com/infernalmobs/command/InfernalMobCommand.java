@@ -87,7 +87,6 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         if ("stats".equals(sub)) return handleStats(sender, args);
         if ("debug".equals(sub)) return handleDebug(sender, args);
         if ("clear".equals(sub)) return handleClear(sender, args);
-        if ("cleantags".equals(sub)) return handleCleanTags(sender);
         sendHelp(sender);
         return true;
     }
@@ -368,13 +367,6 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private boolean handleCleanTags(CommandSender sender) {
-        int count = combatService.removeOrphanedImLevelEntities();
-        send(sender, "<green>已清除 <count> 只有 im_level 标签但非炒鸡怪的孤立实体",
-                Placeholder.unparsed("count", String.valueOf(count)));
-        return true;
-    }
-
     private boolean handleReload(CommandSender sender) {
         try {
             var result = plugin != null ? plugin.reloadRuntimeConfig() : configLoader.reload();
@@ -404,13 +396,12 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志与 mechanize 区域/等级输出</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 重载核心配置（掉落配置将在后续阶段接入）</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
-        send(sender, "<yellow>/im cleantags</yellow> <gray>- 清除有 im_level 标签但非炒鸡怪的孤立实体</gray>");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spawn", "spawnat", "stats", "debug", "reload", "clear", "cleantags").stream()
+            return Arrays.asList("spawn", "spawnat", "stats", "debug", "reload", "clear").stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }

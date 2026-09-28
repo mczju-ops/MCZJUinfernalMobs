@@ -15,7 +15,6 @@ import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.skill.impl.RangeSpearSkill;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -35,7 +34,6 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
@@ -54,11 +52,9 @@ public class CombatService {
     private final JavaPlugin plugin;
     private final ConfigLoader config;
     private final Map<UUID, MobState> mobStates = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> lastActiveTick = new ConcurrentHashMap<>();
     /** 炒鸡怪捡起的物品（用于 replace-vanilla-drops 时恢复到死亡掉落） */
     private final Map<UUID, List<ItemStack>> pickedUpItems = new ConcurrentHashMap<>();
     private com.infernalmobs.factory.MobFactory mobFactory;
-    private BukkitRunnable cleanupTask;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
@@ -67,12 +63,11 @@ public class CombatService {
 
     public void registerMob(UUID entityUuid, MobState state) {
         mobStates.put(entityUuid, state);
-        lastActiveTick.put(entityUuid, currentTick);
     }
 
     public void unregisterMob(UUID entityUuid) {
-        mobStates.remove(entityUuid);
-        lastActiveTick.remove(entityUuid);
+        MobState removed = mobStates.remove(entityUuid);
+        if (removed != null) removed.clearPersistentStateListener();
         pickedUpItems.remove(entityUuid);
     }
 
@@ -83,7 +78,7 @@ public class CombatService {
     /** 记录炒鸡怪捡起的物品（克隆存储，避免后续元数据/堆叠变化影响）。 */
     public void recordPickedUpItem(UUID entityUuid, ItemStack item) {
         if (entityUuid == null || item == null || item.getType().isAir() || item.getAmount() <= 0) return;
-        pickedUpItems.computeIfAbsent(entityUuid, k -> new ArrayList<>()).add(item.clone());
+        pickedUpItems.computeIfAbsent(entityUuid, _ -> new ArrayList<>()).add(item.clone());
     }
 
     /** 消费并返回该炒鸡怪捡起的所有物品。 */
@@ -478,9 +473,7 @@ public class CombatService {
 
     private volatile long currentTick = 0;
 
-    /**
-     * 启动 tick 任务（用于 ACTIVE 技能 CD 计数等），以及可选的定期不活跃清理任务。
-     */
+    /** 启动战斗 tick 任务；实体何时自然消失完全交给服务端原版规则。 */
     public void startTickTask() {
         new BukkitRunnable() {
             @Override
@@ -499,57 +492,13 @@ public class CombatService {
                 }
             }
         }.runTaskTimer(plugin, 20L, 1L);
-
-        var reg = config.getMobRegistryConfig();
-        if (reg != null && reg.cleanupEnabled() && cleanupTask == null) {
-            long intervalTicks = Math.max(20, reg.cleanupIntervalSeconds() * 20L);
-            cleanupTask = new BukkitRunnable() {
-                @Override
-                public void run() {
-                    runCleanupCycle(reg.inactiveRadius(), reg.inactiveSeconds());
-                }
-            };
-            cleanupTask.runTaskTimer(plugin, intervalTicks, intervalTicks);
-        }
     }
 
-    private static final String IM_LEVEL = "im_level";
-
-    /** 清理周期：移除无效实体；无玩家附近则更新 lastActiveTick，超过 inactiveSeconds 无玩家则清除；清除孤立 im_level 标签实体。 */
-    private void runCleanupCycle(double inactiveRadius, int inactiveSeconds) {
-        removeOrphanedImLevelEntities();
-
-        long inactiveTicks = inactiveSeconds * 20L;
-        for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
-            LivingEntity entity = findEntity(uuid);
-            if (entity == null || !entity.isValid()) {
-                unregisterMob(uuid);
-                continue;
-            }
-            Player nearby = findNearestPlayer(entity, inactiveRadius);
-            if (nearby != null) {
-                lastActiveTick.put(uuid, currentTick);
-                continue;
-            }
-            long last = lastActiveTick.getOrDefault(uuid, currentTick);
-            if (currentTick - last >= inactiveTicks) {
-                entity.remove();
-                unregisterMob(uuid);
-            }
-        }
-    }
-
-    /** 关服时调用：取消清理任务，并根据配置决定是否清除所有炒鸡怪 */
-    public void cleanupOnShutdown() {
-        if (cleanupTask != null) cleanupTask.cancel();
-        var reg = config.getMobRegistryConfig();
-        if (reg == null || !reg.killOnShutdown()) return;
-        for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
-            LivingEntity entity = findEntity(uuid);
-            if (entity != null && entity.isValid()) entity.remove();
-            mobStates.remove(uuid);
-            lastActiveTick.remove(uuid);
-        }
+    /** 关服时只释放内存引用；实体状态已在每次变化时同步到 PDC。 */
+    public void shutdown() {
+        for (MobState state : mobStates.values()) state.clearPersistentStateListener();
+        mobStates.clear();
+        pickedUpItems.clear();
     }
 
     /** 范围技能：玩家在范围内时按概率触发 */
@@ -671,30 +620,6 @@ public class CombatService {
                 state.getProfile().getLevel());
         plugin.getServer().getPluginManager().callEvent(event);
         return !event.isCancelled();
-    }
-
-    /**
-     * 扫描 enabled-worlds 中所有生物：有 im_level 的 PDC 但不是炒鸡怪（未注册）的则移除。
-     * 返回移除的实体数量。可由指令 /im cleantags 或定期清理调用。
-     */
-    public int removeOrphanedImLevelEntities() {
-        List<String> worlds = config.getEnabledWorlds();
-        if (worlds == null || worlds.isEmpty()) return 0;
-
-        NamespacedKey key = new NamespacedKey(plugin, IM_LEVEL);
-        int count = 0;
-        for (String name : worlds) {
-            org.bukkit.World w = plugin.getServer().getWorld(name);
-            if (w == null) continue;
-            for (LivingEntity entity : new ArrayList<>(w.getLivingEntities())) {
-                if (!entity.isValid() || entity instanceof Player) continue;
-                if (!entity.getPersistentDataContainer().has(key, PersistentDataType.INTEGER)) continue;
-                if (mobStates.containsKey(entity.getUniqueId())) continue;  // 是炒鸡怪，跳过
-                entity.remove();
-                count++;
-            }
-        }
-        return count;
     }
 
     /** 清除指定位置半径内的炒鸡怪，返回清除数量。 */
