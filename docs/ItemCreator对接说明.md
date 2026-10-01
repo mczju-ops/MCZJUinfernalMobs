@@ -32,7 +32,7 @@ InfernalMobs 通过 **Bukkit ServicesManager** 获取 `io.mczju.mczjuitemcreator
 
 ### 3. 不打算改 MCZJUItemCreator 时
 
-若无法修改 MCZJUItemCreator 源码，就无法注册 `ItemCreatorApi`，InfernalMobs 的 **loot 特殊掉落（按 id 发物品）** 不会生效；其他炒鸡怪功能不受影响。可关闭 loot：在 `loot.yml` 里设置 `enable: false`，就不会再出现该警告。
+若无法修改 MCZJUItemCreator 源码，就无法注册 `ItemCreatorApi`，InfernalMobs 的 **loot 特殊掉落（按 id 发物品）** 不会生效；其他炒鸡怪功能不受影响。可在 `loot/settings.yml` 中设置 `enabled: false` 关闭等级池掉落。
 
 ---
 

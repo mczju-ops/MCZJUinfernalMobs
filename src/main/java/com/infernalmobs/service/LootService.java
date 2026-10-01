@@ -4,6 +4,7 @@ import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.InfernalLootReward;
 import com.infernalmobs.api.event.mob.InfernalMobDropEvent;
 import com.infernalmobs.config.GuaranteedLootConfig;
+import com.infernalmobs.config.GuaranteedLootConfig.ActiveRule;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;
 import com.infernalmobs.config.SpecialLootConfig;
@@ -12,6 +13,7 @@ import com.infernalmobs.util.ItemCreatorBridge;
 import com.infernalmobs.model.MobState;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
@@ -27,8 +29,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 炒鸡怪特殊掉落：按 loot.yml 的等级区间 + rewards（id/amount/weight/commands），权重抽取后调用可选 ItemCreator 发放。
- * 难打怪物额外掉落：按 config special-loot 配置，概率 = rates × 等级，可大于 1 表示保底+概率额外。
+ * 炒鸡怪掉落：使用已解析的 loot/settings.yml 与 loot/levels/ 快照执行等级池和特殊实体奖励。
  */
 public class LootService {
 
@@ -51,12 +52,13 @@ public class LootService {
 
     /** 获取掉落物品的配置显示名；未配置时返回物品 ID。 */
     public String getLootDisplayName(String itemId) {
-        if (config == null) return itemId != null ? itemId : "";
-        return config.getLootDisplayName(itemId);
+        if (itemId == null || itemId.isBlank()) return "";
+        Optional<ItemStack> item = ItemCreatorBridge.createItem(plugin, itemId, 1);
+        return item.map(stack -> plainItemName(stack, itemId)).orElse(itemId);
     }
 
     /**
-     * 与 {@link #onInfernalMobDeath(EntityDeathEvent, LivingEntity, MobState, int)} 一致：仅在会执行等级池加权抽取时
+     * 仅在会执行等级池加权抽取时
      * 调用 {@link LootConfig#rollDropTimes(int)}，否则返回 0。供保底进度与死亡掉落共用同一次 roll。
      */
     public int rollDeathLootTimes(int level) {
@@ -89,7 +91,7 @@ public class LootService {
             RewardEntry entry = reward.entry();
             rewards.add(new InfernalLootReward(
                     entry.id,
-                    config.getLootDisplayName(entry.id),
+                    plainItemName(reward.itemStack(), entry.id),
                     reward.itemStack(),
                     entry.commands,
                     entry.broadcast,
@@ -131,22 +133,22 @@ public class LootService {
                         Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
                     }
                     if (chosen.broadcast) {
-                        broadcastLootDrop(chosen, playerName, level);
+                        broadcastLootDrop(chosen, reward.itemStack(), playerName, level);
                     }
                 }
             }
         }
 
         // 2. 难打怪物额外特殊战利品（独立于等级池，仅部分实体类型）
-        dropSpecialLootIfApplicable(event, entity, mobState, collect);
+        dropSpecialLootIfApplicable(entity, mobState, collect);
         return vanillaDropsCleared;
     }
 
     /** 难打怪物额外特殊战利品：概率 = rate × 等级，可 >1 表示保底+小数概率额外。 */
-    private void dropSpecialLootIfApplicable(EntityDeathEvent event, LivingEntity entity, MobState mobState,
+    private void dropSpecialLootIfApplicable(LivingEntity entity, MobState mobState,
                                              List<ItemStack> collect) {
         SpecialLootConfig slc = config.getSpecialLootConfig();
-        if (slc == null || !slc.enable() || slc.rates().isEmpty()) return;
+        if (!slc.enable() || slc.rates().isEmpty()) return;
         double rate = slc.getRate(entity.getType().name());
         if (rate <= 0) return;
         int level = Math.max(1, mobState.getProfile().getLevel());
@@ -249,7 +251,7 @@ public class LootService {
             r -= e.weight;
             if (r < 0) return e;
         }
-        return rewards.get(rewards.size() - 1);
+        return rewards.getLast();
     }
 
     private record RolledReward(RewardEntry entry, ItemStack itemStack) {}
@@ -259,16 +261,17 @@ public class LootService {
      * 保底掉落不受 replace-vanilla-drops 影响（始终以 dropItemNaturally 掉落在地）。
      * 若 loot config 中不存在匹配的 RewardEntry，仍然掉落物品，但不触发命令和广播。
      *
-     * @param rule     触发的保底规则
+     * @param activeRule 本次触发的保底规则及已经固定的轮换奖励
      * @param entity   死亡的炒鸡怪
      * @param killer   击杀玩家（用于命令中的 {player} 占位）
      * @param level    怪物等级（用于广播模板）
      */
-    public void processGuaranteedDrop(GuaranteedLootConfig.GuaranteedRule rule,
+    public void processGuaranteedDrop(ActiveRule activeRule,
                                       LivingEntity entity, Player killer, int level,
                                       List<ItemStack> collect) {
-        Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, rule.itemId, rule.itemAmount);
-        if (opt == null || opt.isEmpty() || opt.get().getType().isAir()) return;
+        GuaranteedLootConfig.GuaranteedReward reward = activeRule.reward();
+        Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, reward.itemId, reward.amount);
+        if (opt.isEmpty() || opt.get().getType().isAir()) return;
 
         ItemStack toDrop = opt.get().clone();
         collectDrop(collect, entity, toDrop);
@@ -276,7 +279,7 @@ public class LootService {
         // 在当前怪等级的 loot 池里查找同名条目，获取命令和广播配置
         if (config != null) {
             RewardEntry entry = config.getRewardsForLevel(level).stream()
-                    .filter(e -> rule.itemId.equals(e.id))
+                    .filter(e -> reward.itemId.equals(e.id))
                     .findFirst().orElse(null);
             if (entry != null) {
                 String playerName = killer != null ? killer.getName() : "";
@@ -286,7 +289,7 @@ public class LootService {
                     Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
                 }
                 if (entry.broadcast) {
-                    broadcastLootDrop(entry, playerName, level);
+                    broadcastLootDrop(entry, toDrop, playerName, level);
                 }
             }
         }
@@ -297,7 +300,7 @@ public class LootService {
         itemEntity.setInvulnerable(true);
     }
 
-    private void broadcastLootDrop(RewardEntry chosen, String playerName, int level) {
+    private void broadcastLootDrop(RewardEntry chosen, ItemStack itemStack, String playerName, int level) {
         String template = resolveBroadcastMessage(chosen);
         // 兼容 {player}/{item}/{amount}/{level} 写法
         template = template
@@ -307,8 +310,8 @@ public class LootService {
                 .replace("{level}", "<level>");
         Component msg = MiniMessageHelper.deserialize(template,
                 Placeholder.unparsed("player", playerName == null ? "未知玩家" : playerName),
-                Placeholder.unparsed("item", config.getLootDisplayName(chosen.id)),
-                Placeholder.unparsed("amount", String.valueOf(chosen.amount)),
+                Placeholder.component("item", itemStack.displayName()),
+                Placeholder.unparsed("amount", String.valueOf(itemStack.getAmount())),
                 Placeholder.unparsed("level", String.valueOf(level)));
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendMessage(msg);
@@ -319,6 +322,11 @@ public class LootService {
         return reward.broadcastMessage == null || reward.broadcastMessage.isEmpty()
                 ? DEFAULT_BROADCAST_MESSAGE
                 : reward.broadcastMessage;
+    }
+
+    private static String plainItemName(ItemStack itemStack, String fallback) {
+        String name = PlainTextComponentSerializer.plainText().serialize(itemStack.displayName());
+        return name.isBlank() ? fallback : name;
     }
 
 }

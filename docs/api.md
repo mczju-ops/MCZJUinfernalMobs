@@ -4,7 +4,7 @@
 
 - 版本：`beta/event-api-rework` 分支（API `apiVersion() = 1`）
 - 依赖方式：软依赖 + `ServicesManager`（无需硬依赖，炒鸡缺失时正常降级）
-- 环境：Paper `api-version: '1.21.4'`、JDK 21+
+- 环境：Paper API `26.2.build` 或更高版本、JDK 25
 
 ---
 
@@ -176,7 +176,7 @@ public enum InfernalAffix {
 
 `getGuaranteedLootStatuses` 只返回保底全局启用且当前轮换生效的规则。尚未开始累计的规则也会返回，
 此时 `currentProgress()` 为 0。进度单位是等级掉落池抽取次数，不一定等同于击杀数；
-`maximumMobLevel()` 为 `null` 表示没有等级上限。
+`maximumMobLevel()` 为 `null` 表示没有等级上限。新版中 `progressId()` 与 `ruleId()` 相同，奖励字段表示当前轮换套实际生效的奖励。
 
 ```java
 InfernalKillStats stats = api.getKillStats(player.getUniqueId());

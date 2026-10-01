@@ -1,6 +1,5 @@
 package com.infernalmobs.config;
 
-import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -10,8 +9,9 @@ public record SpecialLootConfig(boolean enable, String itemId, Map<String, Doubl
 
     public static final SpecialLootConfig DISABLED = new SpecialLootConfig(false, "nether_star", Map.of());
 
-    public Map<String, Double> rates() {
-        return rates != null ? Collections.unmodifiableMap(rates) : Map.of();
+    public SpecialLootConfig {
+        itemId = itemId != null ? itemId : "";
+        rates = rates != null ? Map.copyOf(rates) : Map.of();
     }
 
     public double getRate(String entityTypeName) {

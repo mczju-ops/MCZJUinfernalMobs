@@ -15,10 +15,9 @@
 - [命令列表](#命令列表)
 - [配置文件说明](#配置文件说明)
   - [config.yml](#configyml)
-  - [loot.yml](#lootyml)
-  - [loot/&lt;N&gt;.yml](#lootnyml)
-  - [guaranteed_loot.yml](#guaranteed_lootyml)
-  - [loot_name.yml](#loot_nameyml)
+  - [loot/settings.yml](#lootsettingsyml)
+  - [loot/levels/&lt;N&gt;.yml](#lootlevelsnyml)
+  - [loot/guaranteed.yml](#lootguaranteedyml)
 - [区域系统](#区域系统)
 - [保底掉落](#保底掉落)
 - [炒鸡小动物保护](#炒鸡小动物保护)
@@ -30,8 +29,8 @@
 
 | 项目 | 要求 |
 |------|------|
-| 服务端 | Paper 1.21.4+（API `1.21.4-R0.1-SNAPSHOT`） |
-| Java | 17+ |
+| 服务端 | Paper API `26.2.build` 或更高版本 |
+| Java | 25 |
 | 软依赖 | [MCZJUItemCreator](https://github.com/mczju-ops/MCZJUItemCreator)（掉落与保底功能需要） |
 
 ---
@@ -99,7 +98,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 - **词条系统**：每只炒鸡怪携带若干技能词条，影响其战斗行为（毒、盲目、变形、窃取武器等）。等级越高词条越多。
 - **区域配置**：按世界坐标范围划分独立区域，支持覆写等级权重、命名词条池、词条数量和变形池。
 - **掉落奖励**：与 MCZJUItemCreator 联动，按等级池抽取道具；支持月份轮换套与额外广播。
-- **保底掉落**：累计击杀到阈值后必定掉落指定物品，进度持久化。
+- **保底掉落**：累计等级池实际抽取次数达到阈值后必定掉落指定物品，进度持久化。
 - **击杀统计**：记录每位玩家对各等级炒鸡怪的击杀数，可指令查询。
 - **小动物保护**：可配置的生物类型列表，炒鸡版本死亡时不产生奖励，并在全服广播警告。
 - **特殊道具**：全知之眼（查看词条）、幻形之锁（封印变形）、缴械反制器（抵御窃取）。
@@ -289,30 +288,35 @@ regions:
 
 ---
 
-### loot.yml
+### loot/settings.yml
 
 ```yaml
-enable: true
+enabled: true
 replace-vanilla-drops: true   # 是否替换原版掉落
 
 # 月份轮换套（set 1～N 按月交替）
 rotation:
-  enable: false
+  enabled: false
   sets: 3
 
 # 每次击杀额外掉落次数（按等级映射）
 drop-times:
-  enable: true
   fallback: [1, 1]     # [最少, 最多]
   1:  [1, 1]
   5:  [1, 2]
   10: [2, 3]
   15: [3, 5]
+
+special:
+  enabled: true
+  item-id: nether_star
+  rates:
+    WARDEN: 0.8
 ```
 
 ---
 
-### loot/&lt;N&gt;.yml
+### loot/levels/&lt;N&gt;.yml
 
 等级 `N`（1–15）对应的奖励池，文件名即等级编号。
 
@@ -333,34 +337,33 @@ rewards:
 
 ---
 
-### guaranteed_loot.yml
+### loot/guaranteed.yml
 
 ```yaml
-enable: true
+enabled: true
+
+rotation:
+  enabled: true
+  sets: 2
 
 rules:
   my_rule:
-    level-min: 10      # 适用等级范围
+    level-min: 10
     level-max: 99
-    count: 500         # 每累计击杀 500 次必得
-    item-id: nether_star
-    item-amount: 1
-    reset-on-drop: true          # 达标后重置进度
-    progress-id: shared_prog     # 可选，多规则共用进度条
-    rotation-set: 1              # 可选，仅限指定轮换套期间
+    required-rolls: 500          # 累计等级池实际抽取次数
+    reset-after-reward: true
+    rewards:
+      - item-id: reward_a
+        amount: 1
+        rotation-set: 1
+      - item-id: reward_b
+        amount: 1
+        rotation-set: 2
 ```
 
-进度数据存储在 `data/guaranteed_loot_progress.yml`。
+每条规则只累计一次进度，并按当前轮换套选择一个奖励。达到阈值后，`reset-after-reward: true` 会直接归零；否则标记为永久完成。进度存储在 `data/guaranteed_loot_progress.yml`。
 
----
-
-### loot_name.yml
-
-```yaml
-# ItemCreator 物品 ID → 广播中显示的中文名
-infernal_exchange_token: "炒鸡兑换券"
-thief_counter: "缴械反制器"
-```
+等级奖励池会在启动或 `/im reload` 时完整读入不可变快照，战斗期间不读取 YAML。`loot_name.yml` 已删除，广播名称取实际生成的 `ItemStack` 名称组件。
 
 ---
 
@@ -374,12 +377,12 @@ thief_counter: "缴械反制器"
 
 ## 保底掉落
 
-`GuaranteedLootService` 追踪每位玩家的击杀进度：
+`GuaranteedLootService` 追踪每位玩家的等级池抽取进度：
 
-1. 击杀一只非保护动物的炒鸡怪，且等级落在规则的 `level-min`～`level-max` 之间，则该规则计数 +1。
-2. 计数达到 `count` 后，向玩家发放 `item-id` 指定的 ItemCreator 物品。
-3. 若 `reset-on-drop: true`，发放后进度归零；否则保留累计值。
-4. `progress-id` 相同的多条规则共用同一进度条，适合多奖励共享计数。
+1. 击杀一只非保护动物的炒鸡怪，且该等级存在当前可抽取奖励时，按本次 `drop-times` 结果增加规则进度。
+2. 进度达到 `required-rolls` 后，按当前轮换套选择规则内的一个奖励。
+3. 若 `reset-after-reward: true`，发放后直接归零；否则标记为已完成并停止累计。
+4. 特殊实体掉落、保底奖励和 API 主动抽取不会增加进度。
 
 ---
 

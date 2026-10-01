@@ -147,9 +147,9 @@ public class CombatListener implements Listener {
                         int mobLevel = state.getProfile().getLevel();
                         int deathLootRolls = loot != null ? loot.rollDeathLootTimes(mobLevel) : 0;
                         if (guaranteedLootService != null && loot != null) {
-                            for (com.infernalmobs.config.GuaranteedLootConfig.GuaranteedRule rule
+                            for (com.infernalmobs.config.GuaranteedLootConfig.ActiveRule activeRule
                                     : guaranteedLootService.collectTriggered(uuid, pname, mobLevel, deathLootRolls)) {
-                                loot.processGuaranteedDrop(rule, entity, killer, mobLevel, pluginDrops);
+                                loot.processGuaranteedDrop(activeRule, entity, killer, mobLevel, pluginDrops);
                             }
                         }
                         // 常规等级池抽取（与保底共用同一次 drop-times roll）

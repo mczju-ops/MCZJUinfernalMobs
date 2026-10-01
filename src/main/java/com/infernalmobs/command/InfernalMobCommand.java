@@ -378,7 +378,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
                 send(sender, "<yellow>配置已重载，但存在降级项。请检查控制台中的 <count> 条诊断",
                         Placeholder.unparsed("count", String.valueOf(result.diagnostics().size())));
             } else {
-                send(sender, "<green>已重新加载核心配置文件");
+                send(sender, "<green>已重新加载全部配置文件");
             }
         } catch (Exception e) {
             send(sender, "<red>重载失败: <err>", Placeholder.unparsed("err", e.getMessage()));
@@ -394,7 +394,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<gray>  例: /im spawnat 100 64 -200 world zombie 8 morph,ender</gray>");
         send(sender, "<yellow>/im stats [玩家]</yellow> <gray>- 查看追踪数，或指定玩家的击杀统计</gray>");
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志与 mechanize 区域/等级输出</gray>");
-        send(sender, "<yellow>/im reload</yellow> <gray>- 重载核心配置（掉落配置将在后续阶段接入）</gray>");
+        send(sender, "<yellow>/im reload</yellow> <gray>- 完整校验并重载全部配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
     }
 

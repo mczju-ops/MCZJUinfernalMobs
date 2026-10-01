@@ -1,0 +1,41 @@
+# 炒鸡怪等级池掉落总开关
+# 各等级池位于 loot/levels/<等级>.yml
+enabled: true
+replace-vanilla-drops: true
+
+# 战利品轮换：带 rotation-set 的项仅在对应月份可掉落，未配置的项不受影响
+rotation:
+  enabled: true
+  sets: 6
+
+# 同一只怪死亡后，从 loot/levels/<level>.yml 的 rewards 里按权重抽取“掉落条目”的次数。
+# 允许重复（每抽一次都独立按权重随机）。
+# ranges 格式：[level-min, level-max, min-times, max-times]
+drop-times:
+  # fallback：等级未显式配置时的兜底
+  fallback: [1, 1]
+  1: [1, 1]
+  2: [1, 1]
+  3: [1, 1]
+  4: [1, 2]
+  5: [1, 2]
+  6: [1, 2]
+  7: [1, 3]
+  8: [1, 3]
+  9: [1, 3]
+  10: [1, 4]
+  11: [1, 5]
+  12: [2, 5]
+  13: [3, 5]
+  14: [4, 5]
+  15: [5, 5]
+
+# 特殊实体额外掉落。概率 = rates.<实体类型> x 炒鸡怪等级
+special:
+  enabled: false
+  item-id: nether_star
+  rates:
+    RAVAGER: 0.15
+    ELDER_GUARDIAN: 0.3
+    WARDEN: 0.8
+    WITHER: 1.0

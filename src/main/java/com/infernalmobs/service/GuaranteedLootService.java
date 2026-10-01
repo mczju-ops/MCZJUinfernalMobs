@@ -1,7 +1,7 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.config.GuaranteedLootConfig;
-import com.infernalmobs.config.GuaranteedLootConfig.GuaranteedRule;
+import com.infernalmobs.config.GuaranteedLootConfig.ActiveRule;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -11,12 +11,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /** 保底进度内存服务。配置可替换，服务实例和已加载进度在插件生命周期内保持稳定。 */
 public final class GuaranteedLootService {
@@ -70,12 +68,12 @@ public final class GuaranteedLootService {
                 if (storedName != null && !storedName.isBlank()) {
                     displayNames.put(playerId, storedName.trim());
                 }
-                Map<String, Integer> byProgressId = new HashMap<>();
-                for (String progressId : rules.getKeys(false)) {
-                    if (KEY_DISPLAY_NAME.equalsIgnoreCase(progressId)) continue;
-                    byProgressId.put(progressId, rules.getInt(progressId, 0));
+                Map<String, Integer> byRuleId = new HashMap<>();
+                for (String ruleId : rules.getKeys(false)) {
+                    if (KEY_DISPLAY_NAME.equalsIgnoreCase(ruleId)) continue;
+                    byRuleId.put(ruleId, rules.getInt(ruleId, 0));
                 }
-                if (!byProgressId.isEmpty()) progress.put(playerId, byProgressId);
+                if (!byRuleId.isEmpty()) progress.put(playerId, byRuleId);
             }
         }
     }
@@ -113,7 +111,7 @@ public final class GuaranteedLootService {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.options().header("""
                 players 下主键为玩家 UUID。
-                每位玩家下: name 为最后已知游戏内名称；其余键为保底进度 id -> 累计进度。
+                每位玩家下: name 为最后已知游戏内名称；其余键为保底规则 id -> 累计进度。
                 进度按死亡时等级池的实际抽取次数累计。
                 """);
         var players = yaml.createSection(KEY_PLAYERS);
@@ -133,11 +131,11 @@ public final class GuaranteedLootService {
         }
     }
 
-    public List<GuaranteedRule> collectTriggered(String playerUuid, String displayName,
-                                                  int level, int lootRollCount) {
+    public List<ActiveRule> collectTriggered(String playerUuid, String displayName,
+                                             int level, int lootRollCount) {
         if (playerUuid == null || playerUuid.isBlank()) return List.of();
         GuaranteedLootConfig currentConfig = config;
-        List<GuaranteedRule> triggered = new ArrayList<>();
+        List<ActiveRule> triggered = new ArrayList<>();
         synchronized (dataLock) {
             boolean changed = false;
             if (displayName != null && !displayName.isBlank()) {
@@ -155,25 +153,22 @@ public final class GuaranteedLootService {
                 return List.of();
             }
 
-            Set<String> processedProgressIds = new HashSet<>();
-            for (GuaranteedRule rule : currentConfig.getRules().values()) {
-                if (!currentConfig.isRuleActiveNow(rule) || !currentConfig.appliesToLevel(rule, level)) continue;
-                String progressId = rule.progressId == null || rule.progressId.isBlank()
-                        ? rule.id : rule.progressId;
-                if (!processedProgressIds.add(progressId)) continue;
+            for (GuaranteedLootConfig.GuaranteedRule rule : currentConfig.getRules().values()) {
+                GuaranteedLootConfig.GuaranteedReward reward = currentConfig.activeReward(rule);
+                if (reward == null || !currentConfig.appliesToLevel(rule, level)) continue;
 
                 Map<String, Integer> playerProgress = progress.computeIfAbsent(
                         playerUuid, ignored -> new HashMap<>());
-                int current = playerProgress.getOrDefault(progressId, 0);
+                int current = playerProgress.getOrDefault(rule.id, 0);
                 if (current < 0) continue;
 
                 long sum = (long) current + add;
                 int next = sum > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) sum;
-                playerProgress.put(progressId, next);
+                playerProgress.put(rule.id, next);
                 changed = true;
-                if (next >= rule.count) {
-                    playerProgress.put(progressId, rule.resetOnDrop ? 0 : -1);
-                    triggered.add(rule);
+                if (next >= rule.requiredRolls) {
+                    playerProgress.put(rule.id, rule.resetAfterReward ? 0 : -1);
+                    triggered.add(new ActiveRule(rule, reward));
                 }
             }
             if (changed) changeVersion++;
@@ -189,13 +184,14 @@ public final class GuaranteedLootService {
         }
     }
 
-    public List<GuaranteedRule> getActiveRules() {
+    public List<ActiveRule> getActiveRules() {
         GuaranteedLootConfig currentConfig = config;
         if (currentConfig == null || !currentConfig.isEnable() || currentConfig.getRules().isEmpty()) {
             return List.of();
         }
         return currentConfig.getRules().values().stream()
-                .filter(currentConfig::isRuleActiveNow)
+                .map(rule -> new ActiveRule(rule, currentConfig.activeReward(rule)))
+                .filter(active -> active.reward() != null)
                 .toList();
     }
 

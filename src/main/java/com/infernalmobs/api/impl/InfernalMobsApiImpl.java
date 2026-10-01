@@ -170,25 +170,27 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         Map<String, Integer> progressById = service.getProgressById(playerId.toString());
         LootService lootService = lootServiceSupplier != null ? lootServiceSupplier.get() : null;
         return service.getActiveRules().stream()
-                .sorted(Comparator.comparing(rule -> rule.id))
-                .map(rule -> {
-                    int storedProgress = progressById.getOrDefault(rule.progressId, 0);
+                .sorted(Comparator.comparing(active -> active.rule().id))
+                .map(active -> {
+                    var rule = active.rule();
+                    var reward = active.reward();
+                    int storedProgress = progressById.getOrDefault(rule.id, 0);
                     boolean completed = storedProgress < 0;
                     String rewardDisplayName = lootService != null
-                            ? lootService.getLootDisplayName(rule.itemId)
-                            : rule.itemId;
+                            ? lootService.getLootDisplayName(reward.itemId)
+                            : reward.itemId;
                     return new InfernalGuaranteedLootStatus(
                             rule.id,
-                            rule.progressId,
-                            completed ? rule.count : storedProgress,
-                            rule.count,
+                            rule.id,
+                            completed ? rule.requiredRolls : storedProgress,
+                            rule.requiredRolls,
                             completed,
-                            rule.resetOnDrop,
+                            rule.resetAfterReward,
                             rule.levelMin,
                             rule.levelMax >= 0 ? rule.levelMax : null,
-                            rule.itemId,
+                            reward.itemId,
                             rewardDisplayName,
-                            rule.itemAmount
+                            reward.amount
                     );
                 })
                 .toList();
