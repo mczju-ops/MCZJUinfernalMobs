@@ -77,4 +77,5 @@ public final class Keys {
     public static final NamespacedKey NECROMANCER_HANDLE_SUPPRESSED = key("infernalmobs_necromancer_handle_suppressed");
     public static final NamespacedKey NECROMANCER_HANDLE_DISPLAY_NAME = key("infernalmobs_necromancer_handle_display_name");
     public static final NamespacedKey NECROMANCER_LEVEL = key("infernalmobs_necromancer_level");
+    public static final NamespacedKey ARCHER_SKILL_ID = key("infernalmobs_archer_skill_id");
 }

@@ -211,6 +211,9 @@ public class DeathMessageService {
         pdcSkill = entity.getPersistentDataContainer().get(
                 Keys.NECROMANCER_SKILL_ID, PersistentDataType.STRING);
         if (pdcSkill != null) return pdcSkill;
+        pdcSkill = entity.getPersistentDataContainer().get(
+                Keys.ARCHER_SKILL_ID, PersistentDataType.STRING);
+        if (pdcSkill != null) return pdcSkill;
         if (!entity.hasMetadata("infernalmobs_skill_id")) return null;
         var values = entity.getMetadata("infernalmobs_skill_id");
         return values.isEmpty() ? null : values.getFirst().asString();
