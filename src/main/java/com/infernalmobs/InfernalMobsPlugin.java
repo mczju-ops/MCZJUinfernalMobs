@@ -68,6 +68,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         AffixRollService affixRollService = new AffixRollService(configLoader);
         skillService = new SkillService(this, configLoader);
         combatService = new CombatService(this, configLoader);
+        combatService.setSkillService(skillService);
         killStatsService = new KillStatsService(this);
         killStatsService.load();
         DeathMessageService deathMessageService = new DeathMessageService(configLoader);

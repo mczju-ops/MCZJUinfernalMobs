@@ -17,6 +17,23 @@ import java.util.List;
  */
 public class SkillService {
 
+    /** 触发词条卸载的业务原因，便于日志和后续生命周期扩展。 */
+    public enum UnequipReason {
+        DEATH("实体死亡"),
+        ADMIN_REMOVE("管理员主动清除"),
+        MORPH("变形替换旧实体");
+
+        private final String description;
+
+        UnequipReason(String description) {
+            this.description = description;
+        }
+
+        public String description() {
+            return description;
+        }
+    }
+
     private final JavaPlugin plugin;
     private final ConfigLoader config;
 
@@ -60,10 +77,26 @@ public class SkillService {
     }
 
     public void unequip(LivingEntity entity, MobState mobState, List<Affix> affixes) {
-        for (Affix affix : affixes) {
-            SkillContext ctx = new SkillContext(plugin, entity, mobState);
-            ctx.setCurrentTick(0);
-            affix.getSkill().onUnequip(ctx);
+        unequip(entity, mobState, affixes, UnequipReason.DEATH);
+    }
+
+    /**
+     * 终止实体的技能会话。按装配逆序卸载，单个技能失败不能阻断其他技能和实体注销。
+     * 区块卸载、插件关闭不调用此方法，以保留实体上的持久装配效果。
+     */
+    public void unequip(LivingEntity entity, MobState mobState, List<Affix> affixes,
+                        UnequipReason reason) {
+        if (entity == null || mobState == null || affixes == null) return;
+        for (int i = affixes.size() - 1; i >= 0; i--) {
+            Affix affix = affixes.get(i);
+            try {
+                SkillContext ctx = new SkillContext(plugin, entity, mobState);
+                ctx.setCurrentTick(0);
+                affix.getSkill().onUnequip(ctx);
+            } catch (RuntimeException ex) {
+                plugin.getLogger().warning("卸载词条 " + affix.getSkillId() + " 失败（"
+                        + reason.description() + "）：「" + ex.getMessage() + "」");
+            }
         }
     }
 }

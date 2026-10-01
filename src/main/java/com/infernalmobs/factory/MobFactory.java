@@ -280,7 +280,7 @@ public class MobFactory {
         dropPickedUpEquippedItemIfPresent(oldEntity, oldEntity.getUniqueId(), loc, EquipmentSlot.LEGS);
         dropPickedUpEquippedItemIfPresent(oldEntity, oldEntity.getUniqueId(), loc, EquipmentSlot.FEET);
 
-        combatService.unregisterMob(oldEntity.getUniqueId());
+        combatService.unequipAndUnregister(oldEntity, oldState, SkillService.UnequipReason.MORPH);
         oldEntity.remove();
 
         LivingEntity newEntity = (LivingEntity) loc.getWorld().spawnEntity(loc, targetType);

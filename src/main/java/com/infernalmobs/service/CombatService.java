@@ -55,6 +55,7 @@ public class CombatService {
     /** 炒鸡怪捡起的物品（用于 replace-vanilla-drops 时恢复到死亡掉落） */
     private final Map<UUID, List<ItemStack>> pickedUpItems = new ConcurrentHashMap<>();
     private com.infernalmobs.factory.MobFactory mobFactory;
+    private SkillService skillService;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
@@ -63,6 +64,21 @@ public class CombatService {
 
     public void registerMob(UUID entityUuid, MobState state) {
         mobStates.put(entityUuid, state);
+    }
+
+    public void setSkillService(SkillService skillService) {
+        this.skillService = skillService;
+    }
+
+    /** 终止实体技能会话后再注销内存状态。 */
+    public void unequipAndUnregister(LivingEntity entity, MobState state,
+                                     SkillService.UnequipReason reason) {
+        if (entity == null || state == null) return;
+        SkillService currentSkillService = skillService;
+        if (currentSkillService != null) {
+            currentSkillService.unequip(entity, state, state.getProfile().getAffixes(), reason);
+        }
+        unregisterMob(entity.getUniqueId());
     }
 
     public void unregisterMob(UUID entityUuid) {
@@ -629,14 +645,15 @@ public class CombatService {
         int count = 0;
         for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
             LivingEntity entity = findEntity(uuid);
-            if (entity == null || !entity.isValid()) {
+            MobState state = mobStates.get(uuid);
+            if (entity == null || !entity.isValid() || state == null) {
                 unregisterMob(uuid);
                 continue;
             }
             if (!entity.getWorld().equals(center.getWorld())) continue;
             if (center.distanceSquared(entity.getLocation()) > radiusSq) continue;
+            unequipAndUnregister(entity, state, SkillService.UnequipReason.ADMIN_REMOVE);
             entity.remove();
-            unregisterMob(uuid);
             count++;
         }
         return count;
