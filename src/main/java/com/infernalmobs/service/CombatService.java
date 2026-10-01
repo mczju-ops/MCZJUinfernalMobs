@@ -12,12 +12,9 @@ import com.infernalmobs.model.StatMap;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.skill.impl.*;
-import com.infernalmobs.util.Keys;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -25,7 +22,6 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -44,6 +40,7 @@ public class CombatService {
     private final JavaPlugin plugin;
     private final ConfigLoader config;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
+    private final MobStatService mobStatService = new MobStatService();
     private final SpecialDamageService specialDamageService;
     private MobFactory mobFactory;
     private SkillService skillService;
@@ -99,32 +96,14 @@ public class CombatService {
         this.mobFactory = factory;
     }
 
-    /**
-     * 僵尸系炒鸡怪回血上限：按「原版基础 20 血 × 炒鸡等级」封顶。
-     * 头领僵尸等会抬高 MAX_HEALTH，若回血可回到 attr 满血会远超普通 20× 等级；再生/瞬间治疗等统一按此假装仍是普通僵尸血量池。
-     *
-     * @return 非僵尸系返回 {@link Double#POSITIVE_INFINITY} 表示不额外限制
-     */
-    public static double zombieFamilyHealCap(LivingEntity entity, MobState state) {
-        if (entity == null || state == null) return Double.POSITIVE_INFINITY;
-        int lv = Math.max(1, state.getProfile().getLevel());
-        EntityType t = entity.getType();
-        return switch (t) {
-            case ZOMBIE, ZOMBIE_VILLAGER, HUSK, DROWNED, BOGGED -> 20.0 * lv;
-            default -> Double.POSITIVE_INFINITY;
-        };
+    /** 忽略原版领头僵尸额外生命后的恢复上限。 */
+    public static double zombieRecoveryCapWithoutLeaderBonus(LivingEntity entity, MobState state) {
+        return MobStatService.zombieRecoveryCapWithoutLeaderBonus(entity, state);
     }
 
-    /** 获取治疗可达到的生命值上限，同时考虑实体属性、Paper 上限与僵尸系等级上限。 */
+    /** 获取治疗可达到的生命值上限，同时考虑实体属性与领头僵尸加成限制。 */
     public static double healCeiling(LivingEntity entity, MobState state) {
-        var attr = entity.getAttribute(Attribute.MAX_HEALTH);
-        double attrMax = attr != null ? attr.getValue() : entity.getMaxHealth();
-        double paperMax = entity.getMaxHealth();
-        double zCap = zombieFamilyHealCap(entity, state);
-        if (!Double.isInfinite(zCap)) {
-            return Math.min(Math.min(attrMax, zCap), paperMax);
-        }
-        return Math.min(attrMax, paperMax);
+        return MobStatService.healCeiling(entity, state);
     }
 
     /**
@@ -135,29 +114,7 @@ public class CombatService {
      * 例：原 20/80 + Lv10 → 200/800（不会强制回满血）。
      */
     public void applyStats(LivingEntity entity, MobState mobState) {
-        var attr = entity.getAttribute(Attribute.MAX_HEALTH);
-        if (attr != null) {
-            int level = Math.max(1, mobState.getProfile().getLevel());
-            double baseMax = attr.getBaseValue();
-            double baseCurrent = entity.getHealth();
-
-            double newMax = baseMax * level
-                    + mobState.getStatMap().get(StatMap.HP_BONUS);
-            attr.setBaseValue(newMax);
-
-            // 当前血量等比缩放。
-            // Paper 对 setHealth() 的实际上限是 entity.getMaxHealth()（属性值被 MC 原生截断为 1024），
-            // 因此必须以 getMaxHealth() 为上限，否则超 1024 会抛 IllegalArgumentException。
-            double effectiveCap = entity.getMaxHealth();
-            double newCurrent = baseCurrent * level;
-            entity.setHealth(Math.max(0.1, Math.min(effectiveCap, newCurrent)));
-        }
-
-        double speedBonus = mobState.getStatMap().get(StatMap.SPEED_MULTIPLIER);
-        if (speedBonus != 0 && entity.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
-            double base = entity.getAttribute(Attribute.MOVEMENT_SPEED).getBaseValue();
-            entity.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(base * (1 + speedBonus));
-        }
+        mobStatService.applyStats(entity, mobState);
     }
 
     /**

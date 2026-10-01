@@ -242,16 +242,14 @@ public class CombatListener implements Listener {
         }
     }
 
-    /**
-     * 僵尸系炒鸡怪：再生、瞬间治疗等回血按「原版 20 血 × 等级」封顶，避免头领僵尸抬高的 MAX_HEALTH 被回满导致超模。
-     */
+    /** 避免再生等效果把原版领头僵尸的随机额外生命也恢复满。 */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityRegainHealth(EntityRegainHealthEvent event) {
         if (!(event.getEntity() instanceof LivingEntity le)) return;
         if (event.getAmount() <= 0) return;
         MobState state = combatService.getMobState(le.getUniqueId());
         if (state == null) return;
-        double zCap = CombatService.zombieFamilyHealCap(le, state);
+        double zCap = CombatService.zombieRecoveryCapWithoutLeaderBonus(le, state);
         if (Double.isInfinite(zCap)) return;
         double cap = Math.min(zCap, le.getMaxHealth());
         double cur = le.getHealth();

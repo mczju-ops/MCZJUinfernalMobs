@@ -74,7 +74,7 @@ public class Stat1upSkill implements Skill {
     private double getHealCeiling(LivingEntity entity, MobState mobState) {
         var attr = entity.getAttribute(Attribute.MAX_HEALTH);
         double maxHp = attr != null ? attr.getValue() : entity.getMaxHealth();
-        double zCap = CombatService.zombieFamilyHealCap(entity, mobState);
+        double zCap = CombatService.zombieRecoveryCapWithoutLeaderBonus(entity, mobState);
         if (!Double.isInfinite(zCap)) {
             maxHp = Math.min(maxHp, zCap);
         }
