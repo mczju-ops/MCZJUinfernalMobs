@@ -24,7 +24,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -61,6 +60,10 @@ public class CombatService {
 
     public void setSkillService(SkillService skillService) {
         this.skillService = skillService;
+    }
+
+    public SpecialDamageService getSpecialDamageService() {
+        return specialDamageService;
     }
 
     /** 终止实体技能会话后再注销内存状态。 */
@@ -233,51 +236,6 @@ public class CombatService {
             affix.getSkill().onTrigger(ctx, sc);
             if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldownTicks);
         }
-    }
-
-    /**
-     * 处理火球命中：命中实体/方块都允许爆炸，仅对直接命中的实体补火。擦肩而过不点燃由火球 setFireTicks(0) 保证。
-     */
-    public void onProjectileHit(ProjectileHitEvent event) {
-        var projectilePdc = event.getEntity().getPersistentDataContainer();
-        if (!projectilePdc.has(Keys.GHASTLY_DAMAGE,
-                PersistentDataType.DOUBLE)) return;
-        int fireTicks = 0;
-        Integer recordedFireTicks = projectilePdc.get(Keys.GHASTLY_FIRE_TICKS,
-                PersistentDataType.INTEGER);
-        if (recordedFireTicks != null) fireTicks = recordedFireTicks;
-        if (event.getHitEntity() instanceof LivingEntity hit) {
-            if (fireTicks > 0) hit.setFireTicks(Math.max(hit.getFireTicks(), fireTicks));
-        }
-        // 不 cancel，命中实体或方块都按 ExplosionPower 爆炸
-    }
-
-    /**
-     * 广播 ghastly 火球的逐受害者伤害事件；直击使用配置伤害，爆炸保留原版距离衰减。
-     */
-    public void handleGhastlyDamage(EntityDamageByEntityEvent event) {
-        specialDamageService.handleGhastlyDamage(event);
-    }
-
-    /**
-     * 广播 necromancer 凋灵之首的逐受害者伤害事件。
-     */
-    public void handleNecromancerDamage(EntityDamageByEntityEvent event) {
-        specialDamageService.handleNecromancerDamage(event);
-    }
-
-    /**
-     * 广播 storm 真实闪电的逐受害者伤害事件，并应用 Triggered 事件确定的基础伤害。
-     */
-    public void handleStormDamage(EntityDamageByEntityEvent event) {
-        specialDamageService.handleStormDamage(event);
-    }
-
-    /**
-     * 烟花爆炸伤害归因到释放技能的怪物，使死亡信息等显示正确来源。
-     */
-    public void handleFireworkDamage(EntityDamageByEntityEvent event) {
-        specialDamageService.handleFireworkDamage(event);
     }
 
     private volatile long currentTick = 0;

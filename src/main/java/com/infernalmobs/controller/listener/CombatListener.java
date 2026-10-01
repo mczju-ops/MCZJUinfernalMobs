@@ -12,6 +12,7 @@ import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.SkillService;
+import com.infernalmobs.service.SpecialDamageService;
 import com.infernalmobs.util.MiniMessageHelper;
 import com.infernalmobs.util.GuaranteedEquipmentDrops;
 import com.infernalmobs.util.Keys;
@@ -43,6 +44,7 @@ public class CombatListener implements Listener {
 
     private final JavaPlugin plugin;
     private final CombatService combatService;
+    private final SpecialDamageService specialDamageService;
     private final DeathMessageService deathMessageService;
     private final KillStatsService killStatsService;
 
@@ -50,6 +52,7 @@ public class CombatListener implements Listener {
                           KillStatsService killStatsService) {
         this.plugin = plugin;
         this.combatService = combatService;
+        this.specialDamageService = combatService.getSpecialDamageService();
         this.deathMessageService = deathMessageService;
         this.killStatsService = killStatsService;
     }
@@ -59,13 +62,13 @@ public class CombatListener implements Listener {
         if (event.getDamager() instanceof Firework fw
                 && fw.getPersistentDataContainer().has(Keys.FIREWORK_SOURCE,
                 org.bukkit.persistence.PersistentDataType.STRING)) {
-            combatService.handleFireworkDamage(event);
+            specialDamageService.handleFireworkDamage(event);
             return;
         }
 
-        combatService.handleGhastlyDamage(event); // 处理 ghastly 词条造成的火球伤害
-        combatService.handleNecromancerDamage(event); // 处理 necromancer 词条造成的凋灵之首伤害
-        combatService.handleStormDamage(event); // 处理 storm 词条造成的真实闪电伤害
+        specialDamageService.handleGhastlyDamage(event); // 处理 ghastly 词条造成的火球伤害
+        specialDamageService.handleNecromancerDamage(event); // 处理 necromancer 词条造成的凋灵之首伤害
+        specialDamageService.handleStormDamage(event); // 处理 storm 词条造成的真实闪电伤害
 
         if (event.getEntity() instanceof LivingEntity victim) {
             Player attackingPlayer = null;
@@ -264,7 +267,7 @@ public class CombatListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onProjectileHit(ProjectileHitEvent event) {
-        combatService.onProjectileHit(event);
+        specialDamageService.handleProjectileHit(event);
     }
 
 }

@@ -16,6 +16,7 @@ import org.bukkit.entity.WitherSkull;
 import org.bukkit.NamespacedKey;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -29,6 +30,17 @@ public final class SpecialDamageService {
 
     public SpecialDamageService(JavaPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /** 处理 ghastly 火球命中后的持续燃烧；不取消原版爆炸。 */
+    public void handleProjectileHit(ProjectileHitEvent event) {
+        var projectilePdc = event.getEntity().getPersistentDataContainer();
+        if (!projectilePdc.has(Keys.GHASTLY_DAMAGE, PersistentDataType.DOUBLE)) return;
+        Integer fireTicks = projectilePdc.get(Keys.GHASTLY_FIRE_TICKS, PersistentDataType.INTEGER);
+        if (event.getHitEntity() instanceof LivingEntity hit && fireTicks != null && fireTicks > 0) {
+            hit.setFireTicks(Math.max(hit.getFireTicks(), fireTicks));
+        }
+        // 不 cancel，命中实体或方块都按 ExplosionPower 爆炸。
     }
 
     /** 将烟花爆炸伤害归因到释放它的炒鸡怪，并保留可取消/改伤害事件语义。 */
