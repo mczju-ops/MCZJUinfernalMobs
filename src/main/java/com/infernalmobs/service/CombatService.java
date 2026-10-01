@@ -41,6 +41,7 @@ public class CombatService {
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
     private final MobStatService mobStatService = new MobStatService();
     private final RangeSkillService rangeSkillService;
+    private final AttackSkillService attackSkillService;
     private final SpecialDamageService specialDamageService;
     private MobFactory mobFactory;
     private SkillService skillService;
@@ -50,6 +51,7 @@ public class CombatService {
         this.config = config;
         this.specialDamageService = new SpecialDamageService(plugin);
         this.rangeSkillService = new RangeSkillService(plugin, config);
+        this.attackSkillService = new AttackSkillService(plugin, config);
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
@@ -135,8 +137,8 @@ public class CombatService {
             }
         }
         if (event.isCancelled()) return;
-        triggerActiveSkills(event, damager, victim, mobState);
-        triggerDualSkills(damager, victim, mobState);
+        attackSkillService.triggerMobAttackSkills(event, damager, victim, mobState,
+                currentTick, mobFactory);
     }
 
     /**
@@ -179,21 +181,8 @@ public class CombatService {
      * 玩家攻击怪物时，触发 PASSIVE 与 DUAL 技能。
      */
     public void onPlayerAttackMob(EntityDamageByEntityEvent event, LivingEntity victim, Player damager, MobState mobState) {
-        for (Affix affix : mobState.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.PASSIVE && affix.getSkill().getType() != SkillType.DUAL) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-            int cooldownTicks = sc.getInt("cooldown-ticks", affix.getSkill().getType() == SkillType.DUAL ? 60 : 0);
-            if (cooldownTicks > 0 && mobState.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-            SkillContext ctx = new SkillContext(plugin, victim, mobState);
-            ctx.setTargetPlayer(damager);
-            ctx.setTriggerEvent(event);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixAttemptEvent(affix, ctx, victim, damager, mobState)) continue;
-            affix.getSkill().onTrigger(ctx, sc);
-            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldownTicks);
-        }
+        attackSkillService.triggerPlayerAttackSkills(event, victim, damager, mobState,
+                currentTick, mobFactory);
     }
 
     private volatile long currentTick = 0;
@@ -222,46 +211,6 @@ public class CombatService {
     /** 关服时只释放内存引用；实体状态已在每次变化时同步到 PDC。 */
     public void shutdown() {
         mobRegistry.clear();
-    }
-
-    /**
-     * 怪物对玩家造成伤害时触发 ACTIVE 技能。
-     */
-    private void triggerActiveSkills(EntityDamageByEntityEvent event, LivingEntity damager,
-                                     Player victim, MobState state) {
-        for (Affix affix : state.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.ACTIVE) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-            int cooldown = sc.getInt("cooldown-ticks", 100);
-            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-            SkillContext ctx = new SkillContext(plugin, damager, state);
-            ctx.setTargetPlayer(victim);
-            ctx.setTriggerEvent(event);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixAttemptEvent(affix, ctx, damager, victim, state)) continue;
-            affix.getSkill().onTrigger(ctx, sc);
-            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldown);
-        }
-    }
-
-    /** DUAL 技能：怪物攻击玩家时触发 */
-    private void triggerDualSkills(LivingEntity damager, Player victim, MobState state) {
-        for (Affix affix : state.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.DUAL) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-            int cooldown = sc.getInt("cooldown-ticks", 60);
-            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-            SkillContext ctx = new SkillContext(plugin, damager, state);
-            ctx.setTargetPlayer(victim);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixAttemptEvent(affix, ctx, damager, victim, state)) continue;
-            affix.getSkill().onTrigger(ctx, sc);
-            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldown);
-        }
     }
 
     /**
