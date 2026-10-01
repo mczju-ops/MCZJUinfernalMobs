@@ -22,10 +22,11 @@ public final class DeathSkillService {
     private final ConfigLoader config;
     private final SkillAttemptService skillAttemptService;
 
-    public DeathSkillService(JavaPlugin plugin, ConfigLoader config) {
+    public DeathSkillService(JavaPlugin plugin, ConfigLoader config,
+                             SkillAttemptService skillAttemptService) {
         this.plugin = plugin;
         this.config = config;
-        this.skillAttemptService = new SkillAttemptService(plugin);
+        this.skillAttemptService = skillAttemptService;
     }
 
     /**

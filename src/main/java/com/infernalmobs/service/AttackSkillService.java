@@ -19,10 +19,11 @@ public final class AttackSkillService {
     private final ConfigLoader config;
     private final SkillAttemptService skillAttemptService;
 
-    public AttackSkillService(JavaPlugin plugin, ConfigLoader config) {
+    public AttackSkillService(JavaPlugin plugin, ConfigLoader config,
+                              SkillAttemptService skillAttemptService) {
         this.plugin = plugin;
         this.config = config;
-        this.skillAttemptService = new SkillAttemptService(plugin);
+        this.skillAttemptService = skillAttemptService;
     }
 
     /** 怪物攻击玩家时触发 ACTIVE 与 DUAL 技能。 */

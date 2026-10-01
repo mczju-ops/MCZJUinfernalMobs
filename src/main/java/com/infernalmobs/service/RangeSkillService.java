@@ -20,10 +20,11 @@ public final class RangeSkillService {
     private final ConfigLoader config;
     private final SkillAttemptService skillAttemptService;
 
-    public RangeSkillService(JavaPlugin plugin, ConfigLoader config) {
+    public RangeSkillService(JavaPlugin plugin, ConfigLoader config,
+                             SkillAttemptService skillAttemptService) {
         this.plugin = plugin;
         this.config = config;
-        this.skillAttemptService = new SkillAttemptService(plugin);
+        this.skillAttemptService = skillAttemptService;
     }
 
     /** 每次调用检查一个实体的所有范围技能；调用频率由 CombatService 控制。 */

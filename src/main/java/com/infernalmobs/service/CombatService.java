@@ -3,7 +3,6 @@ package com.infernalmobs.service;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
-import com.infernalmobs.skill.impl.*;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -28,7 +27,8 @@ import java.util.*;
  */
 public class CombatService {
 
-    private static final long TICK_INTERVAL = 20L;
+    private static final long TICK_INTERVAL = 5L;
+    private static final long RANGE_CHECK_INTERVAL = 20L;
 
     private final JavaPlugin plugin;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
@@ -39,16 +39,18 @@ public class CombatService {
     private final DeathSkillService deathSkillService;
     private final DamageReactionSkillService damageReactionSkillService;
     private final SpecialDamageService specialDamageService;
+    private final SkillAttemptService skillAttemptService;
     private MobFactory mobFactory;
     private SkillService skillService;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.specialDamageService = new SpecialDamageService(plugin);
-        this.rangeSkillService = new RangeSkillService(plugin, config);
-        this.attackSkillService = new AttackSkillService(plugin, config);
+        this.skillAttemptService = new SkillAttemptService(plugin);
+        this.rangeSkillService = new RangeSkillService(plugin, config, skillAttemptService);
+        this.attackSkillService = new AttackSkillService(plugin, config, skillAttemptService);
         this.attackDamageService = new AttackDamageService();
-        this.deathSkillService = new DeathSkillService(plugin, config);
+        this.deathSkillService = new DeathSkillService(plugin, config, skillAttemptService);
         this.damageReactionSkillService = new DamageReactionSkillService(plugin, config);
     }
 
@@ -148,7 +150,7 @@ public class CombatService {
     private long currentTick = 0;
     private BukkitTask tickTask;
 
-    /** 启动战斗周期任务；实体何时自然消失完全交给服务端原版规则。 */
+    /** 启动战斗周期任务；普通战斗时钟每 5 tick 推进，范围技能每 20 tick 检查一次。 */
     public void startTickTask() {
         if (tickTask != null && !tickTask.isCancelled()) return;
         tickTask = new BukkitRunnable() {
@@ -161,7 +163,9 @@ public class CombatService {
                         unregisterMob(e.getKey());
                         continue;
                     }
-                    rangeSkillService.tick(entity, e.getValue(), currentTick, mobFactory);
+                    if (currentTick % RANGE_CHECK_INTERVAL == 0) {
+                        rangeSkillService.tick(entity, e.getValue(), currentTick, mobFactory);
+                    }
                 }
             }
         }.runTaskTimer(plugin, TICK_INTERVAL, TICK_INTERVAL);
