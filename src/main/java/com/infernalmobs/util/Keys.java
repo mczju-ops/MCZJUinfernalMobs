@@ -71,4 +71,10 @@ public final class Keys {
     public static final NamespacedKey GHASTLY_LEVEL = key("infernalmobs_ghastly_level");
     public static final NamespacedKey GHASTLY_DAMAGE = key("infernalmobs_ghastly_damage");
     public static final NamespacedKey GHASTLY_FIRE_TICKS = key("infernalmobs_ghastly_fire_ticks");
+    public static final NamespacedKey NECROMANCER_SOURCE = key("infernalmobs_source");
+    public static final NamespacedKey NECROMANCER_SKILL_ID = key("infernalmobs_necromancer_skill_id");
+    public static final NamespacedKey NECROMANCER_HANDLE_AFFIXES = key("infernalmobs_necromancer_handle_affixes");
+    public static final NamespacedKey NECROMANCER_HANDLE_SUPPRESSED = key("infernalmobs_necromancer_handle_suppressed");
+    public static final NamespacedKey NECROMANCER_HANDLE_DISPLAY_NAME = key("infernalmobs_necromancer_handle_display_name");
+    public static final NamespacedKey NECROMANCER_LEVEL = key("infernalmobs_necromancer_level");
 }

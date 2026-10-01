@@ -9,10 +9,12 @@ import com.infernalmobs.api.event.affix.effect.InfernalMobStormDamageEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
+import com.infernalmobs.model.StatMap;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import com.infernalmobs.skill.impl.RangeSpearSkill;
+import com.infernalmobs.skill.impl.*;
 import com.infernalmobs.util.Keys;
 import com.infernalmobs.util.PdcHandleCodec;
 import org.bukkit.GameMode;
@@ -31,7 +33,6 @@ import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.MetadataValue;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -52,7 +53,7 @@ public class CombatService {
     private final ConfigLoader config;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
     private final SpecialDamageService specialDamageService;
-    private com.infernalmobs.factory.MobFactory mobFactory;
+    private MobFactory mobFactory;
     private SkillService skillService;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
@@ -98,7 +99,7 @@ public class CombatService {
         return mobRegistry.snapshot();
     }
 
-    public void setMobFactory(com.infernalmobs.factory.MobFactory factory) {
+    public void setMobFactory(MobFactory factory) {
         this.mobFactory = factory;
     }
 
@@ -145,7 +146,7 @@ public class CombatService {
             double baseCurrent = entity.getHealth();
 
             double newMax = baseMax * level
-                    + mobState.getStatMap().get(com.infernalmobs.model.StatMap.HP_BONUS);
+                    + mobState.getStatMap().get(StatMap.HP_BONUS);
             attr.setBaseValue(newMax);
 
             // 当前血量等比缩放。
@@ -156,7 +157,7 @@ public class CombatService {
             entity.setHealth(Math.max(0.1, Math.min(effectiveCap, newCurrent)));
         }
 
-        double speedBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.SPEED_MULTIPLIER);
+        double speedBonus = mobState.getStatMap().get(StatMap.SPEED_MULTIPLIER);
         if (speedBonus != 0 && entity.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
             double base = entity.getAttribute(Attribute.MOVEMENT_SPEED).getBaseValue();
             entity.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(base * (1 + speedBonus));
@@ -169,7 +170,7 @@ public class CombatService {
     public void onMobAttack(EntityDamageByEntityEvent event, LivingEntity damager, Player victim, MobState mobState) {
         if (event.getCause() == EntityDamageEvent.DamageCause.THORNS) return;
 
-        double damageBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.DAMAGE_BONUS);
+        double damageBonus = mobState.getStatMap().get(StatMap.DAMAGE_BONUS);
         if (damageBonus > 0) {
             event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) + damageBonus);
         }
@@ -195,7 +196,7 @@ public class CombatService {
             if (!"1up".equals(affix.getSkillId())) continue;
             if (state.hasUsedOneTime("1up")) continue;
 
-            com.infernalmobs.config.SkillConfig sc = config.getSkillConfig("1up");
+            SkillConfig sc = config.getSkillConfig("1up");
             if (sc == null) continue;
 
             double threshold = sc.getDouble("hp-threshold", 8);
@@ -203,7 +204,7 @@ public class CombatService {
             if (healthAfter > threshold) continue;   // 还在阈值以上，不触发
             if (healthAfter <= 0) continue;          // 致命一击，不拦截，让怪直接死亡
 
-            if (!(affix.getSkill() instanceof com.infernalmobs.skill.impl.Stat1upSkill skill)) continue;
+            if (!(affix.getSkill() instanceof Stat1upSkill skill)) continue;
             double recoveryAmount = skill.calculateRecoveryAmount(victim, state);
             if (!state.useOneTimeIfNotUsed("1up")) continue;
 
@@ -302,23 +303,30 @@ public class CombatService {
      */
     public void handleNecromancerDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof WitherSkull witherSkull)) return;
-        List<MetadataValue> skillMetadata = witherSkull.getMetadata("infernalmobs_skill_id");
-        if (skillMetadata.isEmpty() || !"necromancer".equals(skillMetadata.getFirst().asString())) return;
+        var pdc = witherSkull.getPersistentDataContainer();
+        String skillId = pdc.get(Keys.NECROMANCER_SKILL_ID,
+                PersistentDataType.STRING);
+        if (!"necromancer".equals(skillId)) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
 
-        List<MetadataValue> sourceMetadata = witherSkull.getMetadata("infernalmobs_source");
-        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
+        String source = pdc.get(Keys.NECROMANCER_SOURCE,
+                PersistentDataType.STRING);
+        if (source == null) return;
+        UUID mobUuid;
+        try { mobUuid = UUID.fromString(source); } catch (IllegalArgumentException ex) { return; }
         LivingEntity mob = findEntity(mobUuid);
         if (mob == null || !mob.isValid()) return;
 
-        List<MetadataValue> handleMetadata = witherSkull.getMetadata("infernalmobs_necromancer_handle");
-        if (handleMetadata.isEmpty()
-                || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
-        List<MetadataValue> levelMetadata = witherSkull.getMetadata("infernalmobs_necromancer_level");
-        if (levelMetadata.isEmpty()) return;
+        Integer level = pdc.get(Keys.NECROMANCER_LEVEL,
+                PersistentDataType.INTEGER);
+        if (level == null) return;
+        InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
+                Keys.NECROMANCER_HANDLE_AFFIXES, Keys.NECROMANCER_HANDLE_SUPPRESSED,
+                Keys.NECROMANCER_HANDLE_DISPLAY_NAME);
+        if (handle == null) return;
 
         InfernalMobNecromancerDamageEvent damageEvent = new InfernalMobNecromancerDamageEvent(
-                mob, victim, witherSkull, handle, levelMetadata.getFirst().asInt(),
+                mob, victim, witherSkull, handle, level,
                 event.getCause(), event.getDamage());
         plugin.getServer().getPluginManager().callEvent(damageEvent);
         if (damageEvent.isCancelled()) {
@@ -421,7 +429,7 @@ public class CombatService {
 
             // ghastly 与 necromancer 共享投射物冷却，错开释放
             if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
-                long lastProj = state.getBuff(com.infernalmobs.skill.impl.RangeNecromancerSkill.PROJECTILE_BUFF);
+                long lastProj = state.getBuff(RangeNecromancerSkill.PROJECTILE_BUFF);
                 if (lastProj > 0 && currentTick - lastProj < 40) continue;
             }
 
@@ -438,7 +446,7 @@ public class CombatService {
             if (ctx.isTriggered()) {
                 ctx.commitCooldown(affix.getSkillId(), cooldown);
                 if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
-                    state.setBuff(com.infernalmobs.skill.impl.RangeNecromancerSkill.PROJECTILE_BUFF, currentTick);
+                    state.setBuff(RangeNecromancerSkill.PROJECTILE_BUFF, currentTick);
                 }
             }
         }

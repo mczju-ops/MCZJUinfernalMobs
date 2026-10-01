@@ -208,6 +208,9 @@ public class DeathMessageService {
         pdcSkill = entity.getPersistentDataContainer().get(
                 Keys.GHASTLY_SKILL_ID, PersistentDataType.STRING);
         if (pdcSkill != null) return pdcSkill;
+        pdcSkill = entity.getPersistentDataContainer().get(
+                Keys.NECROMANCER_SKILL_ID, PersistentDataType.STRING);
+        if (pdcSkill != null) return pdcSkill;
         if (!entity.hasMetadata("infernalmobs_skill_id")) return null;
         var values = entity.getMetadata("infernalmobs_skill_id");
         return values.isEmpty() ? null : values.getFirst().asString();
@@ -244,6 +247,17 @@ public class DeathMessageService {
                 if (ghastlySource != null) {
                     try {
                         casterUuid = UUID.fromString(ghastlySource);
+                    } catch (IllegalArgumentException ignored) {
+                        return null;
+                    }
+                }
+            }
+            if (casterUuid == null) {
+                String necromancerSource = damager.getPersistentDataContainer().get(
+                        Keys.NECROMANCER_SOURCE, PersistentDataType.STRING);
+                if (necromancerSource != null) {
+                    try {
+                        casterUuid = UUID.fromString(necromancerSource);
                     } catch (IllegalArgumentException ignored) {
                         return null;
                     }
