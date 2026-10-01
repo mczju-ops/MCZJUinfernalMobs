@@ -208,6 +208,9 @@ public class DeathMessageService {
         String pdcSkill = entity.getPersistentDataContainer().get(
                 Keys.FIREWORK_SKILL_ID, PersistentDataType.STRING);
         if (pdcSkill != null) return pdcSkill;
+        pdcSkill = entity.getPersistentDataContainer().get(
+                Keys.STORM_SKILL_ID, PersistentDataType.STRING);
+        if (pdcSkill != null) return pdcSkill;
         if (!entity.hasMetadata("infernalmobs_skill_id")) return null;
         var values = entity.getMetadata("infernalmobs_skill_id");
         return values.isEmpty() ? null : values.getFirst().asString();
@@ -224,9 +227,20 @@ public class DeathMessageService {
             } catch (IllegalArgumentException ignored) {
                 return null;
             }
-        } else if (damager.hasMetadata("infernalmobs_source")) {
-            var v = damager.getMetadata("infernalmobs_source");
-            if (!v.isEmpty() && v.getFirst().value() instanceof java.util.UUID u) casterUuid = u;
+        } else {
+            String stormSource = damager.getPersistentDataContainer().get(
+                    Keys.STORM_SOURCE, PersistentDataType.STRING);
+            if (stormSource != null) {
+                try {
+                    casterUuid = java.util.UUID.fromString(stormSource);
+                } catch (IllegalArgumentException ignored) {
+                    return null;
+                }
+            }
+            if (casterUuid == null && damager.hasMetadata("infernalmobs_source")) {
+                var v = damager.getMetadata("infernalmobs_source");
+                if (!v.isEmpty() && v.getFirst().value() instanceof java.util.UUID u) casterUuid = u;
+            }
         }
         if (casterUuid == null || combatService == null) return null;
         com.infernalmobs.model.MobState state = combatService.getMobState(casterUuid);

@@ -13,6 +13,9 @@ import com.infernalmobs.model.MobState;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.skill.impl.RangeSpearSkill;
+import com.infernalmobs.util.Keys;
+import com.infernalmobs.util.PdcHandleCodec;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
@@ -29,6 +32,7 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.MetadataValue;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -323,27 +327,35 @@ public class CombatService {
      */
     public void handleStormDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof LightningStrike lightning)) return;
-        List<MetadataValue> skillMetadata = lightning.getMetadata("infernalmobs_skill_id");
-        if (skillMetadata.isEmpty() || !"storm".equals(skillMetadata.getFirst().asString())) return;
+        var pdc = lightning.getPersistentDataContainer();
+        String skillId = pdc.get(Keys.STORM_SKILL_ID, PersistentDataType.STRING);
+        if (!"storm".equals(skillId)) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
 
-        List<MetadataValue> damageMetadata = lightning.getMetadata("infernalmobs_damage");
-        if (damageMetadata.isEmpty()) return;
-        event.setDamage(Math.max(0.0, damageMetadata.getFirst().asDouble()));
+        Double recordedDamage = pdc.get(Keys.STORM_DAMAGE, PersistentDataType.DOUBLE);
+        if (recordedDamage == null) return;
+        event.setDamage(Math.max(0.0, recordedDamage));
 
-        List<MetadataValue> sourceMetadata = lightning.getMetadata("infernalmobs_source");
-        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
+        String source = pdc.get(Keys.STORM_SOURCE, PersistentDataType.STRING);
+        if (source == null) return;
+        UUID mobUuid;
+        try {
+            mobUuid = UUID.fromString(source);
+        } catch (IllegalArgumentException ex) {
+            return;
+        }
         LivingEntity mob = findEntity(mobUuid);
         if (mob == null || !mob.isValid()) return;
 
-        List<MetadataValue> handleMetadata = lightning.getMetadata("infernalmobs_storm_handle");
-        if (handleMetadata.isEmpty()
-                || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
-        List<MetadataValue> levelMetadata = lightning.getMetadata("infernalmobs_storm_level");
-        if (levelMetadata.isEmpty()) return;
+        Integer level = pdc.get(Keys.STORM_LEVEL, PersistentDataType.INTEGER);
+        if (level == null) return;
+        InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
+                Keys.STORM_HANDLE_AFFIXES, Keys.STORM_HANDLE_SUPPRESSED,
+                Keys.STORM_HANDLE_DISPLAY_NAME);
+        if (handle == null) return;
 
         InfernalMobStormDamageEvent damageEvent = new InfernalMobStormDamageEvent(
-                mob, victim, lightning, handle, levelMetadata.getFirst().asInt(), event.getDamage());
+                mob, victim, lightning, handle, level, event.getDamage());
         plugin.getServer().getPluginManager().callEvent(damageEvent);
         if (damageEvent.isCancelled() || damageEvent.getDamage() <= 0.0) {
             event.setCancelled(true);
@@ -544,7 +556,7 @@ public class CombatService {
         Player nearest = null;
         double minSq = range * range;
         for (Player p : entity.getWorld().getPlayers()) {
-            if (!p.isOnline() || p.getGameMode() == org.bukkit.GameMode.SPECTATOR) continue;
+            if (!p.isOnline() || p.getGameMode() == GameMode.SPECTATOR) continue;
             double dSq = p.getLocation().distanceSquared(entity.getLocation());
             if (dSq < minSq) {
                 minSq = dSq;

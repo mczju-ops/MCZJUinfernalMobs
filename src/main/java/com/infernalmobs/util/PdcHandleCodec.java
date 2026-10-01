@@ -1,6 +1,7 @@
 package com.infernalmobs.util;
 
 import com.infernalmobs.api.InfernalMobHandle;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -14,21 +15,37 @@ public final class PdcHandleCodec {
     private PdcHandleCodec() {}
 
     public static void write(PersistentDataContainer pdc, InfernalMobHandle handle) {
-        pdc.set(Keys.FIREWORK_HANDLE_AFFIXES, PersistentDataType.STRING,
+        write(pdc, handle, Keys.FIREWORK_HANDLE_AFFIXES, Keys.FIREWORK_HANDLE_SUPPRESSED,
+                Keys.FIREWORK_HANDLE_DISPLAY_NAME);
+    }
+
+    public static void write(PersistentDataContainer pdc, InfernalMobHandle handle,
+                             NamespacedKey affixesKey,
+                             NamespacedKey suppressedKey,
+                             NamespacedKey displayNameKey) {
+        pdc.set(affixesKey, PersistentDataType.STRING,
                 String.join(",", handle.getAffixIds()));
-        pdc.set(Keys.FIREWORK_HANDLE_SUPPRESSED, PersistentDataType.STRING,
+        pdc.set(suppressedKey, PersistentDataType.STRING,
                 String.join(",", handle.getSuppressedAffixIds()));
         if (handle.getDisplayName() == null) {
-            pdc.remove(Keys.FIREWORK_HANDLE_DISPLAY_NAME);
+            pdc.remove(displayNameKey);
         } else {
-            pdc.set(Keys.FIREWORK_HANDLE_DISPLAY_NAME, PersistentDataType.STRING, handle.getDisplayName());
+            pdc.set(displayNameKey, PersistentDataType.STRING, handle.getDisplayName());
         }
     }
 
     public static InfernalMobHandle read(PersistentDataContainer pdc, LivingEntity entity, int level) {
-        String affixes = pdc.get(Keys.FIREWORK_HANDLE_AFFIXES, PersistentDataType.STRING);
-        String suppressed = pdc.get(Keys.FIREWORK_HANDLE_SUPPRESSED, PersistentDataType.STRING);
-        String displayName = pdc.get(Keys.FIREWORK_HANDLE_DISPLAY_NAME, PersistentDataType.STRING);
+        return read(pdc, entity, level, Keys.FIREWORK_HANDLE_AFFIXES, Keys.FIREWORK_HANDLE_SUPPRESSED,
+                Keys.FIREWORK_HANDLE_DISPLAY_NAME);
+    }
+
+    public static InfernalMobHandle read(PersistentDataContainer pdc, LivingEntity entity, int level,
+                                          NamespacedKey affixesKey,
+                                          NamespacedKey suppressedKey,
+                                          NamespacedKey displayNameKey) {
+        String affixes = pdc.get(affixesKey, PersistentDataType.STRING);
+        String suppressed = pdc.get(suppressedKey, PersistentDataType.STRING);
+        String displayName = pdc.get(displayNameKey, PersistentDataType.STRING);
         if (affixes == null || suppressed == null) return null;
 
         var affixIds = split(affixes);

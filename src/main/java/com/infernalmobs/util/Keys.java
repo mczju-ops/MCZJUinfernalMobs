@@ -56,4 +56,11 @@ public final class Keys {
     public static final NamespacedKey FIREWORK_HANDLE_DISPLAY_NAME = key("infernalmobs_firework_handle_display_name");
     public static final NamespacedKey FIREWORK_LEVEL = key("infernalmobs_firework_level");
     public static final NamespacedKey FIREWORK_SKILL_ID = key("infernalmobs_skill_id");
+    public static final NamespacedKey STORM_SOURCE = key("infernalmobs_source");
+    public static final NamespacedKey STORM_SKILL_ID = key("infernalmobs_storm_skill_id");
+    public static final NamespacedKey STORM_HANDLE_AFFIXES = key("infernalmobs_storm_handle_affixes");
+    public static final NamespacedKey STORM_HANDLE_SUPPRESSED = key("infernalmobs_storm_handle_suppressed");
+    public static final NamespacedKey STORM_HANDLE_DISPLAY_NAME = key("infernalmobs_storm_handle_display_name");
+    public static final NamespacedKey STORM_LEVEL = key("infernalmobs_storm_level");
+    public static final NamespacedKey STORM_DAMAGE = key("infernalmobs_damage");
 }
