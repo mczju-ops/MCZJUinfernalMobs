@@ -3,9 +3,6 @@ package com.infernalmobs.service;
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
-import com.infernalmobs.api.event.affix.effect.InfernalMobGhastlyDamageEvent;
-import com.infernalmobs.api.event.affix.effect.InfernalMobNecromancerDamageEvent;
-import com.infernalmobs.api.event.affix.effect.InfernalMobStormDamageEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
@@ -16,17 +13,13 @@ import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.skill.impl.*;
 import com.infernalmobs.util.Keys;
-import com.infernalmobs.util.PdcHandleCodec;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Fireball;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.LightningStrike;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.WitherSkull;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
@@ -263,119 +256,21 @@ public class CombatService {
      * 广播 ghastly 火球的逐受害者伤害事件；直击使用配置伤害，爆炸保留原版距离衰减。
      */
     public void handleGhastlyDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Fireball fireball)) return;
-        var pdc = fireball.getPersistentDataContainer();
-        String skillId = pdc.get(Keys.GHASTLY_SKILL_ID, PersistentDataType.STRING);
-        if (!"ghastly".equals(skillId)) return;
-        if (!(event.getEntity() instanceof LivingEntity victim)) return;
-
-        String source = pdc.get(Keys.GHASTLY_SOURCE, PersistentDataType.STRING);
-        if (source == null) return;
-        UUID mobUuid;
-        try { mobUuid = UUID.fromString(source); } catch (IllegalArgumentException ex) { return; }
-        LivingEntity mob = findEntity(mobUuid);
-        if (mob == null || !mob.isValid()) return;
-
-        Integer level = pdc.get(Keys.GHASTLY_LEVEL, PersistentDataType.INTEGER);
-        if (level == null) return;
-        InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
-                Keys.GHASTLY_HANDLE_AFFIXES, Keys.GHASTLY_HANDLE_SUPPRESSED,
-                Keys.GHASTLY_HANDLE_DISPLAY_NAME);
-        if (handle == null) return;
-
-        if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
-            Double directDamage = pdc.get(Keys.GHASTLY_DAMAGE, PersistentDataType.DOUBLE);
-            if (directDamage != null) event.setDamage(Math.max(0.0, directDamage));
-        }
-
-        InfernalMobGhastlyDamageEvent damageEvent = new InfernalMobGhastlyDamageEvent(
-                mob, victim, fireball, handle, level, event.getCause(), event.getDamage());
-        plugin.getServer().getPluginManager().callEvent(damageEvent);
-        if (damageEvent.isCancelled()) {
-            event.setCancelled(true);
-            return;
-        }
-        event.setDamage(damageEvent.getDamage());
+        specialDamageService.handleGhastlyDamage(event);
     }
 
     /**
      * 广播 necromancer 凋灵之首的逐受害者伤害事件。
      */
     public void handleNecromancerDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof WitherSkull witherSkull)) return;
-        var pdc = witherSkull.getPersistentDataContainer();
-        String skillId = pdc.get(Keys.NECROMANCER_SKILL_ID,
-                PersistentDataType.STRING);
-        if (!"necromancer".equals(skillId)) return;
-        if (!(event.getEntity() instanceof LivingEntity victim)) return;
-
-        String source = pdc.get(Keys.NECROMANCER_SOURCE,
-                PersistentDataType.STRING);
-        if (source == null) return;
-        UUID mobUuid;
-        try { mobUuid = UUID.fromString(source); } catch (IllegalArgumentException ex) { return; }
-        LivingEntity mob = findEntity(mobUuid);
-        if (mob == null || !mob.isValid()) return;
-
-        Integer level = pdc.get(Keys.NECROMANCER_LEVEL,
-                PersistentDataType.INTEGER);
-        if (level == null) return;
-        InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
-                Keys.NECROMANCER_HANDLE_AFFIXES, Keys.NECROMANCER_HANDLE_SUPPRESSED,
-                Keys.NECROMANCER_HANDLE_DISPLAY_NAME);
-        if (handle == null) return;
-
-        InfernalMobNecromancerDamageEvent damageEvent = new InfernalMobNecromancerDamageEvent(
-                mob, victim, witherSkull, handle, level,
-                event.getCause(), event.getDamage());
-        plugin.getServer().getPluginManager().callEvent(damageEvent);
-        if (damageEvent.isCancelled()) {
-            event.setCancelled(true);
-            return;
-        }
-        event.setDamage(damageEvent.getDamage());
+        specialDamageService.handleNecromancerDamage(event);
     }
 
     /**
      * 广播 storm 真实闪电的逐受害者伤害事件，并应用 Triggered 事件确定的基础伤害。
      */
     public void handleStormDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof LightningStrike lightning)) return;
-        var pdc = lightning.getPersistentDataContainer();
-        String skillId = pdc.get(Keys.STORM_SKILL_ID, PersistentDataType.STRING);
-        if (!"storm".equals(skillId)) return;
-        if (!(event.getEntity() instanceof LivingEntity victim)) return;
-
-        Double recordedDamage = pdc.get(Keys.STORM_DAMAGE, PersistentDataType.DOUBLE);
-        if (recordedDamage == null) return;
-        event.setDamage(Math.max(0.0, recordedDamage));
-
-        String source = pdc.get(Keys.STORM_SOURCE, PersistentDataType.STRING);
-        if (source == null) return;
-        UUID mobUuid;
-        try {
-            mobUuid = UUID.fromString(source);
-        } catch (IllegalArgumentException ex) {
-            return;
-        }
-        LivingEntity mob = findEntity(mobUuid);
-        if (mob == null || !mob.isValid()) return;
-
-        Integer level = pdc.get(Keys.STORM_LEVEL, PersistentDataType.INTEGER);
-        if (level == null) return;
-        InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
-                Keys.STORM_HANDLE_AFFIXES, Keys.STORM_HANDLE_SUPPRESSED,
-                Keys.STORM_HANDLE_DISPLAY_NAME);
-        if (handle == null) return;
-
-        InfernalMobStormDamageEvent damageEvent = new InfernalMobStormDamageEvent(
-                mob, victim, lightning, handle, level, event.getDamage());
-        plugin.getServer().getPluginManager().callEvent(damageEvent);
-        if (damageEvent.isCancelled() || damageEvent.getDamage() <= 0.0) {
-            event.setCancelled(true);
-            return;
-        }
-        event.setDamage(damageEvent.getDamage());
+        specialDamageService.handleStormDamage(event);
     }
 
     /**
