@@ -13,8 +13,11 @@ import org.bukkit.entity.Fireball;
 import org.bukkit.entity.LightningStrike;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.WitherSkull;
+import org.bukkit.NamespacedKey;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.UUID;
@@ -32,21 +35,12 @@ public final class SpecialDamageService {
     public void handleFireworkDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Firework firework)) return;
         var pdc = firework.getPersistentDataContainer();
-        String source = pdc.get(Keys.FIREWORK_SOURCE, org.bukkit.persistence.PersistentDataType.STRING);
-        if (source == null) return;
-        UUID mobUuid;
-        try {
-            mobUuid = UUID.fromString(source);
-        } catch (IllegalArgumentException ex) {
-            return;
-        }
-        LivingEntity mob = findLivingEntity(mobUuid);
+        LivingEntity mob = findSource(pdc, Keys.FIREWORK_SOURCE);
         if (mob == null || !mob.isValid()) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
 
-        Integer level = pdc.get(Keys.FIREWORK_LEVEL, org.bukkit.persistence.PersistentDataType.INTEGER);
-        String skillId = pdc.get(Keys.FIREWORK_SKILL_ID, org.bukkit.persistence.PersistentDataType.STRING);
-        if (level == null || !"firework".equals(skillId)) return;
+        Integer level = readInteger(pdc, Keys.FIREWORK_LEVEL);
+        if (level == null || !hasSkill(pdc, Keys.FIREWORK_SKILL_ID, "firework")) return;
         InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level);
         if (handle == null) return;
 
@@ -62,19 +56,18 @@ public final class SpecialDamageService {
     public void handleGhastlyDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Fireball fireball)) return;
         var pdc = fireball.getPersistentDataContainer();
-        if (!"ghastly".equals(pdc.get(Keys.GHASTLY_SKILL_ID,
-                org.bukkit.persistence.PersistentDataType.STRING))) return;
+        if (!hasSkill(pdc, Keys.GHASTLY_SKILL_ID, "ghastly")) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
-        LivingEntity mob = findLivingEntity(readUuid(pdc, Keys.GHASTLY_SOURCE));
+        LivingEntity mob = findSource(pdc, Keys.GHASTLY_SOURCE);
         if (mob == null || !mob.isValid()) return;
-        Integer level = pdc.get(Keys.GHASTLY_LEVEL, org.bukkit.persistence.PersistentDataType.INTEGER);
+        Integer level = readInteger(pdc, Keys.GHASTLY_LEVEL);
         if (level == null) return;
         InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
                 Keys.GHASTLY_HANDLE_AFFIXES, Keys.GHASTLY_HANDLE_SUPPRESSED,
                 Keys.GHASTLY_HANDLE_DISPLAY_NAME);
         if (handle == null) return;
         if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
-            Double damage = pdc.get(Keys.GHASTLY_DAMAGE, org.bukkit.persistence.PersistentDataType.DOUBLE);
+            Double damage = readDouble(pdc, Keys.GHASTLY_DAMAGE);
             if (damage != null) event.setDamage(Math.max(0.0, damage));
         }
         InfernalMobGhastlyDamageEvent damageEvent = new InfernalMobGhastlyDamageEvent(
@@ -87,12 +80,11 @@ public final class SpecialDamageService {
     public void handleNecromancerDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof WitherSkull skull)) return;
         var pdc = skull.getPersistentDataContainer();
-        if (!"necromancer".equals(pdc.get(Keys.NECROMANCER_SKILL_ID,
-                org.bukkit.persistence.PersistentDataType.STRING))) return;
+        if (!hasSkill(pdc, Keys.NECROMANCER_SKILL_ID, "necromancer")) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
-        LivingEntity mob = findLivingEntity(readUuid(pdc, Keys.NECROMANCER_SOURCE));
+        LivingEntity mob = findSource(pdc, Keys.NECROMANCER_SOURCE);
         if (mob == null || !mob.isValid()) return;
-        Integer level = pdc.get(Keys.NECROMANCER_LEVEL, org.bukkit.persistence.PersistentDataType.INTEGER);
+        Integer level = readInteger(pdc, Keys.NECROMANCER_LEVEL);
         if (level == null) return;
         InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
                 Keys.NECROMANCER_HANDLE_AFFIXES, Keys.NECROMANCER_HANDLE_SUPPRESSED,
@@ -108,15 +100,14 @@ public final class SpecialDamageService {
     public void handleStormDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof LightningStrike lightning)) return;
         var pdc = lightning.getPersistentDataContainer();
-        if (!"storm".equals(pdc.get(Keys.STORM_SKILL_ID,
-                org.bukkit.persistence.PersistentDataType.STRING))) return;
+        if (!hasSkill(pdc, Keys.STORM_SKILL_ID, "storm")) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
-        Double recordedDamage = pdc.get(Keys.STORM_DAMAGE, org.bukkit.persistence.PersistentDataType.DOUBLE);
+        Double recordedDamage = readDouble(pdc, Keys.STORM_DAMAGE);
         if (recordedDamage == null) return;
         event.setDamage(Math.max(0.0, recordedDamage));
-        LivingEntity mob = findLivingEntity(readUuid(pdc, Keys.STORM_SOURCE));
+        LivingEntity mob = findSource(pdc, Keys.STORM_SOURCE);
         if (mob == null || !mob.isValid()) return;
-        Integer level = pdc.get(Keys.STORM_LEVEL, org.bukkit.persistence.PersistentDataType.INTEGER);
+        Integer level = readInteger(pdc, Keys.STORM_LEVEL);
         if (level == null) return;
         InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
                 Keys.STORM_HANDLE_AFFIXES, Keys.STORM_HANDLE_SUPPRESSED,
@@ -129,9 +120,24 @@ public final class SpecialDamageService {
         else event.setDamage(damageEvent.getDamage());
     }
 
-    private UUID readUuid(org.bukkit.persistence.PersistentDataContainer pdc,
-                           org.bukkit.NamespacedKey key) {
-        String value = pdc.get(key, org.bukkit.persistence.PersistentDataType.STRING);
+    private boolean hasSkill(PersistentDataContainer pdc, NamespacedKey key, String expected) {
+        return expected.equals(pdc.get(key, PersistentDataType.STRING));
+    }
+
+    private Integer readInteger(PersistentDataContainer pdc, NamespacedKey key) {
+        return pdc.get(key, PersistentDataType.INTEGER);
+    }
+
+    private Double readDouble(PersistentDataContainer pdc, NamespacedKey key) {
+        return pdc.get(key, PersistentDataType.DOUBLE);
+    }
+
+    private LivingEntity findSource(PersistentDataContainer pdc, NamespacedKey key) {
+        return findLivingEntity(readUuid(pdc, key));
+    }
+
+    private UUID readUuid(PersistentDataContainer pdc, NamespacedKey key) {
+        String value = pdc.get(key, PersistentDataType.STRING);
         if (value == null) return null;
         try { return UUID.fromString(value); } catch (IllegalArgumentException ex) { return null; }
     }

@@ -15,7 +15,10 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -136,7 +139,7 @@ public class DualWebberSkill implements Skill {
         int radius = event.getRadius();
         double thickness = event.getThickness();
         int lifetimeTicks = event.getLifetimeTicks();
-        String token = lifetimeTicks > 0 ? java.util.UUID.randomUUID().toString() : null;
+        String token = lifetimeTicks > 0 ? UUID.randomUUID().toString() : null;
         double cx = center.getX();
         double cy = center.getY();
         double cz = center.getZ();
@@ -153,7 +156,7 @@ public class DualWebberSkill implements Skill {
         int minZ = (int) Math.floor(cz - rMax - 1);
         int maxZ = (int) Math.ceil(cz + rMax + 1);
 
-        java.util.List<org.bukkit.Location> placedLocations = new java.util.ArrayList<>();
+        List<Location> placedLocations = new ArrayList<>();
         int placedCount = 0;
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
@@ -184,12 +187,12 @@ public class DualWebberSkill implements Skill {
 
         if (token == null || placedLocations.isEmpty()) return placedCount;
 
-        // 寿命到后，只删除“仍是蛛网且带有本次 token 元数据”的方块，避免误删其它来源的蛛网/方块。
-        org.bukkit.scheduler.BukkitRunnable cleaner = new org.bukkit.scheduler.BukkitRunnable() {
+        // 寿命到后，只删除“仍是蛛网且带有本次 token 标记”的方块，避免误删其它来源的蛛网/方块。
+        BukkitRunnable cleaner = new BukkitRunnable() {
             @Override
             public void run() {
                 if (placedLocations.isEmpty()) return;
-                for (org.bukkit.Location loc : placedLocations) {
+                for (Location loc : placedLocations) {
                     if (loc == null || loc.getWorld() == null) continue;
                     Block b = loc.getWorld().getBlockAt(loc);
                     if (b.getType() != Material.COBWEB) continue;
@@ -206,12 +209,12 @@ public class DualWebberSkill implements Skill {
 
     /** 普通蛛网定时消失：寿命到期后若方块仍是蛛网则清除。 */
     private void scheduleWebRemoval(JavaPlugin plugin, Block block, int delayTicks) {
-        String token = java.util.UUID.randomUUID().toString();
+        String token = UUID.randomUUID().toString();
         BlockKey blockKey = key(block);
         webMarkers.put(blockKey, token);
-        org.bukkit.Location loc = block.getLocation().clone();
+        Location loc = block.getLocation().clone();
 
-        new org.bukkit.scheduler.BukkitRunnable() {
+        new BukkitRunnable() {
             @Override
             public void run() {
                 if (loc.getWorld() == null) return;

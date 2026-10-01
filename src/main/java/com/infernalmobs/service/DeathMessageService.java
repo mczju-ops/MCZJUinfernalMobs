@@ -18,6 +18,8 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
@@ -161,7 +163,7 @@ public class DeathMessageService {
         if (cause instanceof EntityDamageByEntityEvent byEntity) {
             Entity damager = byEntity.getDamager();
 
-            // 检测是否带有 infernalmobs_skill_id 元数据（技能弹射物/烟花）
+            // 检测是否带有技能 ID（技能弹射物/烟花通过 PDC 保存）
             String skillId = extractSkillId(damager);
             if (skillId != null) {
                 // 尝试找到施法的炒鸡怪名
@@ -197,70 +199,23 @@ public class DeathMessageService {
         return MiniMessageHelper.deserialize("<gray>未知</gray>");
     }
 
-    /** 提取实体上的 infernalmobs_skill_id 元数据值，没有则返回 null。 */
+    /** 按固定优先级提取实体上的技能 ID，没有则返回 null。 */
     private String extractSkillId(Entity entity) {
-        String pdcSkill = entity.getPersistentDataContainer().get(
-                Keys.FIREWORK_SKILL_ID, PersistentDataType.STRING);
-        if (pdcSkill != null) return pdcSkill;
-        pdcSkill = entity.getPersistentDataContainer().get(
-                Keys.STORM_SKILL_ID, PersistentDataType.STRING);
-        if (pdcSkill != null) return pdcSkill;
-        pdcSkill = entity.getPersistentDataContainer().get(
-                Keys.GHASTLY_SKILL_ID, PersistentDataType.STRING);
-        if (pdcSkill != null) return pdcSkill;
-        pdcSkill = entity.getPersistentDataContainer().get(
-                Keys.NECROMANCER_SKILL_ID, PersistentDataType.STRING);
-        if (pdcSkill != null) return pdcSkill;
-        pdcSkill = entity.getPersistentDataContainer().get(
-                Keys.ARCHER_SKILL_ID, PersistentDataType.STRING);
-        if (pdcSkill != null) return pdcSkill;
-        return null;
+        return readFirstString(entity.getPersistentDataContainer(),
+                Keys.FIREWORK_SKILL_ID,
+                Keys.STORM_SKILL_ID,
+                Keys.GHASTLY_SKILL_ID,
+                Keys.NECROMANCER_SKILL_ID,
+                Keys.ARCHER_SKILL_ID);
     }
 
-    /** 从弹射物/烟花元数据还原施法炒鸡怪组件，找不到返回 null。 */
+    /** 从弹射物/烟花 PDC 还原施法炒鸡怪组件，找不到返回 null。 */
     private Component resolveCasterComponent(Entity damager) {
-        UUID casterUuid = null;
-        String fireworkSource = damager.getPersistentDataContainer().get(
-                Keys.FIREWORK_SOURCE, PersistentDataType.STRING);
-        if (fireworkSource != null) {
-            try {
-                casterUuid = UUID.fromString(fireworkSource);
-            } catch (IllegalArgumentException ignored) {
-                return null;
-            }
-        } else {
-            String stormSource = damager.getPersistentDataContainer().get(
-                    Keys.STORM_SOURCE, PersistentDataType.STRING);
-            if (stormSource != null) {
-                try {
-                    casterUuid = UUID.fromString(stormSource);
-                } catch (IllegalArgumentException ignored) {
-                    return null;
-                }
-            }
-            if (casterUuid == null) {
-                String ghastlySource = damager.getPersistentDataContainer().get(
-                        Keys.GHASTLY_SOURCE, PersistentDataType.STRING);
-                if (ghastlySource != null) {
-                    try {
-                        casterUuid = UUID.fromString(ghastlySource);
-                    } catch (IllegalArgumentException ignored) {
-                        return null;
-                    }
-                }
-            }
-            if (casterUuid == null) {
-                String necromancerSource = damager.getPersistentDataContainer().get(
-                        Keys.NECROMANCER_SOURCE, PersistentDataType.STRING);
-                if (necromancerSource != null) {
-                    try {
-                        casterUuid = UUID.fromString(necromancerSource);
-                    } catch (IllegalArgumentException ignored) {
-                        return null;
-                    }
-                }
-            }
-        }
+        UUID casterUuid = readFirstUuid(damager.getPersistentDataContainer(),
+                Keys.FIREWORK_SOURCE,
+                Keys.STORM_SOURCE,
+                Keys.GHASTLY_SOURCE,
+                Keys.NECROMANCER_SOURCE);
         if (casterUuid == null || combatService == null) return null;
         MobState state = combatService.getMobState(casterUuid);
         if (state == null) return null;
@@ -269,6 +224,24 @@ public class DeathMessageService {
             return buildMobComponentWithHover(le, state, config.getDeathMessageConfig());
         }
         return null;
+    }
+
+    private String readFirstString(PersistentDataContainer pdc, NamespacedKey... keys) {
+        for (NamespacedKey key : keys) {
+            String value = pdc.get(key, PersistentDataType.STRING);
+            if (value != null) return value;
+        }
+        return null;
+    }
+
+    private UUID readFirstUuid(PersistentDataContainer pdc, NamespacedKey... keys) {
+        String value = readFirstString(pdc, keys);
+        if (value == null) return null;
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     /** 将 skill ID 翻译为带颜色的技能名组件。 */
