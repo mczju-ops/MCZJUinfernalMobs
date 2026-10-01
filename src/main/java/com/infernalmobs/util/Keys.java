@@ -32,24 +32,6 @@ public final class Keys {
     /** 免疫缴械词条，Boolean，为 true 时无条件免疫缴械 */
     public static final NamespacedKey IM_THIEF_RESISTANCE = key("im_thief_resistance");
 
-    // === 临时实体/方块标记键 ===
-    // 当前部分业务仍使用 Bukkit Metadata；迁移到 PDC 时沿用相同的语义键。
-    public static final String META_DAMAGE = "infernalmobs_damage";
-    public static final String META_FIRE_TICKS = "infernalmobs_fire_ticks";
-    public static final String META_SOURCE = "infernalmobs_source";
-    public static final String META_SKILL_ID = "infernalmobs_skill_id";
-    public static final String META_FIREWORK_SOURCE = "infernalmobs_firework_source";
-    public static final String META_FIREWORK_HANDLE = "infernalmobs_firework_handle";
-    public static final String META_FIREWORK_LEVEL = "infernalmobs_firework_level";
-    public static final String META_GHASTLY_HANDLE = "infernalmobs_ghastly_handle";
-    public static final String META_GHASTLY_LEVEL = "infernalmobs_ghastly_level";
-    public static final String META_NECROMANCER_HANDLE = "infernalmobs_necromancer_handle";
-    public static final String META_NECROMANCER_LEVEL = "infernalmobs_necromancer_level";
-    public static final String META_STORM_HANDLE = "infernalmobs_storm_handle";
-    public static final String META_STORM_LEVEL = "infernalmobs_storm_level";
-    public static final String META_GIANT_WEB = "infernalmobs_giant_web";
-    public static final String META_WEB = "infernalmobs_web";
-
     public static final NamespacedKey FIREWORK_SOURCE = key("infernalmobs_firework_source");
     public static final NamespacedKey FIREWORK_HANDLE_AFFIXES = key("infernalmobs_firework_handle_affixes");
     public static final NamespacedKey FIREWORK_HANDLE_SUPPRESSED = key("infernalmobs_firework_handle_suppressed");

@@ -214,9 +214,7 @@ public class DeathMessageService {
         pdcSkill = entity.getPersistentDataContainer().get(
                 Keys.ARCHER_SKILL_ID, PersistentDataType.STRING);
         if (pdcSkill != null) return pdcSkill;
-        if (!entity.hasMetadata("infernalmobs_skill_id")) return null;
-        var values = entity.getMetadata("infernalmobs_skill_id");
-        return values.isEmpty() ? null : values.getFirst().asString();
+        return null;
     }
 
     /** 从弹射物/烟花元数据还原施法炒鸡怪组件，找不到返回 null。 */
@@ -239,10 +237,6 @@ public class DeathMessageService {
                 } catch (IllegalArgumentException ignored) {
                     return null;
                 }
-            }
-            if (casterUuid == null && damager.hasMetadata("infernalmobs_source")) {
-                var v = damager.getMetadata("infernalmobs_source");
-                if (!v.isEmpty() && v.getFirst().value() instanceof UUID u) casterUuid = u;
             }
             if (casterUuid == null) {
                 String ghastlySource = damager.getPersistentDataContainer().get(
