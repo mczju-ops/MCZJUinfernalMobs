@@ -245,12 +245,13 @@ public class CombatService {
      * 处理火球命中：命中实体/方块都允许爆炸，仅对直接命中的实体补火。擦肩而过不点燃由火球 setFireTicks(0) 保证。
      */
     public void onProjectileHit(ProjectileHitEvent event) {
-        if (!event.getEntity().hasMetadata("infernalmobs_damage")) return;
+        var projectilePdc = event.getEntity().getPersistentDataContainer();
+        if (!projectilePdc.has(Keys.GHASTLY_DAMAGE,
+                PersistentDataType.DOUBLE)) return;
         int fireTicks = 0;
-        if (event.getEntity().hasMetadata("infernalmobs_fire_ticks")) {
-            List<MetadataValue> fireMeta = event.getEntity().getMetadata("infernalmobs_fire_ticks");
-            if (!fireMeta.isEmpty()) fireTicks = fireMeta.get(0).asInt();
-        }
+        Integer recordedFireTicks = projectilePdc.get(Keys.GHASTLY_FIRE_TICKS,
+                PersistentDataType.INTEGER);
+        if (recordedFireTicks != null) fireTicks = recordedFireTicks;
         if (event.getHitEntity() instanceof LivingEntity hit) {
             if (fireTicks > 0) hit.setFireTicks(Math.max(hit.getFireTicks(), fireTicks));
         }
@@ -262,27 +263,32 @@ public class CombatService {
      */
     public void handleGhastlyDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Fireball fireball)) return;
-        List<MetadataValue> skillMetadata = fireball.getMetadata("infernalmobs_skill_id");
-        if (skillMetadata.isEmpty() || !"ghastly".equals(skillMetadata.getFirst().asString())) return;
+        var pdc = fireball.getPersistentDataContainer();
+        String skillId = pdc.get(Keys.GHASTLY_SKILL_ID, PersistentDataType.STRING);
+        if (!"ghastly".equals(skillId)) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
 
-        List<MetadataValue> sourceMetadata = fireball.getMetadata("infernalmobs_source");
-        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
+        String source = pdc.get(Keys.GHASTLY_SOURCE, PersistentDataType.STRING);
+        if (source == null) return;
+        UUID mobUuid;
+        try { mobUuid = UUID.fromString(source); } catch (IllegalArgumentException ex) { return; }
         LivingEntity mob = findEntity(mobUuid);
         if (mob == null || !mob.isValid()) return;
 
-        List<MetadataValue> handleMetadata = fireball.getMetadata("infernalmobs_ghastly_handle");
-        if (handleMetadata.isEmpty() || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
-        List<MetadataValue> levelMetadata = fireball.getMetadata("infernalmobs_ghastly_level");
-        if (levelMetadata.isEmpty()) return;
+        Integer level = pdc.get(Keys.GHASTLY_LEVEL, PersistentDataType.INTEGER);
+        if (level == null) return;
+        InfernalMobHandle handle = PdcHandleCodec.read(pdc, mob, level,
+                Keys.GHASTLY_HANDLE_AFFIXES, Keys.GHASTLY_HANDLE_SUPPRESSED,
+                Keys.GHASTLY_HANDLE_DISPLAY_NAME);
+        if (handle == null) return;
 
         if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
-            List<MetadataValue> damageMetadata = fireball.getMetadata("infernalmobs_damage");
-            if (!damageMetadata.isEmpty()) event.setDamage(Math.max(0.0, damageMetadata.getFirst().asDouble()));
+            Double directDamage = pdc.get(Keys.GHASTLY_DAMAGE, PersistentDataType.DOUBLE);
+            if (directDamage != null) event.setDamage(Math.max(0.0, directDamage));
         }
 
         InfernalMobGhastlyDamageEvent damageEvent = new InfernalMobGhastlyDamageEvent(
-                mob, victim, fireball, handle, levelMetadata.getFirst().asInt(), event.getCause(), event.getDamage());
+                mob, victim, fireball, handle, level, event.getCause(), event.getDamage());
         plugin.getServer().getPluginManager().callEvent(damageEvent);
         if (damageEvent.isCancelled()) {
             event.setCancelled(true);

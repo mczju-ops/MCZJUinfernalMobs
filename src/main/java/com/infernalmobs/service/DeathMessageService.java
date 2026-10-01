@@ -13,20 +13,14 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Mob;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
  * 击杀播报服务。MiniMessage 模板 + Placeholder；玩家被炒鸡怪击杀为全服广播，其余多数按等级阈值在世界或全服间切换。
@@ -137,28 +131,28 @@ public class DeathMessageService {
     }
 
     /** 常见非实体伤害类型的中文名。未收录的降级为英文原名。 */
-    private static final java.util.Map<EntityDamageEvent.DamageCause, String> CAUSE_NAMES =
-            java.util.Map.ofEntries(
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.FALL,             "摔落"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.FIRE,             "火焰"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.FIRE_TICK,        "燃烧"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.LAVA,             "岩浆"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.DROWNING,         "溺水"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.SUFFOCATION,      "窒息"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.STARVATION,       "饥饿"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.LIGHTNING,        "雷击"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.POISON,           "中毒"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.MAGIC,            "魔法"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.WITHER,           "凋零"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.VOID,             "虚空"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.CONTACT,          "接触伤害"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.THORNS,           "荆棘"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.BLOCK_EXPLOSION,  "方块爆炸"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.ENTITY_EXPLOSION, "爆炸"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.PROJECTILE,       "弹射物"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.CUSTOM,           "自定义伤害"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.MELTING,          "融化"),
-                    java.util.Map.entry(EntityDamageEvent.DamageCause.FREEZE,           "冰冻")
+    private static final Map<EntityDamageEvent.DamageCause, String> CAUSE_NAMES =
+            Map.ofEntries(
+                    Map.entry(EntityDamageEvent.DamageCause.FALL,             "摔落"),
+                    Map.entry(EntityDamageEvent.DamageCause.FIRE,             "火焰"),
+                    Map.entry(EntityDamageEvent.DamageCause.FIRE_TICK,        "燃烧"),
+                    Map.entry(EntityDamageEvent.DamageCause.LAVA,             "岩浆"),
+                    Map.entry(EntityDamageEvent.DamageCause.DROWNING,         "溺水"),
+                    Map.entry(EntityDamageEvent.DamageCause.SUFFOCATION,      "窒息"),
+                    Map.entry(EntityDamageEvent.DamageCause.STARVATION,       "饥饿"),
+                    Map.entry(EntityDamageEvent.DamageCause.LIGHTNING,        "雷击"),
+                    Map.entry(EntityDamageEvent.DamageCause.POISON,           "中毒"),
+                    Map.entry(EntityDamageEvent.DamageCause.MAGIC,            "魔法"),
+                    Map.entry(EntityDamageEvent.DamageCause.WITHER,           "凋零"),
+                    Map.entry(EntityDamageEvent.DamageCause.VOID,             "虚空"),
+                    Map.entry(EntityDamageEvent.DamageCause.CONTACT,          "接触伤害"),
+                    Map.entry(EntityDamageEvent.DamageCause.THORNS,           "荆棘"),
+                    Map.entry(EntityDamageEvent.DamageCause.BLOCK_EXPLOSION,  "方块爆炸"),
+                    Map.entry(EntityDamageEvent.DamageCause.ENTITY_EXPLOSION, "爆炸"),
+                    Map.entry(EntityDamageEvent.DamageCause.PROJECTILE,       "弹射物"),
+                    Map.entry(EntityDamageEvent.DamageCause.CUSTOM,           "自定义伤害"),
+                    Map.entry(EntityDamageEvent.DamageCause.MELTING,          "融化"),
+                    Map.entry(EntityDamageEvent.DamageCause.FREEZE,           "冰冻")
             );
 
     /** 解析最后一次伤害来源的可读名称。 */
@@ -182,7 +176,7 @@ public class DeathMessageService {
             LivingEntity shooter = resolveShooter(damager);
             if (shooter != null && combatService != null
                     && combatService.getMobState(shooter.getUniqueId()) != null) {
-                com.infernalmobs.model.MobState state = combatService.getMobState(shooter.getUniqueId());
+                MobState state = combatService.getMobState(shooter.getUniqueId());
                 return buildMobComponentWithHover(shooter, state,
                         config.getDeathMessageConfig());
             }
@@ -211,6 +205,9 @@ public class DeathMessageService {
         pdcSkill = entity.getPersistentDataContainer().get(
                 Keys.STORM_SKILL_ID, PersistentDataType.STRING);
         if (pdcSkill != null) return pdcSkill;
+        pdcSkill = entity.getPersistentDataContainer().get(
+                Keys.GHASTLY_SKILL_ID, PersistentDataType.STRING);
+        if (pdcSkill != null) return pdcSkill;
         if (!entity.hasMetadata("infernalmobs_skill_id")) return null;
         var values = entity.getMetadata("infernalmobs_skill_id");
         return values.isEmpty() ? null : values.getFirst().asString();
@@ -218,12 +215,12 @@ public class DeathMessageService {
 
     /** 从弹射物/烟花元数据还原施法炒鸡怪组件，找不到返回 null。 */
     private Component resolveCasterComponent(Entity damager) {
-        java.util.UUID casterUuid = null;
+        UUID casterUuid = null;
         String fireworkSource = damager.getPersistentDataContainer().get(
                 Keys.FIREWORK_SOURCE, PersistentDataType.STRING);
         if (fireworkSource != null) {
             try {
-                casterUuid = java.util.UUID.fromString(fireworkSource);
+                casterUuid = UUID.fromString(fireworkSource);
             } catch (IllegalArgumentException ignored) {
                 return null;
             }
@@ -232,18 +229,29 @@ public class DeathMessageService {
                     Keys.STORM_SOURCE, PersistentDataType.STRING);
             if (stormSource != null) {
                 try {
-                    casterUuid = java.util.UUID.fromString(stormSource);
+                    casterUuid = UUID.fromString(stormSource);
                 } catch (IllegalArgumentException ignored) {
                     return null;
                 }
             }
             if (casterUuid == null && damager.hasMetadata("infernalmobs_source")) {
                 var v = damager.getMetadata("infernalmobs_source");
-                if (!v.isEmpty() && v.getFirst().value() instanceof java.util.UUID u) casterUuid = u;
+                if (!v.isEmpty() && v.getFirst().value() instanceof UUID u) casterUuid = u;
+            }
+            if (casterUuid == null) {
+                String ghastlySource = damager.getPersistentDataContainer().get(
+                        Keys.GHASTLY_SOURCE, PersistentDataType.STRING);
+                if (ghastlySource != null) {
+                    try {
+                        casterUuid = UUID.fromString(ghastlySource);
+                    } catch (IllegalArgumentException ignored) {
+                        return null;
+                    }
+                }
             }
         }
         if (casterUuid == null || combatService == null) return null;
-        com.infernalmobs.model.MobState state = combatService.getMobState(casterUuid);
+        MobState state = combatService.getMobState(casterUuid);
         if (state == null) return null;
         Entity e = Bukkit.getServer().getEntity(casterUuid);
         if (e instanceof LivingEntity le && le.isValid()) {
@@ -254,7 +262,7 @@ public class DeathMessageService {
 
     /** 将 skill ID 翻译为带颜色的技能名组件。 */
     private Component buildSkillComponent(String skillId) {
-        com.infernalmobs.config.SkillConfig sc = config.getSkillConfig(skillId);
+        SkillConfig sc = config.getSkillConfig(skillId);
         String display = config.getSkillDisplay(skillId, sc);
         if (display != null && !display.isBlank()) {
             return MiniMessageHelper.parseSkillDisplay(display);
@@ -264,7 +272,7 @@ public class DeathMessageService {
 
     /** 从箭矢等弹射物的 Shooter 中提取 LivingEntity。 */
     private LivingEntity resolveShooter(Entity damager) {
-        if (damager instanceof org.bukkit.entity.Projectile proj
+        if (damager instanceof Projectile proj
                 && proj.getShooter() instanceof LivingEntity le) {
             return le;
         }

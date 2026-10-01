@@ -5,10 +5,15 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.Keys;
+import com.infernalmobs.util.PdcHandleCodec;
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Fireball;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
 /**
@@ -63,18 +68,24 @@ public class RangeGhastlySkill implements Skill {
             f.setFireTicks(0);  // 熄灭火球本体，避免擦肩而过时点燃玩家
             f.setYield(event.getExplosionPower());  // ExplosionPower，击中时爆炸
             f.setIsIncendiary(false);  // 爆炸不生成方块火
-            f.setMetadata("infernalmobs_damage", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getDirectDamage()));
-            f.setMetadata("infernalmobs_fire_ticks", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getFireTicks()));
-            f.setMetadata("infernalmobs_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), mob.getUniqueId()));
-            f.setMetadata("infernalmobs_ghastly_handle", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getHandle()));
-            f.setMetadata("infernalmobs_ghastly_level", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getLevel()));
-            f.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
+            var pdc = f.getPersistentDataContainer();
+            pdc.set(Keys.GHASTLY_DAMAGE, PersistentDataType.DOUBLE,
+                    event.getDirectDamage());
+            pdc.set(Keys.GHASTLY_FIRE_TICKS, PersistentDataType.INTEGER,
+                    event.getFireTicks());
+            pdc.set(Keys.GHASTLY_SOURCE, PersistentDataType.STRING,
+                    mob.getUniqueId().toString());
+            pdc.set(Keys.GHASTLY_LEVEL, PersistentDataType.INTEGER,
+                    event.getLevel());
+            pdc.set(Keys.GHASTLY_SKILL_ID, PersistentDataType.STRING, getId());
+            PdcHandleCodec.write(pdc, ctx.getOrCreateHandle(), Keys.GHASTLY_HANDLE_AFFIXES,
+                    Keys.GHASTLY_HANDLE_SUPPRESSED, Keys.GHASTLY_HANDLE_DISPLAY_NAME);
         });
         scheduleProjectileLifetime(fb, ctx.getPlugin(), event.getLifetimeTicks());
     }
 
-    private static void scheduleProjectileLifetime(org.bukkit.entity.Entity entity, org.bukkit.plugin.Plugin plugin, int maxTicks) {
-        entity.getScheduler().runDelayed(plugin, task -> {
+    private static void scheduleProjectileLifetime(Entity entity, JavaPlugin plugin, int maxTicks) {
+        entity.getScheduler().runDelayed(plugin, _ -> {
             if (entity.isValid()) entity.remove();
         }, null, maxTicks);
     }
