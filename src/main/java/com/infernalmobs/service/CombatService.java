@@ -12,7 +12,6 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -124,7 +123,8 @@ public class CombatService {
 
         double damageBonus = mobState.getStatMap().get(StatMap.DAMAGE_BONUS);
         if (damageBonus > 0) {
-            event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) + damageBonus);
+            // getDamage/setDamage 操作原始伤害，等价于旧版 BASE 修正，不把加成叠到护甲结算后的最终伤害上。
+            event.setDamage(event.getDamage() + damageBonus);
         }
         for (Affix affix : mobState.getProfile().getAffixes()) {
             if (affix.getSkill() instanceof RangeSpearSkill spear
