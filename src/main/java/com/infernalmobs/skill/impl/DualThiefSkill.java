@@ -1,8 +1,10 @@
 package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefEvent;
+import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
+import com.infernalmobs.model.MobState;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
@@ -59,6 +61,12 @@ public class DualThiefSkill implements Skill {
         if (ctx.isWeakened() && Math.random() < 0.5) return;  // 削弱: 概率再减小50%
         // 掉落坐标用触发时怪物位置，延迟任务内不再用 ctx.getEntity()。这样与变身同时触发时，原实体被移除、新实体同位置生成，掉落仍落在“怪物处”正确位置
         Location mobLoc = ctx.getEntity().getLocation().clone();
+        InfernalMobHandle releasedHandle = ctx.getOrCreateHandle();
+        MobState releasedState = ctx.getMobState();
+        int releasedLevel = releasedState.getProfile().getLevel();
+        long releasedTick = ctx.getCurrentTick();
+        org.bukkit.entity.LivingEntity releasedMob = ctx.getEntity();
+        org.bukkit.plugin.java.JavaPlugin plugin = ctx.getPlugin();
         String soundKey = config.getString("sound", "ENTITY_WIND_CHARGE_THROW");
         String lineParticleKey = config.getString("line-particle", "REDSTONE");
         int cooldownTicks = config.getInt("cooldown-ticks", 80);
@@ -74,11 +82,14 @@ public class DualThiefSkill implements Skill {
 
                 // 缴械真正发生时 call 专属事件：外部可改掉落位置 / 最终冷却 / 取消本次缴械
                 InfernalMobThiefEvent event = new InfernalMobThiefEvent(
-                        ctx.getEntity(), ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                        releasedMob, releasedHandle, releasedLevel,
                         player, mainNow.clone(), mobLoc.clone().add(0, 0.5, 0), cooldownTicks);
-                boolean shouldDisarm = ctx.fire(event);
+                plugin.getServer().getPluginManager().callEvent(event);
+                boolean shouldDisarm = !event.isCancelled();
                 // 到达专用 Triggered 事件即视为成功触发；即使外部取消缴械，也提交监听器给出的最终冷却。
-                ctx.commitCooldown(getId(), event.getCooldownTicks());
+                if (releasedState != null && event.getCooldownTicks() > 0) {
+                    releasedState.setCooldown(getId(), releasedTick + event.getCooldownTicks());
+                }
                 if (!shouldDisarm) return;
 
                 Location dropAt = event.getDropLocation();
@@ -95,7 +106,7 @@ public class DualThiefSkill implements Skill {
                     } catch (IllegalArgumentException ignored) {}
                 }
             }
-        }.runTaskLater(ctx.getPlugin(), 1L);
+        }.runTaskLater(plugin, 1L);
     }
 
     /**
