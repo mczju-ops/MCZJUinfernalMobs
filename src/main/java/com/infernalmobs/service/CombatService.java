@@ -1,10 +1,7 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
-import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
-import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.model.StatMap;
@@ -34,23 +31,23 @@ import java.util.*;
 public class CombatService {
 
     private final JavaPlugin plugin;
-    private final ConfigLoader config;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
     private final MobStatService mobStatService = new MobStatService();
     private final RangeSkillService rangeSkillService;
     private final AttackSkillService attackSkillService;
     private final DeathSkillService deathSkillService;
+    private final DamageReactionSkillService damageReactionSkillService;
     private final SpecialDamageService specialDamageService;
     private MobFactory mobFactory;
     private SkillService skillService;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
-        this.config = config;
         this.specialDamageService = new SpecialDamageService(plugin);
         this.rangeSkillService = new RangeSkillService(plugin, config);
         this.attackSkillService = new AttackSkillService(plugin, config);
         this.deathSkillService = new DeathSkillService(plugin, config);
+        this.damageReactionSkillService = new DamageReactionSkillService(plugin, config);
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
@@ -146,34 +143,7 @@ public class CombatService {
     public void onMobDamaged(EntityDamageEvent event, LivingEntity victim) {
         MobState state = mobRegistry.get(victim.getUniqueId());
         if (state == null) return;
-
-        for (Affix affix : state.getProfile().getAffixes()) {
-            if (!"1up".equals(affix.getSkillId())) continue;
-            if (state.hasUsedOneTime("1up")) continue;
-
-            SkillConfig sc = config.getSkillConfig("1up");
-            if (sc == null) continue;
-
-            double threshold = sc.getDouble("hp-threshold", 8);
-            double healthAfter = victim.getHealth() - event.getFinalDamage();
-            if (healthAfter > threshold) continue;   // 还在阈值以上，不触发
-            if (healthAfter <= 0) continue;          // 致命一击，不拦截，让怪直接死亡
-
-            if (!(affix.getSkill() instanceof Stat1upSkill skill)) continue;
-            double recoveryAmount = skill.calculateRecoveryAmount(victim, state);
-            if (!state.useOneTimeIfNotUsed("1up")) continue;
-
-            // 1up 真正触发事件：外部可取消本次保命
-            LivingEntity damager = event instanceof EntityDamageByEntityEvent e2 && e2.getDamager() instanceof LivingEntity le ? le : null;
-            InfernalMobHandle handle = new InfernalMobHandle(victim, state.getProfile().getLevel(), state.getProfile().getAffixIds(), state.getSuppressedAffixes());
-            InfernalMob1upEvent e = new InfernalMob1upEvent(victim, damager, handle, state.getProfile().getLevel(), recoveryAmount);
-            plugin.getServer().getPluginManager().callEvent(e);
-            if (e.isCancelled()) break;
-
-            event.setDamage(0.0);
-            skill.trigger(victim, sc, state, e.getRecoveryAmount());
-            break;
-        }
+        damageReactionSkillService.handle(event, victim, state);
     }
 
     /**
