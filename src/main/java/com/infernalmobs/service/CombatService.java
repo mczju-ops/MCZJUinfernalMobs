@@ -1,10 +1,8 @@
 package com.infernalmobs.service;
 
-import com.infernalmobs.affix.Affix;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
-import com.infernalmobs.model.StatMap;
 import com.infernalmobs.skill.impl.*;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
@@ -34,6 +32,7 @@ public class CombatService {
     private final MobStatService mobStatService = new MobStatService();
     private final RangeSkillService rangeSkillService;
     private final AttackSkillService attackSkillService;
+    private final AttackDamageService attackDamageService;
     private final DeathSkillService deathSkillService;
     private final DamageReactionSkillService damageReactionSkillService;
     private final SpecialDamageService specialDamageService;
@@ -45,6 +44,7 @@ public class CombatService {
         this.specialDamageService = new SpecialDamageService(plugin);
         this.rangeSkillService = new RangeSkillService(plugin, config);
         this.attackSkillService = new AttackSkillService(plugin, config);
+        this.attackDamageService = new AttackDamageService();
         this.deathSkillService = new DeathSkillService(plugin, config);
         this.damageReactionSkillService = new DamageReactionSkillService(plugin, config);
     }
@@ -119,20 +119,7 @@ public class CombatService {
      * 怪物攻击玩家时：应用伤害加成，并触发 ACTIVE 与 DUAL 技能。
      */
     public void onMobAttack(EntityDamageByEntityEvent event, LivingEntity damager, Player victim, MobState mobState) {
-        if (event.getCause() == EntityDamageEvent.DamageCause.THORNS) return;
-
-        double damageBonus = mobState.getStatMap().get(StatMap.DAMAGE_BONUS);
-        if (damageBonus > 0) {
-            // getDamage/setDamage 操作原始伤害，等价于旧版 BASE 修正，不把加成叠到护甲结算后的最终伤害上。
-            event.setDamage(event.getDamage() + damageBonus);
-        }
-        for (Affix affix : mobState.getProfile().getAffixes()) {
-            if (affix.getSkill() instanceof RangeSpearSkill spear
-                    && spear.handleMeleeHit(event, damager, victim)) {
-                break;
-            }
-        }
-        if (event.isCancelled()) return;
+        if (!attackDamageService.prepare(event, damager, victim, mobState)) return;
         attackSkillService.triggerMobAttackSkills(event, damager, victim, mobState,
                 currentTick, mobFactory);
     }
