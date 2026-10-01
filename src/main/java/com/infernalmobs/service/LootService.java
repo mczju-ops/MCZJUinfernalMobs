@@ -18,7 +18,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -48,6 +47,10 @@ public class LootService {
 
     public boolean isEnabled() {
         return config != null && config.isEnable() && itemCreatorAvailable;
+    }
+
+    public boolean isReplaceVanillaDrops() {
+        return config != null && config.isReplaceVanillaDrops();
     }
 
     /** 获取掉落物品的配置显示名；未配置时返回物品 ID。 */
@@ -107,18 +110,13 @@ public class LootService {
      * @param preRolledDropTimes 已由 {@link #rollDeathLootTimes(int)} 与保底共用的一次结果；传入 -1 则在内部单独 roll（不推荐）
      * @param collect            非 null 时改为收集到该列表（聚合掉落事件），否则直接掉落
      */
-    public boolean onInfernalMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState,
-                                      int preRolledDropTimes, List<ItemStack> collect) {
-        boolean vanillaDropsCleared = false;
+    public void onInfernalMobDeath(LivingEntity entity, MobState mobState,
+                                   int preRolledDropTimes, List<ItemStack> collect) {
         // 1. 等级表按权重掉落（与普通炒鸡怪相同）
         if (isEnabled()) {
             int level = mobState.getProfile().getLevel();
             List<RewardEntry> eligible = getEligibleLevelRewards(level);
             if (!eligible.isEmpty()) {
-                if (config.isReplaceVanillaDrops()) {
-                    event.getDrops().clear();
-                    vanillaDropsCleared = true;
-                }
                 Player killer = entity.getKiller();
                 String playerName = killer != null ? killer.getName() : "";
                 int dropTimes = preRolledDropTimes >= 0
@@ -141,7 +139,6 @@ public class LootService {
 
         // 2. 难打怪物额外特殊战利品（独立于等级池，仅部分实体类型）
         dropSpecialLootIfApplicable(entity, mobState, collect);
-        return vanillaDropsCleared;
     }
 
     /** 难打怪物额外特殊战利品：概率 = rate × 等级，可 >1 表示保底+小数概率额外。 */

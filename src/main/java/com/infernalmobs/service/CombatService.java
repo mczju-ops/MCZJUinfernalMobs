@@ -29,15 +29,12 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.inventory.EntityEquipment;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 战斗驱动服务。负责：
@@ -52,8 +49,6 @@ public class CombatService {
     private final JavaPlugin plugin;
     private final ConfigLoader config;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
-    /** 炒鸡怪捡起的物品（用于 replace-vanilla-drops 时恢复到死亡掉落） */
-    private final Map<UUID, List<ItemStack>> pickedUpItems = new ConcurrentHashMap<>();
     private com.infernalmobs.factory.MobFactory mobFactory;
     private SkillService skillService;
 
@@ -83,113 +78,10 @@ public class CombatService {
 
     public void unregisterMob(UUID entityUuid) {
         mobRegistry.unregister(entityUuid);
-        pickedUpItems.remove(entityUuid);
     }
 
     public MobState getMobState(UUID entityUuid) {
         return mobRegistry.get(entityUuid);
-    }
-
-    /** 记录炒鸡怪捡起的物品（克隆存储，避免后续元数据/堆叠变化影响）。 */
-    public void recordPickedUpItem(UUID entityUuid, ItemStack item) {
-        if (entityUuid == null || item == null || item.getType().isAir() || item.getAmount() <= 0) return;
-        pickedUpItems.computeIfAbsent(entityUuid, _ -> new ArrayList<>()).add(item.clone());
-    }
-
-    /** 消费并返回该炒鸡怪捡起的所有物品。 */
-    public List<ItemStack> consumePickedUpItems(UUID entityUuid) {
-        if (entityUuid == null) return List.of();
-        List<ItemStack> items = pickedUpItems.remove(entityUuid);
-        if (items == null || items.isEmpty()) return List.of();
-        return new ArrayList<>(items);
-    }
-
-    /**
-     * replace-vanilla-drops 时补回玩家被捡走的物品：仅当前仍穿/拿在身上的栏位，
-     * 且能从拾取记录中匹配到的才掉落；曾捡起后又扔掉的条目不会进入掉落（记录会清空）。
-     */
-    public List<ItemStack> releasePickedUpItemsStillEquipped(LivingEntity entity) {
-        UUID uuid = entity.getUniqueId();
-        EntityEquipment eq = entity.getEquipment();
-        List<ItemStack> drops = new ArrayList<>();
-        if (eq != null) {
-            for (EquipmentSlot slot : PICKUP_TRACKED_EQUIPMENT_SLOTS) {
-                ItemStack inSlot = getItemInEquipmentSlot(eq, slot);
-                if (inSlot == null || inSlot.getType().isAir() || inSlot.getAmount() <= 0) continue;
-                ItemStack matched = consumeMatchedPickedUpItem(uuid, inSlot);
-                if (matched != null && !matched.getType().isAir() && matched.getAmount() > 0) {
-                    drops.add(matched);
-                }
-            }
-        }
-        pickedUpItems.remove(uuid);
-        return drops;
-    }
-
-    private static final EquipmentSlot[] PICKUP_TRACKED_EQUIPMENT_SLOTS = {
-            EquipmentSlot.HAND, EquipmentSlot.OFF_HAND,
-            EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
-    };
-
-    private static ItemStack getItemInEquipmentSlot(EntityEquipment eq, EquipmentSlot slot) {
-        return switch (slot) {
-            case HAND -> eq.getItemInMainHand();
-            case OFF_HAND -> eq.getItemInOffHand();
-            case HEAD -> eq.getHelmet();
-            case CHEST -> eq.getChestplate();
-            case LEGS -> eq.getLeggings();
-            case FEET -> eq.getBoots();
-            default -> null;
-        };
-    }
-
-    /**
-     * 怪物将物品丢到地上时调用：从拾取记录中按相似物品扣减数量（与 {@link #consumeMatchedPickedUpItem} 同一套匹配规则）。
-     */
-    public void unrecordDroppedPickedUpItem(UUID entityUuid, ItemStack dropped) {
-        if (entityUuid == null || dropped == null || dropped.getType().isAir() || dropped.getAmount() <= 0) return;
-        removeMatchedPickedUpAmount(entityUuid, dropped);
-    }
-
-    /**
-     * 按“相似物品”从拾取记录中消费数量，并返回可掉落的克隆物品（amount 为实际可消费数量）。
-     * 用于变身时仅掉落后天拾取（非自带）的装备。
-     */
-    public ItemStack consumeMatchedPickedUpItem(UUID entityUuid, ItemStack equipped) {
-        if (entityUuid == null || equipped == null || equipped.getType().isAir() || equipped.getAmount() <= 0) return null;
-        int consumed = removeMatchedPickedUpAmount(entityUuid, equipped);
-        if (consumed <= 0) return null;
-        ItemStack out = equipped.clone();
-        out.setAmount(consumed);
-        return out;
-    }
-
-    /** 从拾取记录中扣减与 reference 相似的堆叠数量，返回实际扣减数量。 */
-    private int removeMatchedPickedUpAmount(UUID entityUuid, ItemStack reference) {
-        List<ItemStack> items = pickedUpItems.get(entityUuid);
-        if (items == null || items.isEmpty()) return 0;
-
-        int needed = reference.getAmount();
-        int consumed = 0;
-        for (int i = 0; i < items.size() && needed > 0; i++) {
-            ItemStack tracked = items.get(i);
-            if (tracked == null || tracked.getType().isAir() || tracked.getAmount() <= 0) continue;
-            if (!tracked.isSimilar(reference)) continue;
-
-            int use = Math.min(needed, tracked.getAmount());
-            needed -= use;
-            consumed += use;
-
-            int left = tracked.getAmount() - use;
-            if (left <= 0) {
-                items.set(i, null);
-            } else {
-                tracked.setAmount(left);
-            }
-        }
-        items.removeIf(Objects::isNull);
-        if (items.isEmpty()) pickedUpItems.remove(entityUuid);
-        return consumed;
     }
 
     /** 获取当前追踪的炒鸡怪数量 */
@@ -512,7 +404,6 @@ public class CombatService {
     /** 关服时只释放内存引用；实体状态已在每次变化时同步到 PDC。 */
     public void shutdown() {
         mobRegistry.clear();
-        pickedUpItems.clear();
     }
 
     /** 范围技能：玩家在范围内时按概率触发 */

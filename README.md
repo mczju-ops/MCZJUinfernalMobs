@@ -292,7 +292,7 @@ regions:
 
 ```yaml
 enabled: true
-replace-vanilla-drops: true   # 是否替换原版掉落
+replace-vanilla-drops: true   # 清空原版掉落，但保留六个装备槽中掉落率 >= 100% 的装备
 
 # 月份轮换套（set 1～N 按月交替）
 rotation:

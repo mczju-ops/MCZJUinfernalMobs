@@ -1,6 +1,8 @@
 # 炒鸡怪等级池掉落总开关
 # 各等级池位于 loot/levels/<等级>.yml
 enabled: true
+# true 时：清空原版死亡掉落，但先保留六个装备槽中掉落率 >= 100% 的装备，
+# 再叠加插件等级掉落、特殊掉落和保底掉落。
 replace-vanilla-drops: true
 
 # 战利品轮换：带 rotation-set 的项仅在对应月份可掉落，未配置的项不受影响

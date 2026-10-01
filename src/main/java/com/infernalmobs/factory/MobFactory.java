@@ -16,18 +16,15 @@ import com.infernalmobs.service.MobLevelService;
 import com.infernalmobs.service.RegionService;
 import com.infernalmobs.service.SkillService;
 import com.infernalmobs.util.MiniMessageHelper;
+import com.infernalmobs.util.GuaranteedEquipmentDrops;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.EntityEquipment;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
@@ -272,13 +269,8 @@ public class MobFactory {
         Location loc = oldEntity.getLocation();
         List<Affix> affixes = oldState.getProfile().getAffixes();
 
-        // 仅抛出“后天拾取”的装备，避免把原生自带装备也掉出来。
-        dropPickedUpEquippedItemIfPresent(oldEntity, oldEntity.getUniqueId(), loc, EquipmentSlot.HAND);
-        dropPickedUpEquippedItemIfPresent(oldEntity, oldEntity.getUniqueId(), loc, EquipmentSlot.OFF_HAND);
-        dropPickedUpEquippedItemIfPresent(oldEntity, oldEntity.getUniqueId(), loc, EquipmentSlot.HEAD);
-        dropPickedUpEquippedItemIfPresent(oldEntity, oldEntity.getUniqueId(), loc, EquipmentSlot.CHEST);
-        dropPickedUpEquippedItemIfPresent(oldEntity, oldEntity.getUniqueId(), loc, EquipmentSlot.LEGS);
-        dropPickedUpEquippedItemIfPresent(oldEntity, oldEntity.getUniqueId(), loc, EquipmentSlot.FEET);
+        // 只抛出原版判定为 100% 掉落的装备，避免变形时玩家拾取物丢失。
+        GuaranteedEquipmentDrops.drop(oldEntity, loc);
 
         combatService.unequipAndUnregister(oldEntity, oldState, SkillService.UnequipReason.MORPH);
         oldEntity.remove();
@@ -348,28 +340,6 @@ public class MobFactory {
         });
         if (writeImmediately) persistence.write(entity, state);
         combatService.registerMob(entity.getUniqueId(), state);
-    }
-
-    private void dropPickedUpEquippedItemIfPresent(LivingEntity entity, java.util.UUID entityUuid, Location loc, EquipmentSlot slot) {
-        EntityEquipment eq = entity.getEquipment();
-        if (eq == null || loc.getWorld() == null) return;
-
-        ItemStack inHand = switch (slot) {
-            case HAND -> eq.getItemInMainHand();
-            case OFF_HAND -> eq.getItemInOffHand();
-            case HEAD -> eq.getHelmet();
-            case CHEST -> eq.getChestplate();
-            case LEGS -> eq.getLeggings();
-            case FEET -> eq.getBoots();
-            default -> null;
-        };
-        if (inHand == null || inHand.getType().isAir() || inHand.getAmount() <= 0) return;
-
-        ItemStack toDrop = combatService.consumeMatchedPickedUpItem(entityUuid, inHand);
-        if (toDrop == null || toDrop.getType().isAir() || toDrop.getAmount() <= 0) return;
-
-        Item dropped = loc.getWorld().dropItemNaturally(loc, toDrop);
-        dropped.setInvulnerable(true);
     }
 
     /**

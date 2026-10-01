@@ -13,6 +13,7 @@ import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.SkillService;
 import com.infernalmobs.util.MiniMessageHelper;
+import com.infernalmobs.util.GuaranteedEquipmentDrops;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.entity.LivingEntity;
@@ -22,13 +23,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.entity.Firework;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.entity.EntityDropItemEvent;
-import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
@@ -153,17 +151,13 @@ public class CombatListener implements Listener {
                         }
                     }
                     // 常规等级池抽取（与保底共用同一次 drop-times roll）
-                    boolean vanillaDropsCleared = false;
-                    if (loot != null) {
-                        vanillaDropsCleared = loot.onInfernalMobDeath(event, entity, state, deathLootRolls, pluginDrops);
-                    }
-                    // 若开启了 replace-vanilla-drops 清空原版掉落，则补回「当前仍装备」且本插件记录过的拾取物（不含已扔掉的）
-                    if (vanillaDropsCleared) {
-                        for (ItemStack picked : combatService.releasePickedUpItemsStillEquipped(entity)) {
-                            if (picked != null && !picked.getType().isAir() && picked.getAmount() > 0) {
-                                event.getDrops().add(picked);
-                            }
+                        if (loot != null && loot.isEnabled() && loot.isReplaceVanillaDrops()) {
+                            List<ItemStack> guaranteedEquipment = GuaranteedEquipmentDrops.collect(entity);
+                            event.getDrops().clear();
+                            event.getDrops().addAll(guaranteedEquipment);
                         }
+                        if (loot != null) {
+                            loot.onInfernalMobDeath(entity, state, deathLootRolls, pluginDrops);
                     }
                     // 聚合的插件掉落：触发掉落事件（可追加/删除/取消）后统一落世界
                     if (loot != null) {
@@ -171,7 +165,13 @@ public class CombatListener implements Listener {
                     }
                 } else {
                     // 非玩家击杀：清空炒鸡经验加成与原版掉落，仅播报抢人头
+                    LootService loot = plugin instanceof InfernalMobsPlugin im ? im.getLootService() : null;
+                    List<ItemStack> guaranteedEquipment = loot != null && loot.isEnabled()
+                            && loot.isReplaceVanillaDrops()
+                            ? GuaranteedEquipmentDrops.collect(entity)
+                            : List.of();
                     event.getDrops().clear();
+                    event.getDrops().addAll(guaranteedEquipment);
                     event.setDroppedExp(0);
                     deathMessageService.broadcastKillStealIfEnabled(entity, state);
                 }
@@ -207,27 +207,6 @@ public class CombatListener implements Listener {
             if (byEntity.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) return p;
         }
         return null;
-    }
-
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-    public void onEntityPickupItem(EntityPickupItemEvent event) {
-        LivingEntity entity = event.getEntity();
-        if (combatService.getMobState(entity.getUniqueId()) == null) return;
-        combatService.recordPickedUpItem(entity.getUniqueId(), event.getItem().getItemStack());
-    }
-
-    /**
-     * 炒鸡怪把物品扔到地上时同步扣减拾取记录，避免列表里长期残留已丢弃的堆叠。
-     * 生命为 0 时跳过：死亡相关掉落可能也走此事件，拾取补回由 {@link CombatService#releasePickedUpItemsStillEquipped} 统一处理。
-     */
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-    public void onEntityDropItem(EntityDropItemEvent event) {
-        if (!(event.getEntity() instanceof LivingEntity entity)) return;
-        if (entity.getHealth() <= 0) return;
-        if (combatService.getMobState(entity.getUniqueId()) == null) return;
-        Item drop = event.getItemDrop();
-        ItemStack stack = drop.getItemStack();
-        combatService.unrecordDroppedPickedUpItem(entity.getUniqueId(), stack);
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
