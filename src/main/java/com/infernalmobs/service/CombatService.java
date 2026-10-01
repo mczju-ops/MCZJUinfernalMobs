@@ -2,15 +2,12 @@ package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.model.StatMap;
-import com.infernalmobs.skill.SkillContext;
-import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.skill.impl.*;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
@@ -42,6 +39,7 @@ public class CombatService {
     private final MobStatService mobStatService = new MobStatService();
     private final RangeSkillService rangeSkillService;
     private final AttackSkillService attackSkillService;
+    private final DeathSkillService deathSkillService;
     private final SpecialDamageService specialDamageService;
     private MobFactory mobFactory;
     private SkillService skillService;
@@ -52,6 +50,7 @@ public class CombatService {
         this.specialDamageService = new SpecialDamageService(plugin);
         this.rangeSkillService = new RangeSkillService(plugin, config);
         this.attackSkillService = new AttackSkillService(plugin, config);
+        this.deathSkillService = new DeathSkillService(plugin, config);
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
@@ -220,39 +219,7 @@ public class CombatService {
      */
     public void onMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState,
                            List<ItemStack> collectTo) {
-        Player killer = entity.getKiller();
-        for (Affix affix : mobState.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.DEATH) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-            SkillContext ctx = new SkillContext(plugin, entity, mobState);
-            ctx.setTargetPlayer(killer);
-            ctx.setTriggerEvent(event);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            ctx.setCollectTo(collectTo);
-            if (!fireAffixAttemptEvent(affix, ctx, entity, killer, mobState)) continue;
-            affix.getSkill().onTrigger(ctx, sc);
-        }
-    }
-
-    /**
-     * 在非 STAT 词条进入技能条件与概率判定前广播 {@link InfernalAffixAttemptEvent}。
-     * 调用本方法前应先完成冷却、目标等内部资格检查；取消后不继续判定，也不产生新冷却。
-     */
-    private boolean fireAffixAttemptEvent(Affix affix, SkillContext ctx,
-                                          LivingEntity mob, LivingEntity target, MobState state) {
-        if (affix.getSkill().getType() == SkillType.STAT) return true;
-        if (plugin == null) return true;
-        InfernalMobHandle handle = new InfernalMobHandle(mob,
-                state.getProfile().getLevel(), state.getProfile().getAffixIds(),
-                state.getSuppressedAffixes());
-        ctx.setHandle(handle);
-        InfernalAffixAttemptEvent event = new InfernalAffixAttemptEvent(
-                affix.getSkillId(), affix.getSkill().getType(), mob, target, handle,
-                state.getProfile().getLevel());
-        plugin.getServer().getPluginManager().callEvent(event);
-        return !event.isCancelled();
+        deathSkillService.trigger(event, entity, mobState, collectTo, currentTick, mobFactory);
     }
 
     /** 清除指定位置半径内的炒鸡怪，返回清除数量。 */
