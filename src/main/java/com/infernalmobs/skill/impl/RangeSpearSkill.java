@@ -6,6 +6,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.service.SkillSessionManager;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -168,6 +169,8 @@ public class RangeSpearSkill implements Skill {
             }
         };
         active.task = task;
+        getSessionManager(ctx).register(mob.getUniqueId(), getId(),
+                () -> finishSession(active, false));
         task.runTaskTimer(ctx.getPlugin(), 0L, 1L);
     }
 
@@ -203,6 +206,7 @@ public class RangeSpearSkill implements Skill {
     private void finishSession(ActiveSpear active, boolean deferCleanup) {
         if (active == null || !active.finished.compareAndSet(false, true)) return;
         activeSpears.remove(active.mob.getUniqueId(), active);
+        getSessionManager(active.ctx).unregister(active.mob.getUniqueId(), getId());
         if (active.task != null) active.task.cancel();
 
         if (deferCleanup && active.ctx.getPlugin().isEnabled()) {
@@ -226,6 +230,11 @@ public class RangeSpearSkill implements Skill {
         if (active.mob.isValid() && !active.mob.isDead()) {
             active.mob.setVelocity(new Vector(0, active.mob.getVelocity().getY(), 0));
         }
+    }
+
+    private SkillSessionManager getSessionManager(SkillContext ctx) {
+        return ((com.infernalmobs.InfernalMobsPlugin) ctx.getPlugin())
+                .getCombatService().getSkillSessionManager();
     }
 
     private boolean isSameSpearSpeed(PotionEffect current, PotionEffect spear) {

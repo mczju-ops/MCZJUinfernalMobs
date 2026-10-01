@@ -32,6 +32,7 @@ public class CombatService {
 
     private final JavaPlugin plugin;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
+    private final SkillSessionManager skillSessionManager;
     private final MobStatService mobStatService = new MobStatService();
     private final RangeSkillService rangeSkillService;
     private final AttackSkillService attackSkillService;
@@ -45,6 +46,7 @@ public class CombatService {
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
+        this.skillSessionManager = new SkillSessionManager(plugin);
         this.specialDamageService = new SpecialDamageService(plugin);
         this.skillAttemptService = new SkillAttemptService(plugin);
         this.rangeSkillService = new RangeSkillService(plugin, config, skillAttemptService);
@@ -78,7 +80,12 @@ public class CombatService {
     }
 
     public void unregisterMob(UUID entityUuid) {
+        skillSessionManager.cancel(entityUuid);
         mobRegistry.unregister(entityUuid);
+    }
+
+    public SkillSessionManager getSkillSessionManager() {
+        return skillSessionManager;
     }
 
     public MobState getMobState(UUID entityUuid) {
@@ -177,6 +184,7 @@ public class CombatService {
             tickTask.cancel();
             tickTask = null;
         }
+        skillSessionManager.cancelAll();
         mobRegistry.clear();
     }
 
