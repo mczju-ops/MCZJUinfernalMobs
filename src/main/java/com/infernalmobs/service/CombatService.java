@@ -51,7 +51,7 @@ public class CombatService {
 
     private final JavaPlugin plugin;
     private final ConfigLoader config;
-    private final Map<UUID, MobState> mobStates = new ConcurrentHashMap<>();
+    private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
     /** 炒鸡怪捡起的物品（用于 replace-vanilla-drops 时恢复到死亡掉落） */
     private final Map<UUID, List<ItemStack>> pickedUpItems = new ConcurrentHashMap<>();
     private com.infernalmobs.factory.MobFactory mobFactory;
@@ -63,7 +63,7 @@ public class CombatService {
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
-        mobStates.put(entityUuid, state);
+        mobRegistry.register(entityUuid, state);
     }
 
     public void setSkillService(SkillService skillService) {
@@ -82,13 +82,12 @@ public class CombatService {
     }
 
     public void unregisterMob(UUID entityUuid) {
-        MobState removed = mobStates.remove(entityUuid);
-        if (removed != null) removed.clearPersistentStateListener();
+        mobRegistry.unregister(entityUuid);
         pickedUpItems.remove(entityUuid);
     }
 
     public MobState getMobState(UUID entityUuid) {
-        return mobStates.get(entityUuid);
+        return mobRegistry.get(entityUuid);
     }
 
     /** 记录炒鸡怪捡起的物品（克隆存储，避免后续元数据/堆叠变化影响）。 */
@@ -195,12 +194,12 @@ public class CombatService {
 
     /** 获取当前追踪的炒鸡怪数量 */
     public int getTrackedCount() {
-        return mobStates.size();
+        return mobRegistry.size();
     }
 
     /** 获取所有追踪中的炒鸡怪（UUID -> MobState），用于外部索引 */
     public Map<UUID, MobState> getTrackedMobs() {
-        return new HashMap<>(mobStates);
+        return mobRegistry.snapshot();
     }
 
     public void setMobFactory(com.infernalmobs.factory.MobFactory factory) {
@@ -293,7 +292,7 @@ public class CombatService {
      * 怪物受到任意伤害时，检测 1up 等技能。
      */
     public void onMobDamaged(EntityDamageEvent event, LivingEntity victim) {
-        MobState state = mobStates.get(victim.getUniqueId());
+        MobState state = mobRegistry.get(victim.getUniqueId());
         if (state == null) return;
 
         for (Affix affix : state.getProfile().getAffixes()) {
@@ -495,7 +494,7 @@ public class CombatService {
             @Override
             public void run() {
                 currentTick++;
-                for (Map.Entry<UUID, MobState> e : mobStates.entrySet()) {
+                for (Map.Entry<UUID, MobState> e : mobRegistry.snapshot().entrySet()) {
                     LivingEntity entity = findEntity(e.getKey());
                     if (entity == null || !entity.isValid()) {
                         unregisterMob(e.getKey());
@@ -512,8 +511,7 @@ public class CombatService {
 
     /** 关服时只释放内存引用；实体状态已在每次变化时同步到 PDC。 */
     public void shutdown() {
-        for (MobState state : mobStates.values()) state.clearPersistentStateListener();
-        mobStates.clear();
+        mobRegistry.clear();
         pickedUpItems.clear();
     }
 
@@ -643,9 +641,9 @@ public class CombatService {
         if (center == null || center.getWorld() == null || radius <= 0) return 0;
         double radiusSq = radius * radius;
         int count = 0;
-        for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
+        for (UUID uuid : mobRegistry.idsSnapshot()) {
             LivingEntity entity = findEntity(uuid);
-            MobState state = mobStates.get(uuid);
+            MobState state = mobRegistry.get(uuid);
             if (entity == null || !entity.isValid() || state == null) {
                 unregisterMob(uuid);
                 continue;
