@@ -231,7 +231,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 
 ### config.yml
 
-只保存全局行为：配置版本、调试开关、经验倍率、启用世界、生成原因和全局实体白名单。
+只保存全局行为：配置版本、调试开关、经验倍率、启用世界、生成原因和自动生成实体白名单。只有世界和生成原因均符合时，`allow-types` 才参与普通自动炒鸡化判断；变形目标和坐骑类型使用各自的独立白名单。
 
 ```yaml
 config-version: 1
@@ -239,7 +239,7 @@ debug: false
 exp-multiplier: 5.0
 enabled-worlds: [world]
 infernal-spawn-reasons: [NATURAL, SPAWNER]
-allow-types: [] # 空列表表示不限制
+allow-types: [] # 生成原因和世界均符合时生效；空列表表示不限制自动炒鸡化实体类型
 ```
 
 ### skills.yml
