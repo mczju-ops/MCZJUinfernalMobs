@@ -9,14 +9,21 @@ import com.infernalmobs.skill.SkillType;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 变形：受击/攻击时概率变成另一种生物。
  * morph 词条被禁用（由外部插件通过 API 设置）时，由 MorphSuppressListener 在事件层阻止触发。
  */
 public class DualMorphSkill implements Skill {
+
+    /** 每只实体至多保留一个尚未执行的变形任务，避免实体失效后仍执行旧请求。 */
+    private final Map<UUID, BukkitTask> pendingMorphs = new ConcurrentHashMap<>();
 
     @Override
     public String getId() {
@@ -32,7 +39,11 @@ public class DualMorphSkill implements Skill {
     public void onEquip(SkillContext ctx, SkillConfig config) {}
 
     @Override
-    public void onUnequip(SkillContext ctx) {}
+    public void onUnequip(SkillContext ctx) {
+        if (ctx == null || ctx.getEntity() == null) return;
+        BukkitTask task = pendingMorphs.remove(ctx.getEntity().getUniqueId());
+        if (task != null) task.cancel();
+    }
 
     @Override
     public void onTrigger(SkillContext ctx, SkillConfig config) {
@@ -65,9 +76,10 @@ public class DualMorphSkill implements Skill {
         float soundPitch = (float) config.getDouble("sound-pitch", 0.7);
 
         EntityType finalTarget = target;
-        new BukkitRunnable() {
+        BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
+                pendingMorphs.remove(entity.getUniqueId());
                 if (!entity.isValid()) return;
                 factory.morphEntity(entity, ctx.getMobState(), finalTarget, currentHealth);
                 if (soundLoc.getWorld() != null) {
@@ -78,6 +90,8 @@ public class DualMorphSkill implements Skill {
                 }
             }
         }.runTask(ctx.getPlugin());
+        BukkitTask previous = pendingMorphs.put(entity.getUniqueId(), task);
+        if (previous != null) previous.cancel();
     }
 
 
