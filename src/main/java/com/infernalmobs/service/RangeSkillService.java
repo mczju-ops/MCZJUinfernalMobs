@@ -1,8 +1,6 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
-import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
@@ -20,10 +18,12 @@ public final class RangeSkillService {
 
     private final JavaPlugin plugin;
     private final ConfigLoader config;
+    private final SkillAttemptService skillAttemptService;
 
     public RangeSkillService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.config = config;
+        this.skillAttemptService = new SkillAttemptService(plugin);
     }
 
     /** 每次调用检查一个实体的所有范围技能；调用频率由 CombatService 控制。 */
@@ -48,7 +48,7 @@ public final class RangeSkillService {
             context.setTargetPlayer(target);
             context.setCurrentTick(currentTick);
             if (mobFactory != null) context.setMobFactory(mobFactory);
-            if (!fireAttemptEvent(affix, context, entity, target, state)) continue;
+            if (!skillAttemptService.fire(affix, context, entity, target, state)) continue;
             if (Math.random() >= skillConfig.getDouble("chance", 0.02)) continue;
 
             affix.getSkill().onTrigger(context, skillConfig);
@@ -62,19 +62,6 @@ public final class RangeSkillService {
 
     private boolean isProjectileSkill(String skillId) {
         return "ghastly".equals(skillId) || "necromancer".equals(skillId);
-    }
-
-    private boolean fireAttemptEvent(Affix affix, SkillContext context,
-                                     LivingEntity entity, Player target, MobState state) {
-        InfernalMobHandle handle = new InfernalMobHandle(entity,
-                state.getProfile().getLevel(), state.getProfile().getAffixIds(),
-                state.getSuppressedAffixes());
-        context.setHandle(handle);
-        InfernalAffixAttemptEvent event = new InfernalAffixAttemptEvent(
-                affix.getSkillId(), affix.getSkill().getType(), entity, target, handle,
-                state.getProfile().getLevel());
-        plugin.getServer().getPluginManager().callEvent(event);
-        return !event.isCancelled();
     }
 
     private Player findNearestPlayer(LivingEntity entity, double range) {

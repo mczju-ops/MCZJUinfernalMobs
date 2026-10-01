@@ -1,8 +1,6 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
-import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
@@ -19,10 +17,12 @@ public final class AttackSkillService {
 
     private final JavaPlugin plugin;
     private final ConfigLoader config;
+    private final SkillAttemptService skillAttemptService;
 
     public AttackSkillService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.config = config;
+        this.skillAttemptService = new SkillAttemptService(plugin);
     }
 
     /** 怪物攻击玩家时触发 ACTIVE 与 DUAL 技能。 */
@@ -72,22 +72,9 @@ public final class AttackSkillService {
         if (triggerEvent != null) context.setTriggerEvent(triggerEvent);
         context.setCurrentTick(currentTick);
         if (mobFactory != null) context.setMobFactory(mobFactory);
-        if (!fireAttemptEvent(affix, context, entity, target, state)) return;
+        if (!skillAttemptService.fire(affix, context, entity, target, state)) return;
         affix.getSkill().onTrigger(context, skillConfig);
         if (context.isTriggered()) context.commitCooldown(affix.getSkillId(), cooldown);
     }
 
-    private boolean fireAttemptEvent(Affix affix, SkillContext context,
-                                     LivingEntity entity, Player target, MobState state) {
-        if (affix.getSkill().getType() == SkillType.STAT || plugin == null) return true;
-        InfernalMobHandle handle = new InfernalMobHandle(entity,
-                state.getProfile().getLevel(), state.getProfile().getAffixIds(),
-                state.getSuppressedAffixes());
-        context.setHandle(handle);
-        InfernalAffixAttemptEvent event = new InfernalAffixAttemptEvent(
-                affix.getSkillId(), affix.getSkill().getType(), entity, target, handle,
-                state.getProfile().getLevel());
-        plugin.getServer().getPluginManager().callEvent(event);
-        return !event.isCancelled();
-    }
 }

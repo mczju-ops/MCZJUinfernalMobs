@@ -1,8 +1,6 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.affix.Affix;
-import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
@@ -22,10 +20,12 @@ public final class DeathSkillService {
 
     private final JavaPlugin plugin;
     private final ConfigLoader config;
+    private final SkillAttemptService skillAttemptService;
 
     public DeathSkillService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.config = config;
+        this.skillAttemptService = new SkillAttemptService(plugin);
     }
 
     /**
@@ -47,22 +47,9 @@ public final class DeathSkillService {
             context.setCurrentTick(currentTick);
             if (mobFactory != null) context.setMobFactory(mobFactory);
             context.setCollectTo(collectTo);
-            if (!fireAttemptEvent(affix, context, entity, killer, state)) continue;
+            if (!skillAttemptService.fire(affix, context, entity, killer, state)) continue;
             affix.getSkill().onTrigger(context, skillConfig);
         }
     }
 
-    private boolean fireAttemptEvent(Affix affix, SkillContext context,
-                                     LivingEntity entity, LivingEntity target, MobState state) {
-        if (affix.getSkill().getType() == SkillType.STAT || plugin == null) return true;
-        InfernalMobHandle handle = new InfernalMobHandle(entity,
-                state.getProfile().getLevel(), state.getProfile().getAffixIds(),
-                state.getSuppressedAffixes());
-        context.setHandle(handle);
-        InfernalAffixAttemptEvent attemptEvent = new InfernalAffixAttemptEvent(
-                affix.getSkillId(), affix.getSkill().getType(), entity, target, handle,
-                state.getProfile().getLevel());
-        plugin.getServer().getPluginManager().callEvent(attemptEvent);
-        return !attemptEvent.isCancelled();
-    }
 }
