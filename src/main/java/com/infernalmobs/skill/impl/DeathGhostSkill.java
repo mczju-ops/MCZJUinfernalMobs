@@ -118,7 +118,7 @@ public class DeathGhostSkill implements Skill {
         var maxHealthAttribute = ghost.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttribute != null) {
             maxHealthAttribute.setBaseValue(event.getMaxHealth());
-            ghost.setHealth(Math.min(ghost.getMaxHealth(), event.getMaxHealth()));
+            ghost.setHealth(Math.min(maxHealthAttribute.getValue(), event.getMaxHealth()));
         }
     }
 

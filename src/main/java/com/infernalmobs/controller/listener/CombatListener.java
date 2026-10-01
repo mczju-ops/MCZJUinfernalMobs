@@ -18,6 +18,7 @@ import com.infernalmobs.util.GuaranteedEquipmentDrops;
 import com.infernalmobs.util.Keys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
@@ -251,7 +252,9 @@ public class CombatListener implements Listener {
         if (state == null) return;
         double zCap = CombatService.zombieRecoveryCapWithoutLeaderBonus(le, state);
         if (Double.isInfinite(zCap)) return;
-        double cap = Math.min(zCap, le.getMaxHealth());
+        var maxHealth = le.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealth == null) return;
+        double cap = Math.min(zCap, maxHealth.getValue());
         double cur = le.getHealth();
         if (cur >= cap) {
             event.setCancelled(true);
