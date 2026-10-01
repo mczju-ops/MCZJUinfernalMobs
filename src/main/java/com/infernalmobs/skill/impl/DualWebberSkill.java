@@ -14,16 +14,20 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 织网：受击或攻击时，概率在玩家位置放置蜘蛛网。
  */
 public class DualWebberSkill implements Skill {
     private static final String GIANT_WEB_ONE_TIME_KEY = "webber_giant_hollow_sphere_done";
-    private static final String GIANT_WEB_META_KEY = "infernalmobs_giant_web";
-    private static final String WEB_META_KEY = "infernalmobs_web";
+    private final Map<BlockKey, String> webMarkers = new ConcurrentHashMap<>();
+
+    private record BlockKey(UUID worldId, int x, int y, int z) {}
 
     @Override
     public String getId() {
@@ -106,7 +110,7 @@ public class DualWebberSkill implements Skill {
         return above.getType().isAir() ? above : null;
     }
 
-    private static int placeNormalWeb(SkillContext ctx, Player player, InfernalMobWebberEvent event) {
+    private int placeNormalWeb(SkillContext ctx, Player player, InfernalMobWebberEvent event) {
         Location location = event.getCenter();
         if (location.getWorld() == null) return 0;
 
@@ -123,7 +127,7 @@ public class DualWebberSkill implements Skill {
         return 1;
     }
 
-    private static int placeGiantHollowWebSphere(SkillContext ctx, Player player, InfernalMobWebberEvent event) {
+    private int placeGiantHollowWebSphere(SkillContext ctx, Player player, InfernalMobWebberEvent event) {
         Location center = event.getCenter();
         World world = center.getWorld();
         if (world == null) return 0;
@@ -171,7 +175,7 @@ public class DualWebberSkill implements Skill {
                     b.setType(Material.COBWEB);
                     placedCount++;
                     if (token != null) {
-                        b.setMetadata(GIANT_WEB_META_KEY, new FixedMetadataValue(plugin, token));
+                        webMarkers.put(key(b), token);
                         placedLocations.add(b.getLocation().clone());
                     }
                 }
@@ -189,13 +193,9 @@ public class DualWebberSkill implements Skill {
                     if (loc == null || loc.getWorld() == null) continue;
                     Block b = loc.getWorld().getBlockAt(loc);
                     if (b.getType() != Material.COBWEB) continue;
-                    if (!b.hasMetadata(GIANT_WEB_META_KEY)) continue;
-
-                    boolean matches = b.getMetadata(GIANT_WEB_META_KEY).stream()
-                            .anyMatch(m -> plugin.equals(m.getOwningPlugin()) && token.equals(m.value()));
-                    if (!matches) continue;
-
-                    b.removeMetadata(GIANT_WEB_META_KEY, plugin);
+                    BlockKey blockKey = key(b);
+                    if (!token.equals(webMarkers.get(blockKey))) continue;
+                    webMarkers.remove(blockKey, token);
                     b.setType(Material.AIR);
                 }
             }
@@ -205,9 +205,10 @@ public class DualWebberSkill implements Skill {
     }
 
     /** 普通蛛网定时消失：寿命到期后若方块仍是蛛网则清除。 */
-    private static void scheduleWebRemoval(JavaPlugin plugin, Block block, int delayTicks) {
+    private void scheduleWebRemoval(JavaPlugin plugin, Block block, int delayTicks) {
         String token = java.util.UUID.randomUUID().toString();
-        block.setMetadata(WEB_META_KEY, new FixedMetadataValue(plugin, token));
+        BlockKey blockKey = key(block);
+        webMarkers.put(blockKey, token);
         org.bukkit.Location loc = block.getLocation().clone();
 
         new org.bukkit.scheduler.BukkitRunnable() {
@@ -216,13 +217,14 @@ public class DualWebberSkill implements Skill {
                 if (loc.getWorld() == null) return;
                 Block b = loc.getWorld().getBlockAt(loc);
                 if (b.getType() != Material.COBWEB) return;
-                if (!b.hasMetadata(WEB_META_KEY)) return;
-                boolean matches = b.getMetadata(WEB_META_KEY).stream()
-                        .anyMatch(m -> plugin.equals(m.getOwningPlugin()) && token.equals(m.value()));
-                if (!matches) return;
-                b.removeMetadata(WEB_META_KEY, plugin);
+                if (!token.equals(webMarkers.get(blockKey))) return;
+                webMarkers.remove(blockKey, token);
                 b.setType(Material.AIR);
             }
         }.runTaskLater(plugin, delayTicks);
+    }
+
+    private static BlockKey key(Block block) {
+        return new BlockKey(block.getWorld().getUID(), block.getX(), block.getY(), block.getZ());
     }
 }
