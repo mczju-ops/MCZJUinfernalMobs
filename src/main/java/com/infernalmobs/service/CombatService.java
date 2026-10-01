@@ -12,7 +12,6 @@ import com.infernalmobs.model.StatMap;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.skill.impl.*;
-import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -41,6 +40,7 @@ public class CombatService {
     private final ConfigLoader config;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
     private final MobStatService mobStatService = new MobStatService();
+    private final RangeSkillService rangeSkillService;
     private final SpecialDamageService specialDamageService;
     private MobFactory mobFactory;
     private SkillService skillService;
@@ -49,6 +49,7 @@ public class CombatService {
         this.plugin = plugin;
         this.config = config;
         this.specialDamageService = new SpecialDamageService(plugin);
+        this.rangeSkillService = new RangeSkillService(plugin, config);
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
@@ -211,7 +212,7 @@ public class CombatService {
                     }
                     // 范围技能降频：每 20 tick（1 秒）检测一次，降低高频扫描开销
                     if (currentTick % 20 == 0) {
-                        tickRangeSkills(entity, e.getValue());
+                        rangeSkillService.tick(entity, e.getValue(), currentTick, mobFactory);
                     }
                 }
             }
@@ -221,45 +222,6 @@ public class CombatService {
     /** 关服时只释放内存引用；实体状态已在每次变化时同步到 PDC。 */
     public void shutdown() {
         mobRegistry.clear();
-    }
-
-    /** 范围技能：玩家在范围内时按概率触发 */
-    private void tickRangeSkills(LivingEntity entity, MobState state) {
-        for (Affix affix : state.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.RANGE) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-
-            double range = sc.getDouble("range", 8);
-            Player target = findNearestPlayer(entity, range);
-            if (target == null) continue;
-
-            int cooldown = sc.getInt("cooldown-ticks", 100);
-            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-
-            // ghastly 与 necromancer 共享投射物冷却，错开释放
-            if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
-                long lastProj = state.getBuff(RangeNecromancerSkill.PROJECTILE_BUFF);
-                if (lastProj > 0 && currentTick - lastProj < 40) continue;
-            }
-
-            SkillContext ctx = new SkillContext(plugin, entity, state);
-            ctx.setTargetPlayer(target);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixAttemptEvent(affix, ctx, entity, target, state)) continue;
-
-            double chance = sc.getDouble("chance", 0.02);
-            if (Math.random() >= chance) continue;
-
-            affix.getSkill().onTrigger(ctx, sc);
-            if (ctx.isTriggered()) {
-                ctx.commitCooldown(affix.getSkillId(), cooldown);
-                if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
-                    state.setBuff(RangeNecromancerSkill.PROJECTILE_BUFF, currentTick);
-                }
-            }
-        }
     }
 
     /**
@@ -375,18 +337,4 @@ public class CombatService {
         return le.isValid() ? le : null;
     }
 
-
-    private Player findNearestPlayer(LivingEntity entity, double range) {
-        Player nearest = null;
-        double minSq = range * range;
-        for (Player p : entity.getWorld().getPlayers()) {
-            if (!p.isOnline() || p.getGameMode() == GameMode.SPECTATOR) continue;
-            double dSq = p.getLocation().distanceSquared(entity.getLocation());
-            if (dSq < minSq) {
-                minSq = dSq;
-                nearest = p;
-            }
-        }
-        return nearest;
-    }
 }
