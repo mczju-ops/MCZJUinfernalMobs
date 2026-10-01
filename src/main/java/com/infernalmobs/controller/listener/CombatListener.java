@@ -14,6 +14,7 @@ import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.SkillService;
 import com.infernalmobs.util.MiniMessageHelper;
 import com.infernalmobs.util.GuaranteedEquipmentDrops;
+import com.infernalmobs.util.Keys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.entity.LivingEntity;
@@ -55,7 +56,9 @@ public class CombatListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (event.getDamager() instanceof Firework fw && fw.hasMetadata("infernalmobs_firework_source")) {
+        if (event.getDamager() instanceof Firework fw
+                && fw.getPersistentDataContainer().has(Keys.FIREWORK_SOURCE,
+                org.bukkit.persistence.PersistentDataType.STRING)) {
             combatService.handleFireworkDamage(event);
             return;
         }

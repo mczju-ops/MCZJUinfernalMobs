@@ -5,6 +5,7 @@ import com.infernalmobs.config.DeathMessageConfig;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.util.MiniMessageHelper;
+import com.infernalmobs.util.Keys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -20,6 +21,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -203,6 +205,9 @@ public class DeathMessageService {
 
     /** 提取实体上的 infernalmobs_skill_id 元数据值，没有则返回 null。 */
     private String extractSkillId(Entity entity) {
+        String pdcSkill = entity.getPersistentDataContainer().get(
+                Keys.FIREWORK_SKILL_ID, PersistentDataType.STRING);
+        if (pdcSkill != null) return pdcSkill;
         if (!entity.hasMetadata("infernalmobs_skill_id")) return null;
         var values = entity.getMetadata("infernalmobs_skill_id");
         return values.isEmpty() ? null : values.getFirst().asString();
@@ -211,11 +216,16 @@ public class DeathMessageService {
     /** 从弹射物/烟花元数据还原施法炒鸡怪组件，找不到返回 null。 */
     private Component resolveCasterComponent(Entity damager) {
         java.util.UUID casterUuid = null;
-        if (damager.hasMetadata("infernalmobs_source")) {
+        String fireworkSource = damager.getPersistentDataContainer().get(
+                Keys.FIREWORK_SOURCE, PersistentDataType.STRING);
+        if (fireworkSource != null) {
+            try {
+                casterUuid = java.util.UUID.fromString(fireworkSource);
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        } else if (damager.hasMetadata("infernalmobs_source")) {
             var v = damager.getMetadata("infernalmobs_source");
-            if (!v.isEmpty() && v.getFirst().value() instanceof java.util.UUID u) casterUuid = u;
-        } else if (damager.hasMetadata("infernalmobs_firework_source")) {
-            var v = damager.getMetadata("infernalmobs_firework_source");
             if (!v.isEmpty() && v.getFirst().value() instanceof java.util.UUID u) casterUuid = u;
         }
         if (casterUuid == null || combatService == null) return null;

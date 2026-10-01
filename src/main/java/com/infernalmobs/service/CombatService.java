@@ -3,7 +3,6 @@ package com.infernalmobs.service;
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
-import com.infernalmobs.api.event.affix.effect.InfernalMobFireworkDamageEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobGhastlyDamageEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobNecromancerDamageEvent;
 import com.infernalmobs.api.event.affix.effect.InfernalMobStormDamageEvent;
@@ -19,7 +18,6 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Fireball;
-import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.LightningStrike;
 import org.bukkit.entity.Player;
@@ -49,12 +47,14 @@ public class CombatService {
     private final JavaPlugin plugin;
     private final ConfigLoader config;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
+    private final SpecialDamageService specialDamageService;
     private com.infernalmobs.factory.MobFactory mobFactory;
     private SkillService skillService;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.config = config;
+        this.specialDamageService = new SpecialDamageService(plugin);
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
@@ -356,26 +356,7 @@ public class CombatService {
      * 烟花爆炸伤害归因到释放技能的怪物，使死亡信息等显示正确来源。
      */
     public void handleFireworkDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Firework fw) || !fw.hasMetadata("infernalmobs_firework_source")) return;
-        List<MetadataValue> sourceMetadata = fw.getMetadata("infernalmobs_firework_source");
-        if (sourceMetadata.isEmpty() || !(sourceMetadata.get(0).value() instanceof UUID mobUuid)) return;
-        LivingEntity mob = findEntity(mobUuid);
-        if (mob == null || !mob.isValid()) return;
-        if (!(event.getEntity() instanceof LivingEntity victim)) return;
-
-        List<MetadataValue> handleMetadata = fw.getMetadata("infernalmobs_firework_handle");
-        if (handleMetadata.isEmpty() || !(handleMetadata.get(0).value() instanceof InfernalMobHandle handle)) return;
-        List<MetadataValue> levelMetadata = fw.getMetadata("infernalmobs_firework_level");
-        if (levelMetadata.isEmpty()) return;
-        int level = levelMetadata.get(0).asInt();
-
-        double damage = event.getDamage();
-        event.setCancelled(true);
-        InfernalMobFireworkDamageEvent damageEvent = new InfernalMobFireworkDamageEvent(
-                mob, victim, fw, handle, level, damage);
-        plugin.getServer().getPluginManager().callEvent(damageEvent);
-        if (damageEvent.isCancelled() || damageEvent.getDamage() <= 0.0) return;
-        victim.damage(damageEvent.getDamage(), mob);
+        specialDamageService.handleFireworkDamage(event);
     }
 
     private volatile long currentTick = 0;
