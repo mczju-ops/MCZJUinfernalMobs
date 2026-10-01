@@ -14,6 +14,7 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 
@@ -26,6 +27,8 @@ import java.util.*;
  * 5. RANGE：玩家在怪物范围内时，有几率释放
  */
 public class CombatService {
+
+    private static final long TICK_INTERVAL = 20L;
 
     private final JavaPlugin plugin;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
@@ -141,31 +144,35 @@ public class CombatService {
                 currentTick, mobFactory);
     }
 
-    private volatile long currentTick = 0;
+    /** 按服务端 tick 计数；本服务的状态只在主线程读写。 */
+    private long currentTick = 0;
+    private BukkitTask tickTask;
 
-    /** 启动战斗 tick 任务；实体何时自然消失完全交给服务端原版规则。 */
+    /** 启动战斗周期任务；实体何时自然消失完全交给服务端原版规则。 */
     public void startTickTask() {
-        new BukkitRunnable() {
+        if (tickTask != null && !tickTask.isCancelled()) return;
+        tickTask = new BukkitRunnable() {
             @Override
             public void run() {
-                currentTick++;
+                currentTick += TICK_INTERVAL;
                 for (Map.Entry<UUID, MobState> e : mobRegistry.snapshot().entrySet()) {
                     LivingEntity entity = findEntity(e.getKey());
                     if (entity == null || !entity.isValid()) {
                         unregisterMob(e.getKey());
                         continue;
                     }
-                    // 范围技能降频：每 20 tick（1 秒）检测一次，降低高频扫描开销
-                    if (currentTick % 20 == 0) {
-                        rangeSkillService.tick(entity, e.getValue(), currentTick, mobFactory);
-                    }
+                    rangeSkillService.tick(entity, e.getValue(), currentTick, mobFactory);
                 }
             }
-        }.runTaskTimer(plugin, 20L, 1L);
+        }.runTaskTimer(plugin, TICK_INTERVAL, TICK_INTERVAL);
     }
 
     /** 关服时只释放内存引用；实体状态已在每次变化时同步到 PDC。 */
     public void shutdown() {
+        if (tickTask != null) {
+            tickTask.cancel();
+            tickTask = null;
+        }
         mobRegistry.clear();
     }
 
@@ -200,14 +207,10 @@ public class CombatService {
         return count;
     }
 
-    /**
-     * 按 UUID 取实体。必须用 {@link org.bukkit.Server#getEntity(UUID)}，禁止每 tick 全服遍历生物（会随实体数爆炸）。
-     */
     private LivingEntity findEntity(UUID uuid) {
         if (uuid == null) return null;
         Entity e = plugin.getServer().getEntity(uuid);
         if (!(e instanceof LivingEntity le)) return null;
         return le.isValid() ? le : null;
     }
-
 }
