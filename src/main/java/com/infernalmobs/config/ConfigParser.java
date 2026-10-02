@@ -191,7 +191,9 @@ final class ConfigParser {
                 if (skills.containsKey(skillId)) {
                     warn("skills.yml:skills." + rawId, "归一化后与已有技能 ID 重复，已使用后声明的值");
                 }
-                skills.put(skillId, new SkillConfig(skillId, display, values));
+                SkillConfig skillConfig = new SkillConfig(skillId, display, values);
+                warnSkillPreparse(skillId, skillConfig);
+                skills.put(skillId, skillConfig);
             }
         }
 
@@ -489,9 +491,21 @@ final class ConfigParser {
     }
 
     private SkillConfig skillFromSchema(String skillId, ConfigurationSection schema) {
-        if (schema == null) return new SkillConfig(skillId, skillId, Map.of());
-        return new SkillConfig(skillId, schema.getString("display", skillId),
-                sectionToMap(schema, Set.of("display", "type")));
+        SkillConfig skillConfig = schema == null
+                ? new SkillConfig(skillId, skillId, Map.of())
+                : new SkillConfig(skillId, schema.getString("display", skillId),
+                        sectionToMap(schema, Set.of("display", "type")));
+        warnSkillPreparse(skillId, skillConfig);
+        return skillConfig;
+    }
+
+    private void warnSkillPreparse(String skillId, SkillConfig skillConfig) {
+        for (SkillConfig.PreparseWarning warning : skillConfig.getPreparseWarnings()) {
+            String path = warning.path().isEmpty()
+                    ? "skills.yml:skills." + skillId
+                    : "skills.yml:skills." + skillId + "." + warning.path();
+            warn(path, warning.message());
+        }
     }
 
     private Object normalizeYamlValue(Object value) {

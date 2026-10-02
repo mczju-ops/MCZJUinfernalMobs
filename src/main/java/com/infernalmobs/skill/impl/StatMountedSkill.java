@@ -16,7 +16,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.ArrayList;
@@ -226,15 +225,7 @@ public class StatMountedSkill implements Skill {
         if (config == null || keys == null) return out;
         for (String key : keys) {
             if (key == null || key.isBlank()) continue;
-            List<String> raw = config.getStringList(key);
-            if (raw == null || raw.isEmpty()) continue;
-            for (String s : raw) {
-                if (s == null || s.isBlank()) continue;
-                try {
-                    EntityType type = EntityType.valueOf(s.trim().toUpperCase(Locale.ROOT));
-                    out.add(type);
-                } catch (IllegalArgumentException ignored) {}
-            }
+            out.addAll(config.getEntityTypeList(key));
         }
         return out;
     }

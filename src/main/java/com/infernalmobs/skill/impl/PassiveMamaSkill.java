@@ -15,7 +15,6 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -219,26 +218,10 @@ public class PassiveMamaSkill implements Skill {
     }
 
     private Set<EntityType> parseAllowedTypes(SkillConfig config) {
-        List<String> raw = config.getStringList("allowed-types");
-        if (raw == null || raw.isEmpty()) return Set.of();
-        Set<EntityType> set = new HashSet<>();
-        for (String s : raw) {
-            try {
-                set.add(EntityType.valueOf(s.trim().toUpperCase()));
-            } catch (IllegalArgumentException ignored) {}
-        }
-        return set;
+        return config.getEntityTypeSet("allowed-types");
     }
 
     private Set<EntityType> parseBlockedTypes(SkillConfig config) {
-        List<String> raw = config.getStringList("blocked-types");
-        if (raw == null || raw.isEmpty()) return Set.of();
-        Set<EntityType> set = new HashSet<>();
-        for (String s : raw) {
-            try {
-                set.add(EntityType.valueOf(s.trim().toUpperCase()));
-            } catch (IllegalArgumentException ignored) {}
-        }
-        return set;
+        return config.getEntityTypeSet("blocked-types");
     }
 }

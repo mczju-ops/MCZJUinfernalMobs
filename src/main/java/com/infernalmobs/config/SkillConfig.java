@@ -1,13 +1,18 @@
 package com.infernalmobs.config;
 
 import net.kyori.adventure.key.Key;
+import org.bukkit.Material;
+import org.bukkit.entity.EntityType;
 import org.bukkit.potion.PotionEffect;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 单个技能的不可变配置。保留轻量类型 getter，让技能实现不依赖 Bukkit 的可变 ConfigurationSection。
@@ -18,12 +23,19 @@ public final class SkillConfig {
     private final String display;
     private final Map<String, Object> values;
     private final Map<String, SoundConfig> sounds;
+    private final Map<String, Material> materials;
+    private final Map<String, List<EntityType>> entityTypeLists;
+    private final List<PreparseWarning> preparseWarnings;
 
     public SkillConfig(String skillId, String display, Map<String, Object> values) {
         this.skillId = skillId;
         this.display = display;
         this.values = freezeMap(values);
         this.sounds = Collections.unmodifiableMap(parseSounds(this.values, ""));
+        PreparsedValues preparsed = parseTypedValues(this.values, "");
+        this.materials = Collections.unmodifiableMap(preparsed.materials());
+        this.entityTypeLists = Collections.unmodifiableMap(preparsed.entityTypeLists());
+        this.preparseWarnings = List.copyOf(preparsed.warnings());
     }
 
     public String getSkillId() {
@@ -47,6 +59,27 @@ public final class SkillConfig {
     public String getString(String key, String def) {
         Object value = getValue(key);
         return value instanceof String string ? string : def;
+    }
+
+    /** 读取预解析的物品材质；无效配置返回默认值。 */
+    public Material getMaterial(String key, Material def) {
+        Material material = materials.get(key);
+        return material != null ? material : def;
+    }
+
+    /** 读取预解析的实体类型列表；无效项已在配置加载阶段跳过。 */
+    public List<EntityType> getEntityTypeList(String key) {
+        return entityTypeLists.getOrDefault(key, List.of());
+    }
+
+    /** 读取预解析的实体类型集合；无效项已在配置加载阶段跳过。 */
+    public Set<EntityType> getEntityTypeSet(String key) {
+        return Set.copyOf(getEntityTypeList(key));
+    }
+
+    /** 返回构造配置时发现的材质/实体类型警告，由配置解析器统一输出。 */
+    List<PreparseWarning> getPreparseWarnings() {
+        return preparseWarnings;
     }
 
     public List<String> getStringList(String key) {
@@ -103,6 +136,72 @@ public final class SkillConfig {
         return Float.isFinite(result) && result >= 0.0f ? result : fallback;
     }
 
+    private static PreparsedValues parseTypedValues(Map<String, Object> values, String prefix) {
+        LinkedHashMap<String, Material> materials = new LinkedHashMap<>();
+        LinkedHashMap<String, List<EntityType>> entityTypeLists = new LinkedHashMap<>();
+        List<PreparseWarning> warnings = new ArrayList<>();
+        values.forEach((key, value) -> parseTypedValue(key, value,
+                prefix.isEmpty() ? key : prefix + "." + key, materials, entityTypeLists, warnings));
+        return new PreparsedValues(materials, entityTypeLists, warnings);
+    }
+
+    private static void parseTypedValue(String key, Object value, String path,
+                                        Map<String, Material> materials,
+                                        Map<String, List<EntityType>> entityTypeLists,
+                                        List<PreparseWarning> warnings) {
+        if (value instanceof Map<?, ?> map) {
+            LinkedHashMap<String, Object> nested = new LinkedHashMap<>();
+            map.forEach((nestedKey, nestedValue) -> nested.put(String.valueOf(nestedKey), nestedValue));
+            nested.forEach((nestedKey, nestedValue) -> parseTypedValue(nestedKey, nestedValue,
+                    path + "." + nestedKey, materials, entityTypeLists, warnings));
+            return;
+        }
+        if ("item".equals(key)) {
+            if (!(value instanceof String raw)) {
+                warnings.add(new PreparseWarning(path, "必须是物品材质名"));
+                return;
+            }
+            try {
+                Material material = Material.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+                if (!material.isItem()) {
+                    warnings.add(new PreparseWarning(path, raw + " 不是可创建物品的材质"));
+                    return;
+                }
+                materials.put(pathWithoutSkillPrefix(path), material);
+            } catch (IllegalArgumentException ex) {
+                warnings.add(new PreparseWarning(path, "无法识别物品材质 " + raw));
+            }
+            return;
+        }
+        if (!isEntityTypeListKey(key)) return;
+        if (!(value instanceof List<?> list)) {
+            warnings.add(new PreparseWarning(path, "必须是实体类型列表"));
+            return;
+        }
+        LinkedHashSet<EntityType> parsed = new LinkedHashSet<>();
+        for (Object item : list) {
+            if (!(item instanceof String raw)) {
+                warnings.add(new PreparseWarning(path, "包含非字符串实体类型，已跳过"));
+                continue;
+            }
+            try {
+                parsed.add(EntityType.valueOf(raw.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ex) {
+                warnings.add(new PreparseWarning(path, "无法识别实体类型 " + raw + "，已跳过"));
+            }
+        }
+        entityTypeLists.put(pathWithoutSkillPrefix(path), List.copyOf(parsed));
+    }
+
+    private static boolean isEntityTypeListKey(String key) {
+        return key.endsWith("-types") || key.endsWith("-holders")
+                || key.endsWith("-riders") || key.endsWith("-mounts");
+    }
+
+    private static String pathWithoutSkillPrefix(String path) {
+        return path.startsWith("skills.") ? path.substring("skills.".length()) : path;
+    }
+
     public int getDurationTicks(String key, int def) {
         int value = getInt(key, def);
         return value < 0 ? PotionEffect.INFINITE_DURATION : value;
@@ -142,4 +241,10 @@ public final class SkillConfig {
         }
         return value;
     }
+
+    private record PreparsedValues(Map<String, Material> materials,
+                                   Map<String, List<EntityType>> entityTypeLists,
+                                   List<PreparseWarning> warnings) {}
+
+    record PreparseWarning(String path, String message) {}
 }

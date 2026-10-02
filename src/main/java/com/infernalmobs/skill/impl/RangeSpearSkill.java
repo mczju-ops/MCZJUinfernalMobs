@@ -27,12 +27,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -89,7 +84,8 @@ public class RangeSpearSkill implements Skill {
         int lungeTicks = Math.max(1, config.getInt("lunge-ticks", 30));
         int speedAmplifier = Math.max(0, config.getInt("lunge-speed-amplifier", 4));
         int sharpnessLevel = Math.max(0, config.getInt("sharpness-level", 5));
-        ItemStack spearItem = createSpearItem(config.getString("item", "NETHERITE_SPEAR"), sharpnessLevel);
+        ItemStack spearItem = createSpearItem(
+                config.getMaterial("item", Material.NETHERITE_SPEAR), sharpnessLevel);
         SoundConfig chargeSound = config.getSound("charge-sound");
         SoundConfig chargeMidSound = config.getSound("charge-mid-sound");
         SoundConfig lungeSound = config.getSound("lunge-sound");
@@ -261,21 +257,17 @@ public class RangeSpearSkill implements Skill {
                 previous.getAmplifier(), previous.isAmbient(), previous.hasParticles(), previous.hasIcon()));
     }
 
-    private ItemStack createSpearItem(String itemName, int sharpnessLevel) {
-        try {
-            Material material = Material.valueOf(itemName.trim().toUpperCase());
-            if (material.isItem()) {
-                ItemStack item = new ItemStack(material);
-                if (sharpnessLevel > 0) {
-                    ItemMeta meta = item.getItemMeta();
-                    if (meta != null) {
-                        meta.addEnchant(Enchantment.SHARPNESS, sharpnessLevel, true);
-                        item.setItemMeta(meta);
-                    }
+    private ItemStack createSpearItem(Material material, int sharpnessLevel) {
+        if (material != null && material.isItem()) {
+            ItemStack item = new ItemStack(material);
+            if (sharpnessLevel > 0) {
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.addEnchant(Enchantment.SHARPNESS, sharpnessLevel, true);
+                    item.setItemMeta(meta);
                 }
-                return item;
             }
-        } catch (IllegalArgumentException | NullPointerException ignored) {
+            return item;
         }
         return new ItemStack(Material.NETHERITE_SPEAR);
     }
@@ -285,14 +277,7 @@ public class RangeSpearSkill implements Skill {
         if (config == null || keys == null) return out;
         for (String key : keys) {
             if (key == null || key.isBlank()) continue;
-            List<String> raw = config.getStringList(key);
-            if (raw == null || raw.isEmpty()) continue;
-            for (String s : raw) {
-                if (s == null || s.isBlank()) continue;
-                try {
-                    out.add(EntityType.valueOf(s.trim().toUpperCase(Locale.ROOT)));
-                } catch (IllegalArgumentException ignored) {}
-            }
+            out.addAll(config.getEntityTypeList(key));
         }
         return out;
     }
