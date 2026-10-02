@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -89,7 +90,8 @@ public final class ThiefCourierTestService {
             }
 
             if (courier.returning) {
-                if (moveTowards(courier, courier.origin)) {
+                MoveResult result = moveTowards(courier, courier.origin, null);
+                if (result == MoveResult.REACHED || result == MoveResult.FAILED) {
                     remove(courier, false);
                 }
                 continue;
@@ -101,9 +103,13 @@ public final class ThiefCourierTestService {
             }
 
             Location targetLocation = target.getLocation().clone().add(0, 0.3, 0);
-            if (moveTowards(courier, targetLocation)) {
+            MoveResult result = moveTowards(courier, targetLocation, target.getBoundingBox());
+            if (result == MoveResult.HIT || result == MoveResult.REACHED) {
+                if (result == MoveResult.HIT) playSound(courier.lastLocation, "courier.steal-sound");
                 courier.returning = true;
                 courier.pauseTicks = ARRIVAL_PAUSE_TICKS;
+            } else if (result == MoveResult.FAILED) {
+                remove(courier, false);
             }
         }
         if (couriers.isEmpty() && task != null) {
@@ -113,21 +119,32 @@ public final class ThiefCourierTestService {
     }
 
     /** 直接传送到逐 tick 计算的位置，避免测试阶段受到方块碰撞阻挡。 */
-    private boolean moveTowards(TestCourier courier, Location target) {
+    private MoveResult moveTowards(TestCourier courier, Location target, BoundingBox hitBox) {
         Location current = courier.allay.getLocation();
-        if (current.getWorld() != target.getWorld()) return false;
+        if (current.getWorld() != target.getWorld()) return MoveResult.FAILED;
         Vector offset = target.toVector().subtract(current.toVector());
         double distance = offset.length();
+        BoundingBox expandedHitBox = hitBox == null ? null : hitBox.expand(0.3);
+        if (expandedHitBox != null && expandedHitBox.overlaps(courier.allay.getBoundingBox())) {
+            courier.lastLocation = current.clone();
+            return MoveResult.HIT;
+        }
         if (distance <= ARRIVAL_DISTANCE) {
             courier.lastLocation = current.clone();
-            return true;
+            return MoveResult.REACHED;
         }
         Vector step = offset.normalize().multiply(Math.min(SPEED, distance));
         Location next = current.clone().add(step);
         next.setDirection(step);
-        if (!courier.allay.teleport(next)) return false;
+        if (expandedHitBox != null
+                && expandedHitBox.rayTrace(current.toVector(), step.clone().normalize(), step.length()) != null) {
+            if (!courier.allay.teleport(target)) return MoveResult.FAILED;
+            courier.lastLocation = target.clone();
+            return MoveResult.HIT;
+        }
+        if (!courier.allay.teleport(next)) return MoveResult.FAILED;
         courier.lastLocation = next.clone();
-        return false;
+        return MoveResult.MOVED;
     }
 
     private void configure(Allay allay) {
@@ -154,6 +171,13 @@ public final class ThiefCourierTestService {
         couriers.remove(courier.allay.getUniqueId());
         if (playDeathSound) playSound(courier.lastLocation, "courier.death-sound");
         if (courier.allay.isValid()) courier.allay.remove();
+    }
+
+    private enum MoveResult {
+        MOVED,
+        REACHED,
+        HIT,
+        FAILED
     }
 
     private static final class TestCourier {
