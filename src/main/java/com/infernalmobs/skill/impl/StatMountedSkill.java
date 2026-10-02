@@ -23,8 +23,8 @@ import java.util.Collections;
 
 /**
  * 骑乘：怪物诞生时骑乘一只坐骑（参考原版 InfernalMobs）。
- * 由三个列表控制：
- * - enabled-riders：哪些实体类型可触发 mounted
+ * 由四个列表控制：
+ * - enabled-holders：哪些实体类型可持有 mounted（由通用装配逻辑检查）
  * - infernal-mounts：可生成且会被炒鸡化的坐骑候选
  * - enabled-mounts：可生成但不会被炒鸡化的普通坐骑候选
  * 两个坐骑列表合并为随机池，选中后按来源决定是否炒鸡化。
@@ -68,12 +68,6 @@ public class StatMountedSkill implements Skill {
         }
         debugLog(ctx, "触发 onEquip rider=" + rider.getType() + "@" + rider.getUniqueId());
 
-        Set<EntityType> enabledRiders = parseEntityTypeSet(config, "enabled-riders");
-        if (!enabledRiders.isEmpty() && !enabledRiders.contains(rider.getType())) {
-            debugLog(ctx, "跳过：rider 不在 enabled-riders 白名单内 rider=" + rider.getType());
-            return;
-        }
-
         // infernal-mounts：炒鸡坐骑候选；enabled-mounts：普通坐骑候选
         Set<EntityType> infernalMounts = parseEntityTypeSet(config, "infernal-mounts");
         Set<EntityType> normalMounts  = parseEntityTypeSet(config, "enabled-mounts");
@@ -87,7 +81,7 @@ public class StatMountedSkill implements Skill {
                 .filter(EntityType::isSpawnable)
                 .filter(t -> t.getEntityClass() != null && LivingEntity.class.isAssignableFrom(t.getEntityClass()))
                 .toList();
-        List<EntityType> riderPool = enabledRiders.stream()
+        List<EntityType> riderPool = parseEntityTypeSet(config, "enabled-passengers").stream()
             .filter(EntityType::isSpawnable)
             .filter(t -> t.getEntityClass() != null && LivingEntity.class.isAssignableFrom(t.getEntityClass()))
             .toList();

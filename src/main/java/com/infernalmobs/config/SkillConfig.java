@@ -77,6 +77,13 @@ public final class SkillConfig {
         return Set.copyOf(getEntityTypeList(key));
     }
 
+    /** 未配置 enabled-holders 表示不限制实体类型。 */
+    public boolean isHolderAllowed(EntityType entityType) {
+        if (entityType == null) return false;
+        Set<EntityType> holders = getEntityTypeSet("enabled-holders");
+        return holders.isEmpty() || holders.contains(entityType);
+    }
+
     /** 返回构造配置时发现的材质/实体类型警告，由配置解析器统一输出。 */
     List<PreparseWarning> getPreparseWarnings() {
         return preparseWarnings;
@@ -195,7 +202,8 @@ public final class SkillConfig {
 
     private static boolean isEntityTypeListKey(String key) {
         return key.endsWith("-types") || key.endsWith("-holders")
-                || key.endsWith("-riders") || key.endsWith("-mounts");
+                || key.endsWith("-riders") || key.endsWith("-mounts")
+                || key.endsWith("-passengers");
     }
 
     private static String pathWithoutSkillPrefix(String path) {

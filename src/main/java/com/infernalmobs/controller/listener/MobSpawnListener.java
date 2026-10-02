@@ -16,7 +16,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * 监听 {@link CreatureSpawnEvent}，在启用世界且生成原因匹配配置时，对已生成的生物调用 {@link MobFactory#mechanize}。
@@ -105,15 +104,10 @@ public class MobSpawnListener implements Listener {
         if (mountedConfig == null) return List.of();
 
         List<EntityType> pool = new ArrayList<>();
-        for (String value : mountedConfig.getStringList("enabled-riders")) {
-            try {
-                EntityType type = EntityType.valueOf(value.trim().toUpperCase(Locale.ROOT));
-                if (type.isSpawnable() && type.getEntityClass() != null
-                        && LivingEntity.class.isAssignableFrom(type.getEntityClass())) {
-                    pool.add(type);
-                }
-            } catch (IllegalArgumentException ignored) {
-                // Ignore invalid configured entity types.
+        for (EntityType type : mountedConfig.getEntityTypeList("enabled-passengers")) {
+            if (type.isSpawnable() && type.getEntityClass() != null
+                    && LivingEntity.class.isAssignableFrom(type.getEntityClass())) {
+                pool.add(type);
             }
         }
         return pool;

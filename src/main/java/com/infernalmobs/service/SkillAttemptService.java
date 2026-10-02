@@ -3,6 +3,8 @@ package com.infernalmobs.service;
 import com.infernalmobs.affix.Affix;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
+import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
@@ -13,9 +15,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class SkillAttemptService {
 
     private final JavaPlugin plugin;
+    private final ConfigLoader config;
 
-    public SkillAttemptService(JavaPlugin plugin) {
+    public SkillAttemptService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
+        this.config = config;
     }
 
     /**
@@ -28,6 +32,8 @@ public final class SkillAttemptService {
     public boolean fire(Affix affix, SkillContext context,
                         LivingEntity entity, LivingEntity target, MobState state) {
         if (affix.getSkill().getType() == SkillType.STAT || plugin == null) return true;
+        SkillConfig skillConfig = config.getSkillConfig(affix.getSkillId());
+        if (skillConfig != null && !skillConfig.isHolderAllowed(entity.getType())) return false;
         InfernalMobHandle handle = new InfernalMobHandle(entity,
                 state.getProfile().getLevel(), state.getProfile().getAffixIds(),
                 state.getSuppressedAffixes());

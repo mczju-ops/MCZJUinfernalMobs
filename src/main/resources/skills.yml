@@ -333,7 +333,27 @@ skills:
 
   mounted:
     display: "<#d4af37>驭兽</#d4af37>"
-    enabled-riders:
+    enabled-holders:
+      - WITHER_SKELETON
+      - STRAY
+      - HUSK
+      - ZOMBIE_VILLAGER
+      - EVOKER
+      - VINDICATOR
+      - SKELETON
+      - ZOMBIE
+      - ENDERMAN
+      - WITCH
+      - SNOW_GOLEM
+      - VILLAGER
+      - ILLUSIONER
+      - DROWNED
+      - ZOMBIFIED_PIGLIN
+      - PIGLIN
+      - BLAZE
+      - BOGGED
+      - STRIDER
+    enabled-passengers:
       - WITHER_SKELETON
       - STRAY
       - HUSK

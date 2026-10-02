@@ -417,10 +417,11 @@ final class ConfigParser {
                                             ConfigurationSection schema,
                                             String path,
                                             Set<String> excluded) {
+        Set<String> commonSkillKeys = Set.of("enabled-holders");
         LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         for (String key : actual.getKeys(false)) {
             if (excluded.contains(key)) continue;
-            if (!schema.contains(key)) {
+            if (!schema.contains(key) && !commonSkillKeys.contains(key)) {
                 warn(path + "." + key, "未知技能参数");
             }
         }
@@ -450,6 +451,15 @@ final class ConfigParser {
             } else {
                 result.put(key, normalizeYamlValue(actualValue));
             }
+        }
+        for (String key : commonSkillKeys) {
+            if (excluded.contains(key) || schema.contains(key) || !actual.contains(key)) continue;
+            Object actualValue = actual.get(key);
+            if (!(actualValue instanceof List<?>)) {
+                warn(path + "." + key, "参数类型不正确，已忽略");
+                continue;
+            }
+            result.put(key, normalizeYamlValue(actualValue));
         }
         return result;
     }

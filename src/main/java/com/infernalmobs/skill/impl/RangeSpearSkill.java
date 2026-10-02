@@ -13,7 +13,6 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.GameMode;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.enchantments.Enchantment;
@@ -69,9 +68,6 @@ public class RangeSpearSkill implements Skill {
         if (mob == null || !mob.isValid() || target == null || !target.isOnline()) return;
         if (target.getGameMode() == GameMode.CREATIVE || target.getGameMode() == GameMode.SPECTATOR) return;
         if (activeSpears.containsKey(mob.getUniqueId())) return;
-
-        Set<EntityType> holders = parseEntityTypeSet(config, "enabled-holders");
-        if (!holders.isEmpty() && !holders.contains(mob.getType())) return;
 
         EntityEquipment equip = mob.getEquipment();
         if (equip == null) return;
@@ -270,16 +266,6 @@ public class RangeSpearSkill implements Skill {
             return item;
         }
         return new ItemStack(Material.NETHERITE_SPEAR);
-    }
-
-    private Set<EntityType> parseEntityTypeSet(SkillConfig config, String... keys) {
-        Set<EntityType> out = new HashSet<>();
-        if (config == null || keys == null) return out;
-        for (String key : keys) {
-            if (key == null || key.isBlank()) continue;
-            out.addAll(config.getEntityTypeList(key));
-        }
-        return out;
     }
 
     private enum SpearPhase {

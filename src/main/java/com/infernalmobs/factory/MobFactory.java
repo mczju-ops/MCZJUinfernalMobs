@@ -164,7 +164,8 @@ public class MobFactory {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
         List<EntityType> morphTargets = getMorphTargets(region);
         int affixCount = affixRollService.computeAffixCount(level, region);
-        List<Affix> affixes = affixRollService.rollAffixesWithRequired(level, affixCount, region, requiredSkillIds);
+        List<Affix> affixes = filterSupportedAffixes(entity,
+                affixRollService.rollAffixesWithRequired(level, affixCount, region, requiredSkillIds));
         if (affixes.isEmpty()) return;
 
         logMechanizeDebug("required-affixes", entity, spawnLocation, region, level, affixes);
@@ -182,7 +183,8 @@ public class MobFactory {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
         List<EntityType> morphTargets = getMorphTargets(region);
         int affixCount = affixRollService.computeAffixCount(level, region);
-        List<Affix> affixes = affixRollService.rollAffixesWithExcluded(level, affixCount, region, excludedSkillIds);
+        List<Affix> affixes = filterSupportedAffixes(entity,
+                affixRollService.rollAffixesWithExcluded(level, affixCount, region, excludedSkillIds));
         if (affixes.isEmpty()) return;
 
         logMechanizeDebug("excluded-affixes", entity, spawnLocation, region, level, affixes);
@@ -192,21 +194,23 @@ public class MobFactory {
 
     private List<String> getSkillExclusionsFor(EntityType type) {
         List<String> excluded = new ArrayList<>();
-        SkillConfig spearConfig = configLoader.getSkillConfig("spear");
-        if (spearConfig != null) {
-            List<String> holders = spearConfig.getStringList("enabled-holders");
-            if (!holders.isEmpty()) {
-                boolean eligible = holders.stream()
-                        .map(String::trim)
-                        .map(String::toUpperCase)
-                        .anyMatch(h -> h.equals(type.name()));
-                if (!eligible || type.getEntityClass() == null
-                        || !LivingEntity.class.isAssignableFrom(type.getEntityClass())) {
-                    excluded.add("spear");
-                }
+        if (type == null) return excluded;
+        for (SkillConfig skillConfig : configLoader.getSkillConfigs().values()) {
+            if (!skillConfig.isHolderAllowed(type)) {
+                excluded.add(skillConfig.getSkillId());
             }
         }
         return excluded;
+    }
+
+    private List<Affix> filterSupportedAffixes(LivingEntity entity, List<Affix> affixes) {
+        if (entity == null || affixes == null || affixes.isEmpty()) return List.of();
+        return affixes.stream()
+                .filter(affix -> {
+                    SkillConfig skillConfig = configLoader.getSkillConfig(affix.getSkillId());
+                    return skillConfig == null || skillConfig.isHolderAllowed(entity.getType());
+                })
+                .toList();
     }
 
     private List<EntityType> getMorphTargets(RegionConfig region) {
@@ -222,7 +226,8 @@ public class MobFactory {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
         List<EntityType> morphTargets = getMorphTargets(region);
 
-        List<Affix> affixes = affixRollService.buildAffixesFromIds(skillIds);
+        List<Affix> affixes = filterSupportedAffixes(entity,
+                affixRollService.buildAffixesFromIds(skillIds));
         if (affixes.isEmpty()) return;
 
         logMechanizeDebug("fixed-affix-ids", entity, spawnLocation, region, level, affixes);
@@ -248,7 +253,8 @@ public class MobFactory {
 
         // 应用监听器修改（buildAffixesFromIds 与 roll 结果同样按难度+ID 排序，未编辑时顺序不变）
         profile.setLevel(handle.getLevel());
-        profile.setAffixes(affixRollService.buildAffixesFromIds(handle.getAffixIds()));
+        profile.setAffixes(filterSupportedAffixes(entity,
+                affixRollService.buildAffixesFromIds(handle.getAffixIds())));
 
         skillService.equip(entity, mobState, profile.getAffixes(), this);
         combatService.applyStats(entity, mobState);
@@ -298,7 +304,8 @@ public class MobFactory {
         InfernalMobPdc.ReadResult result = persistence.read(entity);
         if (result.status() != InfernalMobPdc.ReadResult.Status.VALID) return false;
         InfernalMobPdc.StoredState stored = result.state();
-        List<Affix> affixes = affixRollService.buildAffixesFromIds(stored.affixes());
+        List<Affix> affixes = filterSupportedAffixes(entity,
+                affixRollService.buildAffixesFromIds(stored.affixes()));
         MobProfile profile = new MobProfile(stored.level(), affixes);
         MobState state = new MobState(entity.getUniqueId(), profile, stored.morphTargets());
         state.restorePersistentState(stored.suppressedAffixes(), stored.usedOneTime());

@@ -65,6 +65,7 @@ public class SkillService {
                 }
                 continue;
             }
+            if (!skillConfig.isHolderAllowed(entity.getType())) continue;
 
             SkillContext ctx = new SkillContext(plugin, entity, mobState);
             ctx.setCurrentTick(0);

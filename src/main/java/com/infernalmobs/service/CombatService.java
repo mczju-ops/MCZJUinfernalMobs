@@ -48,7 +48,7 @@ public class CombatService {
         this.plugin = plugin;
         this.skillSessionManager = new SkillSessionManager(plugin);
         this.specialDamageService = new SpecialDamageService(plugin);
-        this.skillAttemptService = new SkillAttemptService(plugin);
+        this.skillAttemptService = new SkillAttemptService(plugin, config);
         this.rangeSkillService = new RangeSkillService(plugin, config, skillAttemptService);
         this.attackSkillService = new AttackSkillService(plugin, config, skillAttemptService);
         this.attackDamageService = new AttackDamageService();
