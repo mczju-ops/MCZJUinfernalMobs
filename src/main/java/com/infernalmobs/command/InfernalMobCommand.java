@@ -106,7 +106,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             send(sender, "<red>悦灵测试生成失败");
             return true;
         }
-        send(sender, "<green>已生成测试悦灵：它会飞向你后返回生成点。当前阶段不会夺取物品");
+        send(sender, "<green>已生成测试悦灵：命中时会夺取当前主手物品，返程后掉落到生成点");
         return true;
     }
 
@@ -415,7 +415,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志与 mechanize 区域/等级输出</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 完整校验并重载全部配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
-        send(sender, "<yellow>/im thief-test</yellow> <gray>- 临时测试悦灵视觉与往返飞行（不会夺取物品）</gray>");
+        send(sender, "<yellow>/im thief-test</yellow> <gray>- 临时测试悦灵命中、夺取与返程（会修改主手）</gray>");
     }
 
     @Override

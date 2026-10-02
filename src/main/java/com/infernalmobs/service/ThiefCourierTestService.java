@@ -2,6 +2,7 @@ package com.infernalmobs.service;
 
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.controller.listener.ThiefResistanceListener;
 import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -64,7 +65,7 @@ public final class ThiefCourierTestService {
             task = null;
         }
         for (TestCourier courier : new ArrayList<>(couriers.values())) {
-            remove(courier, false);
+            cleanup(courier, true);
         }
         couriers.clear();
     }
@@ -74,26 +75,28 @@ public final class ThiefCourierTestService {
             if (!couriers.containsKey(courier.allay.getUniqueId())) continue;
             courier.ageTicks++;
             if (courier.ageTicks > MAX_LIFETIME_TICKS) {
-                remove(courier, false);
+                cleanup(courier, true);
                 continue;
             }
             if (!courier.allay.isValid() || courier.allay.isDead()) {
                 playSound(courier.lastLocation, "courier.death-sound");
+                dropCarriedItem(courier, courier.lastLocation);
                 couriers.remove(courier.allay.getUniqueId());
-                continue;
-            }
-
-            Player target = plugin.getServer().getPlayer(courier.targetId);
-            if (target == null || !target.isOnline() || target.getWorld() != courier.allay.getWorld()) {
-                remove(courier, false);
                 continue;
             }
 
             if (courier.returning) {
                 MoveResult result = moveTowards(courier, courier.origin, null);
                 if (result == MoveResult.REACHED || result == MoveResult.FAILED) {
-                    remove(courier, false);
+                    cleanup(courier, true);
                 }
+                continue;
+            }
+
+            Player target = plugin.getServer().getPlayer(courier.targetId);
+            if (target == null || !target.isOnline() || target.isDead()
+                    || target.getWorld() != courier.allay.getWorld()) {
+                remove(courier, false);
                 continue;
             }
 
@@ -105,7 +108,9 @@ public final class ThiefCourierTestService {
             Location targetLocation = target.getLocation().clone().add(0, 0.3, 0);
             MoveResult result = moveTowards(courier, targetLocation, target.getBoundingBox());
             if (result == MoveResult.HIT || result == MoveResult.REACHED) {
-                if (result == MoveResult.HIT) playSound(courier.lastLocation, "courier.steal-sound");
+                if (transferMainHand(target, courier)) {
+                    playSound(courier.lastLocation, "courier.steal-sound");
+                }
                 courier.returning = true;
                 courier.pauseTicks = ARRIVAL_PAUSE_TICKS;
             } else if (result == MoveResult.FAILED) {
@@ -161,6 +166,19 @@ public final class ThiefCourierTestService {
         allay.getEquipment().setItemInMainHandDropChance(0.0f);
     }
 
+    /** 命中时才读取主手；测试阶段直接完成转移，不广播正式缴械事件。 */
+    private boolean transferMainHand(Player player, TestCourier courier) {
+        ItemStack current = player.getInventory().getItemInMainHand();
+        if (current.getType().isAir() || ThiefResistanceListener.isResistant(current)) return false;
+
+        ItemStack carried = current.clone();
+        player.getInventory().setItemInMainHand(ItemStack.empty());
+        courier.carriedItem = carried;
+        courier.allay.getEquipment().setItemInMainHand(carried.clone());
+        courier.allay.getEquipment().setItemInMainHandDropChance(0.0f);
+        return true;
+    }
+
     private void playSound(Location location, String path) {
         if (location == null || location.getWorld() == null) return;
         SkillConfig skillConfig = config.getSkillConfig("thief");
@@ -168,9 +186,26 @@ public final class ThiefCourierTestService {
     }
 
     private void remove(TestCourier courier, boolean playDeathSound) {
+        remove(courier, playDeathSound, false);
+    }
+
+    private void cleanup(TestCourier courier, boolean dropCarried) {
+        remove(courier, false, dropCarried);
+    }
+
+    private void remove(TestCourier courier, boolean playDeathSound, boolean dropCarried) {
         couriers.remove(courier.allay.getUniqueId());
+        if (dropCarried) dropCarriedItem(courier, courier.lastLocation);
         if (playDeathSound) playSound(courier.lastLocation, "courier.death-sound");
         if (courier.allay.isValid()) courier.allay.remove();
+    }
+
+    private void dropCarriedItem(TestCourier courier, Location location) {
+        ItemStack carried = courier.carriedItem;
+        if (carried == null || carried.getType().isAir() || location == null || location.getWorld() == null) return;
+        location.getWorld().dropItemNaturally(location, carried.clone());
+        courier.carriedItem = null;
+        courier.allay.getEquipment().setItemInMainHand(ItemStack.empty());
     }
 
     private enum MoveResult {
@@ -185,6 +220,7 @@ public final class ThiefCourierTestService {
         private final UUID targetId;
         private final Location origin;
         private Location lastLocation;
+        private ItemStack carriedItem;
         private boolean returning;
         private int pauseTicks;
         private int ageTicks;
