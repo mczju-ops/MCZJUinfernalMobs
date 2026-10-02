@@ -2,7 +2,7 @@
 
 本文档介绍如何让其他插件（如 MagicItems、异色炒鸡、炒鸡渔夫等）对接炒鸡怪插件的公开 API。
 
-- 版本：`beta/event-api-rework` 分支（API `apiVersion() = 1`）
+- 版本：`beta/event-api-rework` 分支（API `apiVersion() = 2`）
 - 依赖方式：软依赖 + `ServicesManager`（无需硬依赖，炒鸡缺失时正常降级）
 - 环境：Paper API `26.2.build` 或更高版本、JDK 25
 
@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.4.0</version>   <!-- 发布 tag；开发期可用分支名或 commit hash -->
+        <version>1.5.0</version>   <!-- 发布 tag；开发期可用分支名或 commit hash -->
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -94,7 +94,7 @@ public final class MyPlugin extends JavaPlugin {
 | `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息 |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`） |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射） |
-| `int apiVersion()` | API 版本（当前 1） |
+| `int apiVersion()` | API 版本（当前 2） |
 
 `spawnInfernalMob` 返回 `null` 表示生成失败（类型/位置无效、词条全无效、或生成事件被取消）。
 
@@ -300,7 +300,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | sapper | `InfernalMobSapperEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | spear | `InfernalMobSpearEvent` | RANGE | `getChargeTicks/setChargeTicks`、`getLungeTicks/setLungeTicks`、`getLungeSpeedAmplifier/setLungeSpeedAmplifier`、`getSpearItem/setSpearItem` |
 | storm | `InfernalMobStormEvent` | DUAL | `getStrikeLocation/setStrikeLocation`、`getDamage/setDamage`、`isEffectOnly/setEffectOnly` |
-| sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight`、`getWarnSound/setWarnSound`、`getEruptSound/setEruptSound`、`getSoundVolume/setSoundVolume` |
+| sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight` |
 | swap | `InfernalMobSwapEvent` | PASSIVE | `getMobDestination/setMobDestination`、`getPlayerDestination/setPlayerDestination` |
 | thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
 | tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |

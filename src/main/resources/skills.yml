@@ -143,7 +143,8 @@ skills:
   1up:
     display: "<#00ff88>复生</#00ff88>"
     hp-threshold: 8
-    sound: BLOCK_BREWING_STAND_BREW
+    sound:
+      id: "block.brewing_stand.brew"
 
   cloaked:
     display: "<#6e6e6e>隐匿</#6e6e6e>"
@@ -184,7 +185,9 @@ skills:
     display: "<#eaeaea>织网</#eaeaea>"
     cooldown-ticks: 40
     chance: 0.15
-    sound: BLOCK_COBWEB_PLACE
+    sound:
+      id: "block.cobweb.place"
+      pitch: 0.8
     web-lifetime-ticks: 100
     giant-sphere-chance: 0.15
     giant-sphere-radius: 6
@@ -203,7 +206,8 @@ skills:
     speed: 3.0
     spread: 0.1
     spread-config: 6
-    sound: ENTITY_ARROW_SHOOT
+    sound:
+      id: "entity.arrow.shoot"
 
   necromancer:
     display: "<#7a00cc>凋术</#7a00cc>"
@@ -240,7 +244,10 @@ skills:
     chance: 0.33
     steal-chance: 0.33
     infernal-steal-chance: 0.33
-    sound: ENTITY_WIND_CHARGE_THROW
+    sound:
+      id: "entity.wind_charge.throw"
+      volume: 0.8
+      pitch: 0.6
     line-particle: SMALL_GUST
 
   tosser:
@@ -250,7 +257,9 @@ skills:
     cooldown-ticks: 120
     force: 3
     upward: 0.2
-    sound: ENTITY_BREEZE_JUMP
+    sound:
+      id: "entity.breeze.jump"
+      pitch: 0.8
 
   storm:
     display: "<#2979ff>雷暴</#2979ff>"
@@ -262,7 +271,9 @@ skills:
     display: "<#ff1a1a>复仇</#ff1a1a>"
     chance: 0.5
     damage: 12
-    sound: ENTITY_BREEZE_DEFLECT
+    sound:
+      id: "entity.breeze.deflect"
+      volume: 0.6
 
   weakness:
     display: "<#8c8c8c>弱化</#8c8c8c>"
@@ -275,7 +286,10 @@ skills:
     cooldown-ticks: 20
     self-damage: 2
     bonus-damage: 12
-    sound: ENTITY_PHANTOM_BITE
+    sound:
+      id: "entity.phantom.bite"
+      volume: 0.5
+      pitch: 0.7
 
   mama:
     display: "<#66ff66>增殖</#66ff66>"
@@ -380,17 +394,22 @@ skills:
     radius: 2.0
     upward: 2.0
     column-height: 2.5
-    sound-volume: 2.0
-    warn-sound: BLOCK_BUBBLE_COLUMN_WHIRLPOOL_AMBIENT
-    erupt-sound: BLOCK_BUBBLE_COLUMN_UPWARDS_INSIDE
+    warn-sound:
+      id: "block.bubble_column.whirlpool_ambient"
+      volume: 2.0
+      pitch: 0.8
+    erupt-sound:
+      id: "block.bubble_column.upwards_inside"
+      volume: 2.0
 
   morph:
     display: "<#ff66cc>幻形</#ff66cc>"
     cooldown-ticks: 120
     chance: 0.1
-    sound: BLOCK_ENDER_CHEST_OPEN
-    sound-volume: 0.6
-    sound-pitch: 0.7
+    sound:
+      id: "block.ender_chest.open"
+      volume: 0.6
+      pitch: 0.7
 
   refrigerate:
     display: "<#66ccff>冻结</#66ccff>"
@@ -402,8 +421,9 @@ skills:
     display: "<#b7410e>锈蚀</#b7410e>"
     chance: 0.3
     damage-amount: 10
-    sound: ENTITY_ITEM_BREAK
-    sound-pitch: 0.7
+    sound:
+      id: "entity.item.break"
+      pitch: 0.7
 
   vexsummoner:
     display: "<#9933ff>唤魔</#9933ff>"
@@ -412,8 +432,9 @@ skills:
     summon-count: 2
     max-nearby: 4
     count-range: 16
-    sound: ENTITY_EVOKER_PREPARE_SUMMON
-    sound-pitch: 0.8
+    sound:
+      id: "entity.evoker.prepare_summon"
+      pitch: 0.8
 
   wardenwrath:
     display: "<#00ffcc>咆哮</#00ffcc>"
@@ -424,8 +445,9 @@ skills:
     knockback-vertical: 0.5
     max-range: 15
     decay-min-multiplier: 0.2
-    sound: ENTITY_WARDEN_SONIC_BOOM
-    sound-volume: 1.8
+    sound:
+      id: "entity.warden.sonic_boom"
+      volume: 1.8
     sound-at-player: true
     particle-sonic-boom: true
     particle-ray-density: 20
@@ -434,4 +456,6 @@ skills:
     display: "<#cc99ff>移形</#cc99ff>"
     chance: 0.25
     cooldown-ticks: 60
-    sound: ENTITY_SHULKER_TELEPORT
+    sound:
+      id: "entity.shulker.teleport"
+      volume: 0.8

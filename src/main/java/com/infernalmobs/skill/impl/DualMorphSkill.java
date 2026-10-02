@@ -6,6 +6,8 @@ import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.config.SoundConfig;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -71,9 +73,7 @@ public class DualMorphSkill implements Skill {
         org.bukkit.Location soundLoc = entity.getLocation().clone();
         MobFactory factory = ctx.getMobFactory();
         if (factory == null) return;
-        String soundKey = config.getString("sound", "BLOCK_ENDER_CHEST_OPEN");
-        float soundVolume = (float) config.getDouble("sound-volume", 0.6);
-        float soundPitch = (float) config.getDouble("sound-pitch", 0.7);
+        SoundConfig sound = config.getSound("sound");
 
         EntityType finalTarget = target;
         BukkitTask task = new BukkitRunnable() {
@@ -82,12 +82,7 @@ public class DualMorphSkill implements Skill {
                 pendingMorphs.remove(entity.getUniqueId());
                 if (!entity.isValid()) return;
                 factory.morphEntity(entity, ctx.getMobState(), finalTarget, currentHealth);
-                if (soundLoc.getWorld() != null) {
-                    try {
-                        org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-                        soundLoc.getWorld().playSound(soundLoc, sound, soundVolume, soundPitch);
-                    } catch (IllegalArgumentException ignored) {}
-                }
+                SoundPlayback.broadcast(soundLoc, sound);
             }
         }.runTask(ctx.getPlugin());
         BukkitTask previous = pendingMorphs.put(entity.getUniqueId(), task);

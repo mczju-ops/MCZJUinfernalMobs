@@ -8,9 +8,9 @@ import com.infernalmobs.particle.ParticleSource;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
 import org.bukkit.Particle;
-import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
 
@@ -56,11 +56,7 @@ public class Stat1upSkill implements Skill {
             entity.setHealth(healthAfterRecovery);
         }
 
-        String soundKey = config.getString("sound", "BLOCK_BREWING_STAND_BREW");
-        try {
-            Sound s = Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            entity.getWorld().playSound(entity.getLocation(), s, 1f, 1f);
-        } catch (IllegalArgumentException ignored) {}
+            SoundPlayback.broadcast(entity.getLocation(), config.getSound("sound"));
 
         Location at = entity.getLocation();
         ParticleEffect.create()

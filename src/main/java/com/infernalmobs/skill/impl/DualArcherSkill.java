@@ -6,8 +6,8 @@ import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.util.Keys;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
-import org.bukkit.Sound;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -85,11 +85,7 @@ public class DualArcherSkill implements Skill {
             arr.getPersistentDataContainer().set(Keys.ARCHER_SKILL_ID, PersistentDataType.STRING, getId());
         }
 
-        String soundKey = config.getString("sound", "ENTITY_ARROW_SHOOT");
-        try {
-            Sound s = Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            mob.getWorld().playSound(loc2, s, 1f, 1f);
-        } catch (IllegalArgumentException ignored) {}
+        SoundPlayback.broadcast(loc2, config.getSound("sound"));
     }
 
     private boolean isSmall(Entity e) {

@@ -1,5 +1,6 @@
 package com.infernalmobs.config;
 
+import net.kyori.adventure.key.Key;
 import org.bukkit.potion.PotionEffect;
 
 import java.util.ArrayList;
@@ -16,11 +17,13 @@ public final class SkillConfig {
     private final String skillId;
     private final String display;
     private final Map<String, Object> values;
+    private final Map<String, SoundConfig> sounds;
 
     public SkillConfig(String skillId, String display, Map<String, Object> values) {
         this.skillId = skillId;
         this.display = display;
         this.values = freezeMap(values);
+        this.sounds = Collections.unmodifiableMap(parseSounds(this.values, ""));
     }
 
     public String getSkillId() {
@@ -55,6 +58,49 @@ public final class SkillConfig {
     public boolean getBoolean(String key, boolean def) {
         Object value = getValue(key);
         return value instanceof Boolean bool ? bool : def;
+    }
+
+    /** 读取嵌套声音配置；无效声音 ID 时返回 null，声音不可用不影响技能主逻辑。 */
+    public SoundConfig getSound(String key) {
+        return sounds.get(key);
+    }
+
+    private static Map<String, SoundConfig> parseSounds(Map<String, Object> values, String prefix) {
+        LinkedHashMap<String, SoundConfig> result = new LinkedHashMap<>();
+        values.forEach((key, value) -> {
+            String path = prefix.isEmpty() ? key : prefix + "." + key;
+            if (value instanceof Map<?, ?> map) {
+                if (key.endsWith("sound")) {
+                    SoundConfig sound = parseSoundValue(map);
+                    if (sound != null) result.put(path, sound);
+                }
+                Map<String, Object> nested = new LinkedHashMap<>();
+                map.forEach((nestedKey, nestedValue) -> nested.put(String.valueOf(nestedKey), nestedValue));
+                result.putAll(parseSounds(nested, path));
+            }
+        });
+        return result;
+    }
+
+    private static SoundConfig parseSoundValue(Map<?, ?> map) {
+        Object idValue = map.get("id");
+        if (!(idValue instanceof String id) || id.isBlank()) return null;
+        try {
+            String normalized = id.trim();
+            if (!normalized.contains(":")) normalized = "minecraft:" + normalized;
+            Key soundKey = Key.key(normalized);
+            float volume = numberAsFloat(map.get("volume"), 1.0f);
+            float pitch = numberAsFloat(map.get("pitch"), 1.0f);
+            return new SoundConfig(soundKey, volume, pitch);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private static float numberAsFloat(Object value, float fallback) {
+        if (!(value instanceof Number number)) return fallback;
+        float result = number.floatValue();
+        return Float.isFinite(result) && result >= 0.0f ? result : fallback;
     }
 
     public int getDurationTicks(String key, int def) {

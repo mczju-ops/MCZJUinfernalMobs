@@ -2,6 +2,7 @@ package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefEvent;
 import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.config.SoundConfig;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
 import com.infernalmobs.model.MobState;
@@ -9,6 +10,7 @@ import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.util.Keys;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -17,7 +19,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.Particle;
-import org.bukkit.Sound;
 import org.bukkit.util.Vector;
 /**
  * 盗贼：受击或攻击时，玩家主手物品掉落在怪物身后。
@@ -67,7 +68,7 @@ public class DualThiefSkill implements Skill {
         long releasedTick = ctx.getCurrentTick();
         org.bukkit.entity.LivingEntity releasedMob = ctx.getEntity();
         org.bukkit.plugin.java.JavaPlugin plugin = ctx.getPlugin();
-        String soundKey = config.getString("sound", "ENTITY_WIND_CHARGE_THROW");
+        SoundConfig sound = config.getSound("sound");
         String lineParticleKey = config.getString("line-particle", "REDSTONE");
         int cooldownTicks = config.getInt("cooldown-ticks", 80);
         new BukkitRunnable() {
@@ -100,10 +101,7 @@ public class DualThiefSkill implements Skill {
                 if (mobLoc.getWorld() != null) {
                     var dropped = mobLoc.getWorld().dropItemNaturally(dropAt, event.getItemStack().clone());
                     if (dropped != null) dropped.setInvulnerable(true);
-                    try {
-                        Sound sound = Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-                        mobLoc.getWorld().playSound(mobLoc, sound, 0.8f, 0.6f);
-                    } catch (IllegalArgumentException ignored) {}
+                    SoundPlayback.broadcast(mobLoc, sound);
                 }
             }
         }.runTaskLater(plugin, 1L);

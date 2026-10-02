@@ -5,6 +5,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
 import org.bukkit.entity.Player;
@@ -51,10 +52,6 @@ public class PassiveVengeanceSkill implements Skill {
                 .build();
         player.damage(event.getDamage(), damageSource);
 
-        String soundKey = config.getString("sound", "ENTITY_BREEZE_DEFLECT");
-        try {
-            org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            player.getWorld().playSound(player.getLocation(), sound, 0.6f, 1f);
-        } catch (IllegalArgumentException ignored) {}
+        SoundPlayback.broadcast(player.getLocation(), config.getSound("sound"));
     }
 }

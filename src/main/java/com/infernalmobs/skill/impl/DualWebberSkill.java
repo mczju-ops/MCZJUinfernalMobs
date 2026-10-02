@@ -6,9 +6,9 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
@@ -96,13 +96,7 @@ public class DualWebberSkill implements Skill {
                 : placeNormalWeb(ctx, target, event);
         if (placedCount == 0) return;
 
-        String soundKey = config.getString("sound", "BLOCK_COBWEB_PLACE");
-        try {
-            Sound s = Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            Location soundLocation = event.getCenter();
-            World soundWorld = soundLocation.getWorld();
-            if (soundWorld != null) soundWorld.playSound(soundLocation, s, 1f, 0.8f);
-        } catch (IllegalArgumentException ignored) {}
+        SoundPlayback.broadcast(event.getCenter(), config.getSound("sound"));
     }
 
     private static Block findNormalWebCandidate(Location targetLocation) {
