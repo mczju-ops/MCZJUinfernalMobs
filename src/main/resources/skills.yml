@@ -155,6 +155,10 @@ skills:
     cooldown-ticks: 60
     chance: 0.5
     distance: 2
+    sound:
+      id: "entity.enderman.teleport"
+      volume: 1.0
+      pitch: 1.0
 
   ghastly:
     display: "<#ff6a00>火术</#ff6a00>"
@@ -310,6 +314,10 @@ skills:
       - WARDEN
       - WITHER
     allowed-types: []
+    sound:
+      id: "entity.zombie.infect"
+      volume: 0.8
+      pitch: 0.8
 
   gravity:
     display: "<#4a90e2>失重</#4a90e2>"
@@ -318,6 +326,10 @@ skills:
     cooldown-ticks: 100
     duration-ticks: 100
     amplifier: 0
+    sound:
+      id: "entity.shulker.shoot"
+      volume: 0.5
+      pitch: 1.2
 
   mounted:
     display: "<#d4af37>驭兽</#d4af37>"
@@ -372,6 +384,18 @@ skills:
     lunge-speed-amplifier: 6
     sharpness-level: 20
     item: NETHERITE_SPEAR
+    charge-sound:
+      id: "entity.ravager.stunned"
+      volume: 1.0
+      pitch: 2.0
+    charge-mid-sound:
+      id: "entity.ravager.stunned"
+      volume: 1.0
+      pitch: 2.0
+    lunge-sound:
+      id: "item.spear.lunge_3"
+      volume: 1.0
+      pitch: 2.0
     enabled-holders:
       - ZOMBIE
       - HUSK

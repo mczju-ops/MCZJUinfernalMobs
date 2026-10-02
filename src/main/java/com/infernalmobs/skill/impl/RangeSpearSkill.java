@@ -3,15 +3,16 @@ package com.infernalmobs.skill.impl;
 import com.infernalmobs.api.event.affix.effect.InfernalMobSpearHitEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMobSpearEvent;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.config.SoundConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import com.infernalmobs.service.SkillSessionManager;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.GameMode;
-import org.bukkit.Sound;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -89,6 +90,9 @@ public class RangeSpearSkill implements Skill {
         int speedAmplifier = Math.max(0, config.getInt("lunge-speed-amplifier", 4));
         int sharpnessLevel = Math.max(0, config.getInt("sharpness-level", 5));
         ItemStack spearItem = createSpearItem(config.getString("item", "NETHERITE_SPEAR"), sharpnessLevel);
+        SoundConfig chargeSound = config.getSound("charge-sound");
+        SoundConfig chargeMidSound = config.getSound("charge-mid-sound");
+        SoundConfig lungeSound = config.getSound("lunge-sound");
 
         InfernalMobSpearEvent event = new InfernalMobSpearEvent(
                 mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
@@ -111,7 +115,7 @@ public class RangeSpearSkill implements Skill {
         equip.setItemInMainHand(spearItem);
         equip.setItemInMainHandDropChance(0f);
 
-        mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_STUNNED, 1.0f, 2.0f);
+        SoundPlayback.broadcast(mob.getLocation(), chargeSound);
 
         BukkitRunnable task = new BukkitRunnable() {
             private int tick;
@@ -135,7 +139,7 @@ public class RangeSpearSkill implements Skill {
                         mob.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, ringLoc, 1, 0, 0, 0, 0);
                     }
                     if (tick == active.chargeTicks / 2) {
-                        mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_STUNNED, 1.0f, 2.0f);
+                        SoundPlayback.broadcast(mob.getLocation(), chargeMidSound);
                     }
                     tick++;
                     return;
@@ -148,7 +152,7 @@ public class RangeSpearSkill implements Skill {
                             false, false, true);
                     active.speedEffectApplied = mob.addPotionEffect(active.spearSpeedEffect);
                     active.phase = SpearPhase.LUNGING;
-                    mob.getWorld().playSound(mob.getLocation(), Sound.ITEM_SPEAR_LUNGE_3, 1.0f, 2.0f);
+                    SoundPlayback.broadcast(mob.getLocation(), lungeSound);
                 }
 
                 Vector facing = mob.getLocation().getDirection().setY(0);

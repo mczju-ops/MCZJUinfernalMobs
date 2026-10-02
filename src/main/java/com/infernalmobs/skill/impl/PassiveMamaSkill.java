@@ -2,6 +2,7 @@ package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.affix.triggered.InfernalMobMamaEvent;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.util.SoundPlayback;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
@@ -184,9 +185,7 @@ public class PassiveMamaSkill implements Skill {
                     factory.mechanizeWithExcludedAffixes(child, loc, childLevel, List.of("mama"));
                     if (useScale) applyScale(plugin, child, effNoBabyScale);
                 }
-                try {
-                    loc.getWorld().playSound(loc, org.bukkit.Sound.ENTITY_ZOMBIE_INFECT, 0.8f, 0.8f);
-                } catch (IllegalArgumentException ignored) {}
+                SoundPlayback.broadcast(loc, config.getSound("sound"));
                 debugLog(plugin, "生成完成，共 " + effCount + " 只");
             }
         }.runTask(plugin);

@@ -2,11 +2,12 @@ package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.affix.triggered.InfernalMobEnderEvent;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.config.SoundConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
@@ -62,9 +63,11 @@ public class DualEnderSkill implements Skill {
         if (!ctx.fire(event)) return;
         if (!ctx.getEntity().teleport(event.getDestination())) return;
 
-        try {
-            ctx.getEntity().getWorld().playSound(ctx.getEntity().getLocation(),
-                    Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 0.8f + (float) Math.random() * 0.4f);
-        } catch (IllegalArgumentException ignored) {}
+        SoundConfig sound = config.getSound("sound");
+        if (sound != null) {
+            sound = new SoundConfig(sound.key(), sound.volume(),
+                    sound.pitch() - 0.2f + (float) Math.random() * 0.4f);
+        }
+        SoundPlayback.broadcast(ctx.getEntity().getLocation(), sound);
     }
 }
