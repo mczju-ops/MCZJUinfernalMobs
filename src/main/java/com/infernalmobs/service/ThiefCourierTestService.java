@@ -32,10 +32,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ThiefCourierTestService {
 
-    private static final double SPEED = 0.45;
     private static final double ARRIVAL_DISTANCE = 0.8;
-    private static final int ARRIVAL_PAUSE_TICKS = 10;
-    private static final int MAX_LIFETIME_TICKS = 200;
+    private static final double ACCELERATION_TICKS = 6.0;
+    private static final double START_SPEED_RATIO = 0.15;
+    private static final double RETURN_START_SPEED_RATIO = 0.25;
+    private static final double ENDPOINT_SMOOTHING = 0.25;
 
     private final JavaPlugin plugin;
     private final ConfigLoader config;
@@ -75,12 +76,13 @@ public final class ThiefCourierTestService {
             return false;
         }
         if (player.getWorld() != owner.getWorld()) return false;
+        CourierSettings settings = readSettings();
         Location origin = owner.getLocation().clone().add(0, owner.getEyeHeight() + 0.75, 0);
         Allay allay = (Allay) origin.getWorld().spawnEntity(origin, org.bukkit.entity.EntityType.ALLAY);
         configure(allay);
         playSound(origin, "courier.spawn-sound");
         couriers.put(allay.getUniqueId(), new TestCourier(
-                allay, player.getUniqueId(), owner.getUniqueId(), origin, triggerData));
+                allay, player.getUniqueId(), owner.getUniqueId(), origin, triggerData, settings));
         start();
         return true;
     }
@@ -108,7 +110,7 @@ public final class ThiefCourierTestService {
         for (TestCourier courier : new ArrayList<>(couriers.values())) {
             if (!couriers.containsKey(courier.allay.getUniqueId())) continue;
             courier.ageTicks++;
-            if (courier.ageTicks > MAX_LIFETIME_TICKS) {
+            if (courier.ageTicks > courier.settings.maxLifetimeTicks()) {
                 cleanup(courier, true);
                 continue;
             }
@@ -119,35 +121,47 @@ public final class ThiefCourierTestService {
                 continue;
             }
 
-            if (courier.returning) {
+            if (courier.phase == FlightPhase.SPAWN_HOLD) {
+                Player target = resolveTarget(courier);
+                if (target == null) {
+                    remove(courier, false);
+                    continue;
+                }
+                if (courier.holdTicksRemaining > 0) {
+                    courier.holdTicksRemaining--;
+                    continue;
+                }
+                courier.phase = FlightPhase.OUTBOUND;
+                beginCurve(courier, target.getEyeLocation(), courier.settings.outboundSpeed(), START_SPEED_RATIO);
+            }
+
+            if (courier.phase == FlightPhase.RETURNING) {
                 ReturnTarget returnTarget = resolveReturnTarget(courier);
-                MoveResult result = moveTowards(courier, returnTarget.flightLocation(), null);
+                MoveResult result = moveTowards(courier, returnTarget.flightLocation(), null,
+                        courier.settings.returnSpeed());
                 if (result == MoveResult.REACHED || result == MoveResult.FAILED) {
                     finishReturn(courier, returnTarget.dropLocation());
                 }
                 continue;
             }
 
-            Player target = plugin.getServer().getPlayer(courier.targetId);
-            if (target == null || !target.isOnline() || target.isDead()
-                    || target.getWorld() != courier.allay.getWorld()) {
+            Player target = resolveTarget(courier);
+            if (target == null) {
                 remove(courier, false);
                 continue;
             }
 
-            if (courier.pauseTicks > 0) {
-                courier.pauseTicks--;
-                continue;
-            }
-
-            Location targetLocation = target.getLocation().clone().add(0, 0.3, 0);
-            MoveResult result = moveTowards(courier, targetLocation, target.getBoundingBox());
+            Location targetLocation = target.getEyeLocation();
+            MoveResult result = moveTowards(courier, targetLocation, target.getBoundingBox(),
+                    courier.settings.outboundSpeed());
             if (result == MoveResult.HIT || result == MoveResult.REACHED) {
                 if (transferMainHand(target, courier)) {
                     playSound(courier.lastLocation, "courier.steal-sound");
                 }
-                courier.returning = true;
-                courier.pauseTicks = ARRIVAL_PAUSE_TICKS;
+                courier.phase = FlightPhase.RETURNING;
+                ReturnTarget returnTarget = resolveReturnTarget(courier);
+                beginCurve(courier, returnTarget.flightLocation(), courier.settings.returnSpeed(),
+                        RETURN_START_SPEED_RATIO);
             } else if (result == MoveResult.FAILED) {
                 remove(courier, false);
             }
@@ -158,8 +172,16 @@ public final class ThiefCourierTestService {
         }
     }
 
-    /** 直接传送到逐 tick 计算的位置，避免测试阶段受到方块碰撞阻挡。 */
-    private MoveResult moveTowards(TestCourier courier, Location target, BoundingBox hitBox) {
+    private Player resolveTarget(TestCourier courier) {
+        Player target = plugin.getServer().getPlayer(courier.targetId);
+        if (target == null || !target.isOnline() || target.isDead()
+                || target.getWorld() != courier.allay.getWorld()) return null;
+        return target;
+    }
+
+    /** 沿动态贝塞尔曲线传送，并根据剩余距离自动加速或刹车。 */
+    private MoveResult moveTowards(TestCourier courier, Location target, BoundingBox hitBox,
+                                   double cruiseSpeed) {
         Location current = courier.allay.getLocation();
         if (current.getWorld() != target.getWorld()) return MoveResult.FAILED;
         Vector offset = target.toVector().subtract(current.toVector());
@@ -173,7 +195,29 @@ public final class ThiefCourierTestService {
             courier.lastLocation = current.clone();
             return MoveResult.REACHED;
         }
-        Vector step = offset.normalize().multiply(Math.min(SPEED, distance));
+
+        updateSmoothedEndpoint(courier, target);
+        double acceleration = cruiseSpeed / ACCELERATION_TICKS;
+        double brakingDistance = Math.max(0.0, distance - ARRIVAL_DISTANCE);
+        double brakingLimit = Math.sqrt(2.0 * acceleration * brakingDistance);
+        double minimumSpeed = cruiseSpeed * 0.12;
+        double desiredSpeed = Math.max(minimumSpeed, Math.min(cruiseSpeed, brakingLimit));
+        courier.currentSpeed = approach(courier.currentSpeed, desiredSpeed, acceleration);
+
+        double effectiveHeight = effectiveArcHeight(courier.legStart, courier.smoothedEndpoint,
+                courier.settings.arcHeight());
+        double estimatedLength = Math.max(0.1,
+                courier.legStart.distance(courier.smoothedEndpoint) + effectiveHeight * 0.5);
+        courier.curveProgress = Math.min(1.0,
+                courier.curveProgress + courier.currentSpeed / estimatedLength);
+        Location curvePoint = bezierPoint(courier.legStart, courier.smoothedEndpoint,
+                effectiveHeight, courier.curveProgress);
+        Vector step = curvePoint.toVector().subtract(current.toVector());
+        if (step.lengthSquared() < 0.000001 || step.dot(offset) <= 0.0) {
+            step = offset.clone();
+        }
+        if (step.length() > courier.currentSpeed) step.normalize().multiply(courier.currentSpeed);
+
         Location next = current.clone().add(step);
         next.setDirection(step);
         if (expandedHitBox != null
@@ -184,7 +228,75 @@ public final class ThiefCourierTestService {
         }
         if (!courier.allay.teleport(next)) return MoveResult.FAILED;
         courier.lastLocation = next.clone();
+        if (courier.curveProgress >= 1.0) {
+            beginCurve(courier, target, cruiseSpeed,
+                    courier.currentSpeed / Math.max(0.01, cruiseSpeed));
+        }
         return MoveResult.MOVED;
+    }
+
+    private void beginCurve(TestCourier courier, Location target, double cruiseSpeed,
+                            double startSpeedRatio) {
+        Location current = courier.allay.getLocation();
+        courier.legStart = current.clone();
+        courier.smoothedEndpoint = target.clone();
+        courier.curveProgress = 0.0;
+        double ratio = Math.max(START_SPEED_RATIO, Math.min(1.0, startSpeedRatio));
+        courier.currentSpeed = Math.max(0.01, cruiseSpeed * ratio);
+    }
+
+    private void updateSmoothedEndpoint(TestCourier courier, Location target) {
+        if (courier.smoothedEndpoint == null || courier.smoothedEndpoint.getWorld() != target.getWorld()) {
+            courier.smoothedEndpoint = target.clone();
+            return;
+        }
+        Vector smoothed = courier.smoothedEndpoint.toVector().multiply(1.0 - ENDPOINT_SMOOTHING)
+                .add(target.toVector().multiply(ENDPOINT_SMOOTHING));
+        courier.smoothedEndpoint.setX(smoothed.getX());
+        courier.smoothedEndpoint.setY(smoothed.getY());
+        courier.smoothedEndpoint.setZ(smoothed.getZ());
+    }
+
+    private static Location bezierPoint(Location start, Location end, double height, double t) {
+        double oneMinusT = 1.0 - t;
+        Vector control = start.toVector().add(end.toVector()).multiply(0.5).add(new Vector(0, height, 0));
+        Vector point = start.toVector().multiply(oneMinusT * oneMinusT)
+                .add(control.multiply(2.0 * oneMinusT * t))
+                .add(end.toVector().multiply(t * t));
+        return point.toLocation(start.getWorld());
+    }
+
+    private static double effectiveArcHeight(Location start, Location end, double configuredHeight) {
+        double dx = end.getX() - start.getX();
+        double dz = end.getZ() - start.getZ();
+        double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
+        return Math.min(configuredHeight, horizontalDistance * 0.35);
+    }
+
+    private static double approach(double current, double target, double amount) {
+        if (current < target) return Math.min(target, current + amount);
+        return Math.max(target, current - amount);
+    }
+
+    private CourierSettings readSettings() {
+        SkillConfig skillConfig = config.getSkillConfig("thief");
+        if (skillConfig == null) return CourierSettings.defaults();
+        int spawnDelay = clamp(skillConfig.getInt("courier.spawn-delay-ticks", 10), 0, 100);
+        double outboundSpeed = clamp(skillConfig.getDouble("courier.outbound-speed", 0.45), 0.05, 2.0, 0.45);
+        double returnSpeed = clamp(skillConfig.getDouble("courier.return-speed", 0.55), 0.05, 2.0, 0.55);
+        double arcHeight = clamp(skillConfig.getDouble("courier.arc-height", 1.2), 0.0, 5.0, 1.2);
+        int maxLifetime = clamp(skillConfig.getInt("courier.max-lifetime-ticks", 200),
+                spawnDelay + 20, 1200);
+        return new CourierSettings(spawnDelay, outboundSpeed, returnSpeed, arcHeight, maxLifetime);
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static double clamp(double value, double min, double max, double fallback) {
+        if (!Double.isFinite(value)) return fallback;
+        return Math.max(min, Math.min(max, value));
     }
 
     private void configure(Allay allay) {
@@ -315,10 +427,23 @@ public final class ThiefCourierTestService {
         FAILED
     }
 
+    private enum FlightPhase {
+        SPAWN_HOLD,
+        OUTBOUND,
+        RETURNING
+    }
+
     private record ReturnTarget(Location flightLocation, Location dropLocation) {}
 
     private record TriggerData(LivingEntity releasedMob, MobState state, InfernalMobHandle handle,
                                int level, long releasedTick, int cooldownTicks) {}
+
+    private record CourierSettings(int spawnDelayTicks, double outboundSpeed, double returnSpeed,
+                                   double arcHeight, int maxLifetimeTicks) {
+        private static CourierSettings defaults() {
+            return new CourierSettings(10, 0.45, 0.55, 1.2, 200);
+        }
+    }
 
     private static final class TestCourier {
         private final Allay allay;
@@ -326,21 +451,28 @@ public final class ThiefCourierTestService {
         private final UUID ownerId;
         private final Location origin;
         private final TriggerData triggerData;
+        private final CourierSettings settings;
         private Location lastLocation;
         private Location overrideDropLocation;
+        private Location legStart;
+        private Location smoothedEndpoint;
         private ItemStack carriedItem;
-        private boolean returning;
-        private int pauseTicks;
+        private FlightPhase phase = FlightPhase.SPAWN_HOLD;
+        private int holdTicksRemaining;
         private int ageTicks;
+        private double currentSpeed;
+        private double curveProgress;
 
         private TestCourier(Allay allay, UUID targetId, UUID ownerId, Location origin,
-                            TriggerData triggerData) {
+                            TriggerData triggerData, CourierSettings settings) {
             this.allay = allay;
             this.targetId = targetId;
             this.ownerId = ownerId;
             this.origin = origin.clone();
             this.triggerData = triggerData;
+            this.settings = settings;
             this.lastLocation = origin.clone();
+            this.holdTicksRemaining = settings.spawnDelayTicks();
         }
     }
 }

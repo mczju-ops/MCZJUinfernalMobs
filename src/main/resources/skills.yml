@@ -254,6 +254,11 @@ skills:
       pitch: 0.6
     line-particle: SMALL_GUST
     courier:
+      spawn-delay-ticks: 10
+      outbound-speed: 0.45
+      return-speed: 0.55
+      arc-height: 1.2
+      max-lifetime-ticks: 200
       spawn-sound:
         id: "entity.allay.item_given"
         volume: 1.0
