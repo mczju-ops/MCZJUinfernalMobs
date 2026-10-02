@@ -7,9 +7,12 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.util.Keys;
+import com.infernalmobs.util.MiniMessageHelper;
 import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.RegionAccessor;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Allay;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -78,11 +81,12 @@ public final class ThiefCourierTestService {
         if (player.getWorld() != owner.getWorld()) return false;
         CourierSettings settings = readSettings();
         Location origin = owner.getLocation().clone().add(0, owner.getEyeHeight() + 0.75, 0);
-        Allay allay = (Allay) origin.getWorld().spawnEntity(origin, org.bukkit.entity.EntityType.ALLAY);
-        configure(allay);
-        playSound(origin, "courier.spawn-sound");
+        RegionAccessor region = origin.getWorld();
+        Allay allay = region.spawn(origin, Allay.class, entity -> configure(entity, settings));
+        if (!allay.isValid()) return false;
         couriers.put(allay.getUniqueId(), new TestCourier(
                 allay, player.getUniqueId(), owner.getUniqueId(), origin, triggerData, settings));
+        playSound(player, "sound");
         start();
         return true;
     }
@@ -93,7 +97,7 @@ public final class ThiefCourierTestService {
             task = null;
         }
         for (TestCourier courier : new ArrayList<>(couriers.values())) {
-            cleanup(courier, true);
+            removeSilently(courier, true);
         }
         couriers.clear();
     }
@@ -102,29 +106,44 @@ public final class ThiefCourierTestService {
     public void handleDeath(EntityDeathEvent event) {
         TestCourier courier = couriers.remove(event.getEntity().getUniqueId());
         if (courier == null) return;
-        playSound(courier.lastLocation, "courier.death-sound");
-        dropCarriedItem(courier, courier.lastLocation);
+        Location deathLocation = event.getEntity().getLocation();
+        broadcastSound(deathLocation, "courier.death-sound");
+        dropCarriedItem(courier, deathLocation);
     }
 
     private void tick() {
         for (TestCourier courier : new ArrayList<>(couriers.values())) {
             if (!couriers.containsKey(courier.allay.getUniqueId())) continue;
-            courier.ageTicks++;
-            if (courier.ageTicks > courier.settings.maxLifetimeTicks()) {
-                cleanup(courier, true);
-                continue;
-            }
-            if (!courier.allay.isValid() || courier.allay.isDead()) {
-                playSound(courier.lastLocation, "courier.death-sound");
+            if (courier.allay.isDead()) {
+                broadcastSound(courier.lastLocation, "courier.death-sound");
                 dropCarriedItem(courier, courier.lastLocation);
                 couriers.remove(courier.allay.getUniqueId());
+                continue;
+            }
+            if (!courier.allay.isValid()) {
+                removeNaturally(courier, true);
+                continue;
+            }
+
+            if (courier.phase == FlightPhase.DESPAWN_HOLD) {
+                if (courier.holdTicksRemaining > 0) {
+                    courier.holdTicksRemaining--;
+                    continue;
+                }
+                removeNaturally(courier, false);
+                continue;
+            }
+
+            courier.ageTicks++;
+            if (courier.ageTicks > courier.settings.maxLifetimeTicks()) {
+                removeNaturally(courier, true);
                 continue;
             }
 
             if (courier.phase == FlightPhase.SPAWN_HOLD) {
                 Player target = resolveTarget(courier);
                 if (target == null) {
-                    remove(courier, false);
+                    removeNaturally(courier, false);
                     continue;
                 }
                 if (courier.holdTicksRemaining > 0) {
@@ -139,15 +158,17 @@ public final class ThiefCourierTestService {
                 ReturnTarget returnTarget = resolveReturnTarget(courier);
                 MoveResult result = moveTowards(courier, returnTarget.flightLocation(), null,
                         courier.settings.returnSpeed());
-                if (result == MoveResult.REACHED || result == MoveResult.FAILED) {
+                if (result == MoveResult.REACHED) {
                     finishReturn(courier, returnTarget.dropLocation());
+                } else if (result == MoveResult.FAILED) {
+                    removeNaturally(courier, true);
                 }
                 continue;
             }
 
             Player target = resolveTarget(courier);
             if (target == null) {
-                remove(courier, false);
+                removeNaturally(courier, false);
                 continue;
             }
 
@@ -156,14 +177,14 @@ public final class ThiefCourierTestService {
                     courier.settings.outboundSpeed());
             if (result == MoveResult.HIT || result == MoveResult.REACHED) {
                 if (transferMainHand(target, courier)) {
-                    playSound(courier.lastLocation, "courier.steal-sound");
+                    playSound(target, "courier.steal-sound");
                 }
                 courier.phase = FlightPhase.RETURNING;
                 ReturnTarget returnTarget = resolveReturnTarget(courier);
                 beginCurve(courier, returnTarget.flightLocation(), courier.settings.returnSpeed(),
                         RETURN_START_SPEED_RATIO);
             } else if (result == MoveResult.FAILED) {
-                remove(courier, false);
+                removeNaturally(courier, false);
             }
         }
         if (couriers.isEmpty() && task != null) {
@@ -282,12 +303,17 @@ public final class ThiefCourierTestService {
         SkillConfig skillConfig = config.getSkillConfig("thief");
         if (skillConfig == null) return CourierSettings.defaults();
         int spawnDelay = clamp(skillConfig.getInt("courier.spawn-delay-ticks", 10), 0, 100);
+        int despawnDelay = clamp(skillConfig.getInt("courier.despawn-delay-ticks", 10), 0, 100);
         double outboundSpeed = clamp(skillConfig.getDouble("courier.outbound-speed", 0.45), 0.05, 2.0, 0.45);
         double returnSpeed = clamp(skillConfig.getDouble("courier.return-speed", 0.55), 0.05, 2.0, 0.55);
         double arcHeight = clamp(skillConfig.getDouble("courier.arc-height", 1.2), 0.0, 5.0, 1.2);
+        double maxHealth = clamp(skillConfig.getDouble("courier.max-health", 6.0), 0.1, 2048.0, 6.0);
+        String name = skillConfig.getString("courier.name", "<#c9a227>缴械信使</#c9a227>");
+        if (name.isBlank()) name = "<#c9a227>缴械信使</#c9a227>";
         int maxLifetime = clamp(skillConfig.getInt("courier.max-lifetime-ticks", 200),
                 spawnDelay + 20, 1200);
-        return new CourierSettings(spawnDelay, outboundSpeed, returnSpeed, arcHeight, maxLifetime);
+        return new CourierSettings(name, maxHealth, spawnDelay, despawnDelay,
+                outboundSpeed, returnSpeed, arcHeight, maxLifetime);
     }
 
     private static int clamp(int value, int min, int max) {
@@ -299,8 +325,10 @@ public final class ThiefCourierTestService {
         return Math.max(min, Math.min(max, value));
     }
 
-    private void configure(Allay allay) {
+    /** RegionAccessor 的初始化回调会在实体加入世界前执行，避免客户端看到未配置的悦灵。 */
+    private void configure(Allay allay, CourierSettings settings) {
         allay.getPersistentDataContainer().set(Keys.THIEF_COURIER, PersistentDataType.BYTE, (byte) 1);
+        allay.customName(MiniMessageHelper.deserialize(settings.name()));
         allay.setInvisible(true);
         allay.setGlowing(true);
         allay.setSilent(true);
@@ -310,6 +338,11 @@ public final class ThiefCourierTestService {
         allay.setCanPickupItems(false);
         allay.setCanDuplicate(false);
         allay.setPersistent(true);
+        var maxHealth = allay.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealth != null) {
+            maxHealth.setBaseValue(settings.maxHealth());
+            allay.setHealth(settings.maxHealth());
+        }
         allay.getEquipment().setItemInMainHand(ItemStack.empty());
         allay.getEquipment().setItemInMainHandDropChance(0.0f);
     }
@@ -345,7 +378,9 @@ public final class ThiefCourierTestService {
             }
         }
 
-        ejectUnexpectedHeldItem(courier, courier.lastLocation);
+        if (ejectUnexpectedHeldItem(courier, courier.lastLocation)) {
+            broadcastSound(courier.lastLocation, "courier.drop-sound");
+        }
         player.getInventory().setItemInMainHand(ItemStack.empty());
         courier.carriedItem = carried;
         courier.allay.getEquipment().setItemInMainHand(carried.clone());
@@ -353,24 +388,23 @@ public final class ThiefCourierTestService {
         return true;
     }
 
-    private void playSound(Location location, String path) {
+    private void playSound(Player player, String path) {
+        SkillConfig skillConfig = config.getSkillConfig("thief");
+        if (skillConfig != null) SoundPlayback.play(player, skillConfig.getSound(path));
+    }
+
+    private void broadcastSound(Location location, String path) {
         if (location == null || location.getWorld() == null) return;
         SkillConfig skillConfig = config.getSkillConfig("thief");
         if (skillConfig != null) SoundPlayback.broadcast(location, skillConfig.getSound(path));
     }
 
-    private void remove(TestCourier courier, boolean playDeathSound) {
-        remove(courier, playDeathSound, false);
-    }
-
-    private void cleanup(TestCourier courier, boolean dropCarried) {
-        remove(courier, false, dropCarried);
-    }
-
     private void finishReturn(TestCourier courier, Location dropLocation) {
-        couriers.remove(courier.allay.getUniqueId());
-        dropCarriedItem(courier, dropLocation);
-        if (courier.allay.isValid()) courier.allay.remove();
+        if (dropCarriedItem(courier, dropLocation)) {
+            broadcastSound(courier.lastLocation, "courier.drop-sound");
+        }
+        courier.phase = FlightPhase.DESPAWN_HOLD;
+        courier.holdTicksRemaining = courier.settings.despawnDelayTicks();
     }
 
     private ReturnTarget resolveReturnTarget(TestCourier courier) {
@@ -393,31 +427,42 @@ public final class ThiefCourierTestService {
         return first.distanceSquared(second) < 0.000001;
     }
 
-    private void remove(TestCourier courier, boolean playDeathSound, boolean dropCarried) {
+    private void removeNaturally(TestCourier courier, boolean dropCarried) {
         couriers.remove(courier.allay.getUniqueId());
-        if (dropCarried) dropCarriedItem(courier, courier.lastLocation);
-        if (playDeathSound) playSound(courier.lastLocation, "courier.death-sound");
+        if (dropCarried && dropCarriedItem(courier, courier.lastLocation)) {
+            broadcastSound(courier.lastLocation, "courier.drop-sound");
+        }
+        broadcastSound(courier.lastLocation, "courier.despawn-sound");
         if (courier.allay.isValid()) courier.allay.remove();
     }
 
-    private void dropCarriedItem(TestCourier courier, Location location) {
+    /** 插件关闭时保全物品，但不播放退出过程中的游戏音效。 */
+    private void removeSilently(TestCourier courier, boolean dropCarried) {
+        couriers.remove(courier.allay.getUniqueId());
+        if (dropCarried) dropCarriedItem(courier, courier.lastLocation);
+        if (courier.allay.isValid()) courier.allay.remove();
+    }
+
+    private boolean dropCarriedItem(TestCourier courier, Location location) {
         ItemStack carried = courier.carriedItem;
         if (carried == null || carried.getType().isAir()) {
             carried = courier.allay.getEquipment().getItemInMainHand();
         }
-        if (carried.getType().isAir() || location == null || location.getWorld() == null) return;
+        if (carried.getType().isAir() || location == null || location.getWorld() == null) return false;
         courier.allay.getEquipment().setItemInMainHand(ItemStack.empty());
         location.getWorld().dropItemNaturally(location, carried.clone());
         courier.carriedItem = null;
+        return true;
     }
 
     /** 覆盖悦灵主手前先转移意外物品，避免无声删除或替换。 */
-    private void ejectUnexpectedHeldItem(TestCourier courier, Location location) {
-        if (courier.carriedItem != null) return;
+    private boolean ejectUnexpectedHeldItem(TestCourier courier, Location location) {
+        if (courier.carriedItem != null) return false;
         ItemStack held = courier.allay.getEquipment().getItemInMainHand();
-        if (held.getType().isAir() || location == null || location.getWorld() == null) return;
+        if (held.getType().isAir() || location == null || location.getWorld() == null) return false;
         courier.allay.getEquipment().setItemInMainHand(ItemStack.empty());
         location.getWorld().dropItemNaturally(location, held.clone());
+        return true;
     }
 
     private enum MoveResult {
@@ -430,7 +475,8 @@ public final class ThiefCourierTestService {
     private enum FlightPhase {
         SPAWN_HOLD,
         OUTBOUND,
-        RETURNING
+        RETURNING,
+        DESPAWN_HOLD
     }
 
     private record ReturnTarget(Location flightLocation, Location dropLocation) {}
@@ -438,10 +484,12 @@ public final class ThiefCourierTestService {
     private record TriggerData(LivingEntity releasedMob, MobState state, InfernalMobHandle handle,
                                int level, long releasedTick, int cooldownTicks) {}
 
-    private record CourierSettings(int spawnDelayTicks, double outboundSpeed, double returnSpeed,
+    private record CourierSettings(String name, double maxHealth, int spawnDelayTicks,
+                                   int despawnDelayTicks, double outboundSpeed, double returnSpeed,
                                    double arcHeight, int maxLifetimeTicks) {
         private static CourierSettings defaults() {
-            return new CourierSettings(10, 0.45, 0.55, 1.2, 200);
+            return new CourierSettings("<#c9a227>缴械信使</#c9a227>", 6.0,
+                    10, 10, 0.45, 0.55, 1.2, 200);
         }
     }
 
