@@ -17,7 +17,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -150,7 +150,7 @@ public class DualWebberSkill implements Skill {
         int minZ = (int) Math.floor(cz - rMax - 1);
         int maxZ = (int) Math.ceil(cz + rMax + 1);
 
-        List<Location> placedLocations = new ArrayList<>();
+        Map<BlockKey, Location> placedLocations = new LinkedHashMap<>();
         int placedCount = 0;
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
@@ -172,8 +172,9 @@ public class DualWebberSkill implements Skill {
                     b.setType(Material.COBWEB);
                     placedCount++;
                     if (token != null) {
-                        webMarkers.put(key(b), token);
-                        placedLocations.add(b.getLocation().clone());
+                        BlockKey blockKey = key(b);
+                        webMarkers.put(blockKey, token);
+                        placedLocations.put(blockKey, b.getLocation().clone());
                     }
                 }
             }
@@ -186,14 +187,14 @@ public class DualWebberSkill implements Skill {
             @Override
             public void run() {
                 if (placedLocations.isEmpty()) return;
-                for (Location loc : placedLocations) {
-                    if (loc == null || loc.getWorld() == null) continue;
-                    Block b = loc.getWorld().getBlockAt(loc);
-                    if (b.getType() != Material.COBWEB) continue;
-                    BlockKey blockKey = key(b);
+                for (Map.Entry<BlockKey, Location> entry : placedLocations.entrySet()) {
+                    BlockKey blockKey = entry.getKey();
                     if (!token.equals(webMarkers.get(blockKey))) continue;
                     webMarkers.remove(blockKey, token);
-                    b.setType(Material.AIR);
+                    Location loc = entry.getValue();
+                    if (loc == null || loc.getWorld() == null) continue;
+                    Block b = loc.getWorld().getBlockAt(loc);
+                    if (b.getType() == Material.COBWEB) b.setType(Material.AIR);
                 }
             }
         };
@@ -211,12 +212,11 @@ public class DualWebberSkill implements Skill {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (loc.getWorld() == null) return;
-                Block b = loc.getWorld().getBlockAt(loc);
-                if (b.getType() != Material.COBWEB) return;
                 if (!token.equals(webMarkers.get(blockKey))) return;
                 webMarkers.remove(blockKey, token);
-                b.setType(Material.AIR);
+                if (loc.getWorld() == null) return;
+                Block b = loc.getWorld().getBlockAt(loc);
+                if (b.getType() == Material.COBWEB) b.setType(Material.AIR);
             }
         }.runTaskLater(plugin, delayTicks);
     }
