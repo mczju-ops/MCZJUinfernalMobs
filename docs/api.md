@@ -82,6 +82,7 @@ public final class MyPlugin extends JavaPlugin {
 | `boolean isInfernal(LivingEntity entity)` | 实体是否已被炒鸡化 |
 | `Optional<InfernalMobHandle> getHandle(LivingEntity entity)` | 获取炒鸡怪门面句柄（未炒鸡化为空） |
 | `List<String> getAffixIds(LivingEntity entity)` | 直接查询炒鸡怪词条 skillId 列表（未炒鸡化为空列表） |
+| `void removeEntity(LivingEntity entity)` | 安全移除生物；炒鸡怪会先卸载词条并注销状态，普通生物直接移除；不触发死亡流程 |
 | `boolean isAffixSuppressed(LivingEntity entity, String skillId)` | 查询某个词条是否被禁用（未炒鸡化返回 `false`） |
 | `void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed)` | 设定词条禁用状态（未炒鸡化无效） |
 | `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条 |
@@ -97,6 +98,9 @@ public final class MyPlugin extends JavaPlugin {
 | `int apiVersion()` | API 版本（当前 2） |
 
 `spawnInfernalMob` 返回 `null` 表示生成失败（类型/位置无效、词条全无效、或生成事件被取消）。
+
+`removeEntity` 必须在服务端主线程调用。它不会触发 `EntityDeathEvent`，因此不会产生亡语、原版死亡掉落、炒鸡掉落、击杀统计或击杀播报。
+当目标是炒鸡怪时，插件会先执行完整的技能卸载，再调用 Bukkit 的实体移除操作；目标不是炒鸡怪时则直接调用实体移除。
 
 **示例：查询生物是否为炒鸡、带哪些词条，并判断是否被禁用（异色炒鸡 / MagicItems 可用）**
 ```java

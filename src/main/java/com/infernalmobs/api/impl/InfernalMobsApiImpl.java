@@ -14,6 +14,7 @@ import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
+import com.infernalmobs.service.SkillService;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -81,6 +82,16 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return List.of();
         return state.getProfile().getAffixIds();
+    }
+
+    @Override
+    public void removeEntity(LivingEntity entity) {
+        if (entity == null) return;
+        MobState state = combatService.getMobState(entity.getUniqueId());
+        if (state != null) {
+            combatService.unequipAndUnregister(entity, state, SkillService.UnequipReason.EXTERNAL_REMOVE);
+        }
+        entity.remove();
     }
 
     @Override

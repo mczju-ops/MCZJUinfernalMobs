@@ -21,6 +21,7 @@ public class SkillService {
     public enum UnequipReason {
         DEATH("实体死亡"),
         ADMIN_REMOVE("管理员主动清除"),
+        EXTERNAL_REMOVE("外部插件请求移除"),
         MORPH("变形替换旧实体");
 
         private final String description;
