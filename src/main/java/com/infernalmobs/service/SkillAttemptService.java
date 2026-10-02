@@ -20,8 +20,10 @@ public final class SkillAttemptService {
 
     /**
      * 设置技能句柄并广播 Attempt 事件。
+     * 核心禁用状态在事件广播后统一检查，外部插件仍可观察 Attempt 事件，
+     * 但不能通过恢复事件取消状态绕过实体自身的禁用词条。
      *
-     * @return 事件未取消时返回 true
+     * @return 事件未取消且词条未被实体状态禁用时返回 true
      */
     public boolean fire(Affix affix, SkillContext context,
                         LivingEntity entity, LivingEntity target, MobState state) {
@@ -34,6 +36,6 @@ public final class SkillAttemptService {
                 affix.getSkillId(), affix.getSkill().getType(), entity, target, handle,
                 state.getProfile().getLevel());
         plugin.getServer().getPluginManager().callEvent(event);
-        return !event.isCancelled();
+        return !event.isCancelled() && !state.isAffixSuppressed(affix.getSkillId());
     }
 }

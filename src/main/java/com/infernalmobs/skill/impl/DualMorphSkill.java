@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 变形：受击/攻击时概率变成另一种生物。
- * morph 词条被禁用（由外部插件通过 API 设置）时，由 MorphSuppressListener 在事件层阻止触发。
+ * morph 词条被禁用（由外部插件通过 API 设置）时，由统一 Attempt 入口阻止触发。
  */
 public class DualMorphSkill implements Skill {
 
@@ -52,7 +52,7 @@ public class DualMorphSkill implements Skill {
         LivingEntity entity = ctx.getEntity();
         if (entity == null || !entity.isValid()) return;
 
-        // morph 词条被 morph_controller 禁用时，已由 MorphSuppressListener 在事件层取消，此处不再重复判定
+        // 词条禁用状态由 SkillAttemptService 统一检查，此处只处理 morph 自身业务逻辑。
 
         double chance = config.getDouble("chance", 0.15);
         if (Math.random() >= chance) return;
