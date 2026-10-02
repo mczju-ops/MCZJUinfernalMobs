@@ -102,11 +102,16 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             send(sender, "<red>该测试指令仅玩家可执行");
             return true;
         }
-        if (thiefCourierTestService == null || !thiefCourierTestService.spawnFor(player)) {
+        org.bukkit.entity.Entity target = player.getTargetEntity(20, false);
+        if (!(target instanceof LivingEntity owner) || owner == player) {
+            send(sender, "<red>请将准星对准 20 格内的活体实体，作为本次测试的悦灵主人");
+            return true;
+        }
+        if (thiefCourierTestService == null || !thiefCourierTestService.spawnFor(player, owner)) {
             send(sender, "<red>悦灵测试生成失败");
             return true;
         }
-        send(sender, "<green>已生成测试悦灵：命中时会夺取当前主手物品，返程后掉落到生成点");
+        send(sender, "<green>已生成测试悦灵：命中后会追踪主人返程，并在主人脚下掉落物品");
         return true;
     }
 
@@ -415,7 +420,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志与 mechanize 区域/等级输出</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 完整校验并重载全部配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
-        send(sender, "<yellow>/im thief-test</yellow> <gray>- 临时测试悦灵命中、夺取与返程（会修改主手）</gray>");
+        send(sender, "<yellow>/im thief-test</yellow> <gray>- 对准活体实体，测试悦灵命中、夺取与主人返程</gray>");
     }
 
     @Override
