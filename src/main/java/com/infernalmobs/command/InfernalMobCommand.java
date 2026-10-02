@@ -6,6 +6,7 @@ import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.registry.SkillRegistry;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.KillStatsService;
+import com.infernalmobs.service.ThiefCourierTestService;
 import com.infernalmobs.util.MiniMessageHelper;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -48,13 +49,17 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private final MobFactory mobFactory;
     private final CombatService combatService;
     private final KillStatsService killStatsService;
+    private final ThiefCourierTestService thiefCourierTestService;
 
-    public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory, CombatService combatService, KillStatsService killStatsService) {
+    public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory,
+                              CombatService combatService, KillStatsService killStatsService,
+                              ThiefCourierTestService thiefCourierTestService) {
         this.plugin = plugin;
         this.configLoader = configLoader;
         this.mobFactory = mobFactory;
         this.combatService = combatService;
         this.killStatsService = killStatsService;
+        this.thiefCourierTestService = thiefCourierTestService;
     }
 
     private static final String PERM_ADMIN = "infernalmobs.admin";
@@ -87,7 +92,21 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         if ("stats".equals(sub)) return handleStats(sender, args);
         if ("debug".equals(sub)) return handleDebug(sender, args);
         if ("clear".equals(sub)) return handleClear(sender, args);
+        if ("thief-test".equals(sub)) return handleThiefTest(sender);
         sendHelp(sender);
+        return true;
+    }
+
+    private boolean handleThiefTest(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            send(sender, "<red>该测试指令仅玩家可执行");
+            return true;
+        }
+        if (thiefCourierTestService == null || !thiefCourierTestService.spawnFor(player)) {
+            send(sender, "<red>悦灵测试生成失败");
+            return true;
+        }
+        send(sender, "<green>已生成测试悦灵：它会飞向你后返回生成点。当前阶段不会夺取物品");
         return true;
     }
 
@@ -396,12 +415,13 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志与 mechanize 区域/等级输出</gray>");
         send(sender, "<yellow>/im reload</yellow> <gray>- 完整校验并重载全部配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
+        send(sender, "<yellow>/im thief-test</yellow> <gray>- 临时测试悦灵视觉与往返飞行（不会夺取物品）</gray>");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spawn", "spawnat", "stats", "debug", "reload", "clear").stream()
+            return Arrays.asList("spawn", "spawnat", "stats", "debug", "reload", "clear", "thief-test").stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }

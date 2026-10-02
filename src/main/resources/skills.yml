@@ -253,6 +253,19 @@ skills:
       volume: 0.8
       pitch: 0.6
     line-particle: SMALL_GUST
+    courier:
+      spawn-sound:
+        id: "entity.allay.item_given"
+        volume: 1.0
+        pitch: 1.2
+      steal-sound:
+        id: "entity.allay.item_taken"
+        volume: 1.0
+        pitch: 1.0
+      death-sound:
+        id: "entity.allay.death"
+        volume: 1.0
+        pitch: 1.0
 
   tosser:
     display: "<#00bcd4>牵引</#00bcd4>"
