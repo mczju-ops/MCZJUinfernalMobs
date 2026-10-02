@@ -3,12 +3,14 @@ package com.infernalmobs.service;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
+import com.infernalmobs.util.Keys;
 import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.entity.Allay;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.BoundingBox;
@@ -68,6 +70,14 @@ public final class ThiefCourierTestService {
             cleanup(courier, true);
         }
         couriers.clear();
+    }
+
+    /** 由死亡监听器调用；清空原生掉落后只处理一次自定义携带物品。 */
+    public void handleDeath(EntityDeathEvent event) {
+        TestCourier courier = couriers.remove(event.getEntity().getUniqueId());
+        if (courier == null) return;
+        playSound(courier.lastLocation, "courier.death-sound");
+        dropCarriedItem(courier, courier.lastLocation);
     }
 
     private void tick() {
@@ -153,6 +163,7 @@ public final class ThiefCourierTestService {
     }
 
     private void configure(Allay allay) {
+        allay.getPersistentDataContainer().set(Keys.THIEF_COURIER, PersistentDataType.BYTE, (byte) 1);
         allay.setInvisible(true);
         allay.setGlowing(true);
         allay.setSilent(true);
@@ -162,7 +173,7 @@ public final class ThiefCourierTestService {
         allay.setCanPickupItems(false);
         allay.setCanDuplicate(false);
         allay.setPersistent(true);
-        allay.getEquipment().setItemInMainHand(new ItemStack(Material.GOLD_INGOT));
+        allay.getEquipment().setItemInMainHand(ItemStack.empty());
         allay.getEquipment().setItemInMainHandDropChance(0.0f);
     }
 
@@ -171,6 +182,7 @@ public final class ThiefCourierTestService {
         ItemStack current = player.getInventory().getItemInMainHand();
         if (current.getType().isAir() || ThiefResistanceListener.isResistant(current)) return false;
 
+        ejectUnexpectedHeldItem(courier, courier.lastLocation);
         ItemStack carried = current.clone();
         player.getInventory().setItemInMainHand(ItemStack.empty());
         courier.carriedItem = carried;
@@ -202,10 +214,22 @@ public final class ThiefCourierTestService {
 
     private void dropCarriedItem(TestCourier courier, Location location) {
         ItemStack carried = courier.carriedItem;
-        if (carried == null || carried.getType().isAir() || location == null || location.getWorld() == null) return;
+        if (carried == null || carried.getType().isAir()) {
+            carried = courier.allay.getEquipment().getItemInMainHand();
+        }
+        if (carried.getType().isAir() || location == null || location.getWorld() == null) return;
+        courier.allay.getEquipment().setItemInMainHand(ItemStack.empty());
         location.getWorld().dropItemNaturally(location, carried.clone());
         courier.carriedItem = null;
+    }
+
+    /** 覆盖悦灵主手前先转移意外物品，避免无声删除或替换。 */
+    private void ejectUnexpectedHeldItem(TestCourier courier, Location location) {
+        if (courier.carriedItem != null) return;
+        ItemStack held = courier.allay.getEquipment().getItemInMainHand();
+        if (held.getType().isAir() || location == null || location.getWorld() == null) return;
         courier.allay.getEquipment().setItemInMainHand(ItemStack.empty());
+        location.getWorld().dropItemNaturally(location, held.clone());
     }
 
     private enum MoveResult {

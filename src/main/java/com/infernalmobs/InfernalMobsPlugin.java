@@ -13,6 +13,7 @@ import com.infernalmobs.controller.listener.CreeperExplodeListener;
 import com.infernalmobs.controller.listener.MobSpawnListener;
 import com.infernalmobs.controller.listener.MobPersistenceListener;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
+import com.infernalmobs.controller.listener.ThiefCourierListener;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.service.AffixRollService;
 import com.infernalmobs.service.CombatService;
@@ -89,6 +90,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MobPersistenceListener(mobFactory), this);
         getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService), this);
         getServer().getPluginManager().registerEvents(new ThiefResistanceListener(), this);
+        getServer().getPluginManager().registerEvents(new ThiefCourierListener(thiefCourierTestService), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
 
         int restoredMobs = mobFactory.restoreLoadedEntities();

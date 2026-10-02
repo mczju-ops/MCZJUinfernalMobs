@@ -31,6 +31,8 @@ public final class Keys {
     public static final NamespacedKey IM_RARITY = key("im_rarity");
     /** 免疫缴械词条，Boolean，为 true 时无条件免疫缴械 */
     public static final NamespacedKey IM_THIEF_RESISTANCE = key("im_thief_resistance");
+    /** thief 悦灵信使标记，Byte；用于拦截交互和接管死亡掉落。 */
+    public static final NamespacedKey THIEF_COURIER = key("thief_courier");
 
     public static final NamespacedKey FIREWORK_SOURCE = key("infernalmobs_firework_source");
     public static final NamespacedKey FIREWORK_HANDLE_AFFIXES = key("infernalmobs_firework_handle_affixes");
