@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * thief 悦灵信使服务。当前同时保留临时测试入口，待真实战斗验证完成后再移除测试命名。
@@ -159,7 +160,8 @@ public final class ThiefCourierTestService {
                     continue;
                 }
                 courier.phase = FlightPhase.OUTBOUND;
-                beginCurve(courier, target.getEyeLocation(), courier.settings.outboundSpeed(), START_SPEED_RATIO);
+                beginCurve(courier, outboundTarget(courier, target),
+                        courier.settings.outboundSpeed(), START_SPEED_RATIO);
             }
 
             if (courier.phase == FlightPhase.RETURNING) {
@@ -180,7 +182,7 @@ public final class ThiefCourierTestService {
                 continue;
             }
 
-            Location targetLocation = target.getEyeLocation();
+            Location targetLocation = outboundTarget(courier, target);
             MoveResult result = moveTowards(courier, targetLocation, target.getBoundingBox(),
                     courier.settings.outboundSpeed());
             if (result == MoveResult.HIT || result == MoveResult.REACHED) {
@@ -251,7 +253,10 @@ public final class ThiefCourierTestService {
         if (step.length() > courier.currentSpeed) step.normalize().multiply(courier.currentSpeed);
 
         Location next = current.clone().add(step);
-        next.setDirection(step);
+        // 目标点带有每只悦灵独立的固定偏移；朝向仍保持指向该目标，避免左右摆头。
+        Vector facing = target.toVector().subtract(next.toVector());
+        if (facing.lengthSquared() < 0.000001) facing = offset;
+        next.setDirection(facing);
         if (expandedHitBox != null
                 && expandedHitBox.rayTrace(current.toVector(), step.clone().normalize(), step.length()) != null) {
             if (!courier.allay.teleport(target)) return MoveResult.FAILED;
@@ -277,6 +282,10 @@ public final class ThiefCourierTestService {
         courier.currentSpeed = Math.max(0.01, cruiseSpeed * ratio);
     }
 
+    private Location outboundTarget(TestCourier courier, Player target) {
+        return target.getEyeLocation().add(courier.targetOffset);
+    }
+
     private void updateSmoothedEndpoint(TestCourier courier, Location target) {
         if (courier.smoothedEndpoint == null || courier.smoothedEndpoint.getWorld() != target.getWorld()) {
             courier.smoothedEndpoint = target.clone();
@@ -291,7 +300,8 @@ public final class ThiefCourierTestService {
 
     private static Location bezierPoint(Location start, Location end, double height, double t) {
         double oneMinusT = 1.0 - t;
-        Vector control = start.toVector().add(end.toVector()).multiply(0.5).add(new Vector(0, height, 0));
+        Vector control = start.toVector().add(end.toVector()).multiply(0.5)
+                .add(new Vector(0, height, 0));
         Vector point = start.toVector().multiply(oneMinusT * oneMinusT)
                 .add(control.multiply(2.0 * oneMinusT * t))
                 .add(end.toVector().multiply(t * t));
@@ -308,6 +318,14 @@ public final class ThiefCourierTestService {
     private static double approach(double current, double target, double amount) {
         if (current < target) return Math.min(target, current + amount);
         return Math.max(target, current - amount);
+    }
+
+    /** 为每只悦灵固定一个玩家眼睛附近的目标偏移，避免多只悦灵飞向完全相同的终点。 */
+    private static Vector randomTargetOffset() {
+        double angle = ThreadLocalRandom.current().nextDouble(0.0, Math.PI * 2.0);
+        double radius = ThreadLocalRandom.current().nextDouble(-0.2, 0.2);
+        double vertical = ThreadLocalRandom.current().nextDouble(-0.15, 0.15);
+        return new Vector(Math.cos(angle) * radius, vertical, Math.sin(angle) * radius);
     }
 
     private CourierSettings readSettings() {
@@ -345,7 +363,7 @@ public final class ThiefCourierTestService {
         allay.setSilent(true);
         allay.setAI(false);
         allay.setGravity(false);
-        allay.setCollidable(false);
+        // allay.setCollidable(false); // 如果设置为 false，箭无法命中
         allay.setCanPickupItems(false);
         allay.setCanDuplicate(false);
         allay.setPersistent(true);
@@ -552,6 +570,7 @@ public final class ThiefCourierTestService {
         private Location overrideDropLocation;
         private Location legStart;
         private Location smoothedEndpoint;
+        private final Vector targetOffset = randomTargetOffset();
         private ItemStack carriedItem;
         private FlightPhase phase = FlightPhase.SPAWN_HOLD;
         private int holdTicksRemaining;
