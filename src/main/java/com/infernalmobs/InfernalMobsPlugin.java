@@ -25,7 +25,7 @@ import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.MobLevelService;
 import com.infernalmobs.service.RegionService;
 import com.infernalmobs.service.SkillService;
-import com.infernalmobs.service.ThiefCourierTestService;
+import com.infernalmobs.service.ThiefCourierService;
 import com.infernalmobs.util.ItemCreatorBridge;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -50,7 +50,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
     private LootService lootService;
     private MobFactory mobFactory;
     private SkillService skillService;
-    private ThiefCourierTestService thiefCourierTestService;
+    private ThiefCourierService thiefCourierService;
     private InfernalMobsApi infernalMobsApi;
     private final Object dataSaveLock = new Object();
     private BukkitTask dataSaveTask;
@@ -79,10 +79,10 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
         mobFactory = new MobFactory(this, configLoader, levelService, affixRollService, skillService, combatService, regionService);
         combatService.setMobFactory(mobFactory);
-        thiefCourierTestService = new ThiefCourierTestService(this, configLoader);
+        thiefCourierService = new ThiefCourierService(this, configLoader);
 
         InfernalMobCommand imCmd = new InfernalMobCommand(this, configLoader, mobFactory, combatService,
-                killStatsService, thiefCourierTestService);
+                killStatsService, thiefCourierService);
         getCommand("im").setExecutor(imCmd);
         getCommand("im").setTabCompleter(imCmd);
 
@@ -90,7 +90,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MobPersistenceListener(mobFactory), this);
         getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService), this);
         getServer().getPluginManager().registerEvents(new ThiefResistanceListener(), this);
-        getServer().getPluginManager().registerEvents(new ThiefCourierListener(thiefCourierTestService), this);
+        getServer().getPluginManager().registerEvents(new ThiefCourierListener(thiefCourierService), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
 
         int restoredMobs = mobFactory.restoreLoadedEntities();
@@ -129,8 +129,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
         }
     }
 
-    public ThiefCourierTestService getThiefCourierTestService() {
-        return thiefCourierTestService;
+    public ThiefCourierService getThiefCourierService() {
+        return thiefCourierService;
     }
 
     /** 解析并提交掉落配置。启动失败时使用关闭掉落的安全快照。 */
@@ -230,7 +230,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (dataSaveTask != null) dataSaveTask.cancel();
-        if (thiefCourierTestService != null) thiefCourierTestService.shutdown();
+        if (thiefCourierService != null) thiefCourierService.shutdown();
         synchronized (dataSaveLock) {
             if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
             if (killStatsService != null) killStatsService.saveIfDirty();

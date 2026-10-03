@@ -49,7 +49,7 @@ public class DualThiefSkill implements Skill {
 
         if (!(ctx.getPlugin() instanceof InfernalMobsPlugin plugin)) return;
         int cooldownTicks = config.getInt("cooldown-ticks", 80);
-        boolean launched = plugin.getThiefCourierTestService().launch(
+        boolean launched = plugin.getThiefCourierService().launch(
                 player, ctx.getEntity(), ctx.getMobState(), ctx.getOrCreateHandle(),
                 ctx.getCurrentTick(), cooldownTicks);
         if (launched) ctx.commitCooldown(getId(), cooldownTicks);

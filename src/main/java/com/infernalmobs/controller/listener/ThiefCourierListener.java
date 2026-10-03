@@ -1,6 +1,6 @@
 package com.infernalmobs.controller.listener;
 
-import com.infernalmobs.service.ThiefCourierTestService;
+import com.infernalmobs.service.ThiefCourierService;
 import com.infernalmobs.util.Keys;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -14,9 +14,9 @@ import org.bukkit.persistence.PersistentDataType;
 /** 拦截 thief 悦灵的玩家交互，并接管其死亡掉落。 */
 public final class ThiefCourierListener implements Listener {
 
-    private final ThiefCourierTestService courierService;
+    private final ThiefCourierService courierService;
 
-    public ThiefCourierListener(ThiefCourierTestService courierService) {
+    public ThiefCourierListener(ThiefCourierService courierService) {
         this.courierService = courierService;
     }
 

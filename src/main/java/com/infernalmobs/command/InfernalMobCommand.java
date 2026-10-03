@@ -6,7 +6,7 @@ import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.registry.SkillRegistry;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.KillStatsService;
-import com.infernalmobs.service.ThiefCourierTestService;
+import com.infernalmobs.service.ThiefCourierService;
 import com.infernalmobs.util.MiniMessageHelper;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -49,17 +49,17 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private final MobFactory mobFactory;
     private final CombatService combatService;
     private final KillStatsService killStatsService;
-    private final ThiefCourierTestService thiefCourierTestService;
+    private final ThiefCourierService thiefCourierService;
 
     public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory,
                               CombatService combatService, KillStatsService killStatsService,
-                              ThiefCourierTestService thiefCourierTestService) {
+                              ThiefCourierService thiefCourierService) {
         this.plugin = plugin;
         this.configLoader = configLoader;
         this.mobFactory = mobFactory;
         this.combatService = combatService;
         this.killStatsService = killStatsService;
-        this.thiefCourierTestService = thiefCourierTestService;
+        this.thiefCourierService = thiefCourierService;
     }
 
     private static final String PERM_ADMIN = "infernalmobs.admin";
@@ -107,7 +107,7 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
             send(sender, "<red>请将准星对准 20 格内的活体实体，作为本次测试的悦灵主人");
             return true;
         }
-        if (thiefCourierTestService == null || !thiefCourierTestService.spawnFor(player, owner)) {
+        if (thiefCourierService == null || !thiefCourierService.spawnFor(player, owner)) {
             send(sender, "<red>悦灵测试生成失败");
             return true;
         }

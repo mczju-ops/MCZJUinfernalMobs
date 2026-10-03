@@ -33,9 +33,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * thief 悦灵信使服务。当前同时保留临时测试入口，待真实战斗验证完成后再移除测试命名。
+ * thief 悦灵信使服务。
  */
-public final class ThiefCourierTestService {
+public final class ThiefCourierService {
 
     private static final double ARRIVAL_DISTANCE = 0.8;
     private static final double ACCELERATION_TICKS = 6.0;
@@ -47,12 +47,12 @@ public final class ThiefCourierTestService {
 
     private final JavaPlugin plugin;
     private final ConfigLoader config;
-    private final Map<UUID, TestCourier> couriers = new ConcurrentHashMap<>();
+    private final Map<UUID, Courier> couriers = new ConcurrentHashMap<>();
     private BukkitTask task;
 
     private final Scoreboard scoreboard;
 
-    public ThiefCourierTestService(JavaPlugin plugin, ConfigLoader config) {
+    public ThiefCourierService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.config = config;
         this.scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
@@ -63,7 +63,7 @@ public final class ThiefCourierTestService {
         task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, 1L, 1L);
     }
 
-    /** 在主人头顶生成测试悦灵，飞向玩家后再追踪主人返程。 */
+    /** 在主人头顶生成悦灵，飞向玩家后再追踪主人返程。 */
     public boolean spawnFor(Player player, LivingEntity owner) {
         if (player == null || !player.isOnline() || owner == null || !owner.isValid() || owner.isDead()) {
             return false;
@@ -93,7 +93,7 @@ public final class ThiefCourierTestService {
         if (!allay.isValid()) return false;
         getDarkRedTeam().addEntity(allay);
         spawnSpawnParticles(origin);
-        couriers.put(allay.getUniqueId(), new TestCourier(
+        couriers.put(allay.getUniqueId(), new Courier(
                 allay, player.getUniqueId(), owner.getUniqueId(), origin, triggerData, settings));
         playSound(player, "sound");
         start();
@@ -105,7 +105,7 @@ public final class ThiefCourierTestService {
             task.cancel();
             task = null;
         }
-        for (TestCourier courier : new ArrayList<>(couriers.values())) {
+        for (Courier courier : new ArrayList<>(couriers.values())) {
             removeSilently(courier, true);
         }
         couriers.clear();
@@ -113,7 +113,7 @@ public final class ThiefCourierTestService {
 
     /** 由死亡监听器调用；清空原生掉落后只处理一次自定义携带物品。 */
     public void handleDeath(EntityDeathEvent event) {
-        TestCourier courier = couriers.remove(event.getEntity().getUniqueId());
+        Courier courier = couriers.remove(event.getEntity().getUniqueId());
         if (courier == null) return;
         Location deathLocation = event.getEntity().getLocation();
         broadcastSound(deathLocation, "courier.death-sound");
@@ -121,7 +121,7 @@ public final class ThiefCourierTestService {
     }
 
     private void tick() {
-        for (TestCourier courier : new ArrayList<>(couriers.values())) {
+        for (Courier courier : new ArrayList<>(couriers.values())) {
             if (!couriers.containsKey(courier.allay.getUniqueId())) continue;
             if (courier.allay.isDead()) {
                 broadcastSound(courier.lastLocation, "courier.death-sound");
@@ -223,7 +223,7 @@ public final class ThiefCourierTestService {
         }
     }
 
-    private Player resolveTarget(TestCourier courier) {
+    private Player resolveTarget(Courier courier) {
         Player target = plugin.getServer().getPlayer(courier.targetId);
         if (target == null || !target.isOnline() || target.isDead()
                 || target.getWorld() != courier.allay.getWorld()) return null;
@@ -231,7 +231,7 @@ public final class ThiefCourierTestService {
     }
 
     /** 沿动态贝塞尔曲线传送，并根据剩余距离自动加速或刹车。 */
-    private MoveResult moveTowards(TestCourier courier, Location target, BoundingBox hitBox,
+    private MoveResult moveTowards(Courier courier, Location target, BoundingBox hitBox,
                                    double cruiseSpeed) {
         Location current = courier.allay.getLocation();
         if (current.getWorld() != target.getWorld()) return MoveResult.FAILED;
@@ -289,7 +289,7 @@ public final class ThiefCourierTestService {
         return MoveResult.MOVED;
     }
 
-    private void beginCurve(TestCourier courier, Location target, double cruiseSpeed,
+    private void beginCurve(Courier courier, Location target, double cruiseSpeed,
                             double startSpeedRatio) {
         Location current = courier.allay.getLocation();
         courier.legStart = current.clone();
@@ -299,11 +299,11 @@ public final class ThiefCourierTestService {
         courier.currentSpeed = Math.max(0.01, cruiseSpeed * ratio);
     }
 
-    private Location outboundTarget(TestCourier courier, Player target) {
+    private Location outboundTarget(Courier courier, Player target) {
         return target.getEyeLocation().add(courier.targetOffset);
     }
 
-    private void updateSmoothedEndpoint(TestCourier courier, Location target) {
+    private void updateSmoothedEndpoint(Courier courier, Location target) {
         if (courier.smoothedEndpoint == null || courier.smoothedEndpoint.getWorld() != target.getWorld()) {
             courier.smoothedEndpoint = target.clone();
             return;
@@ -394,7 +394,7 @@ public final class ThiefCourierTestService {
     }
 
     /** 命中时才读取主手；正式触发会先广播缴械事件，再原子校验并转移物品。 */
-    private boolean transferMainHand(Player player, TestCourier courier) {
+    private boolean transferMainHand(Player player, Courier courier) {
         if (player.getGameMode() == GameMode.CREATIVE) return false;
         ItemStack current = player.getInventory().getItemInMainHand();
         if (current.getType().isAir() || ThiefResistanceListener.isResistant(current)) return false;
@@ -467,7 +467,7 @@ public final class ThiefCourierTestService {
                 0.2, 0.3, 0.2, 0.12);
     }
 
-    private void finishReturn(TestCourier courier, Location dropLocation) {
+    private void finishReturn(Courier courier, Location dropLocation) {
         if (dropCarriedItem(courier, dropLocation)) {
             broadcastSound(courier.lastLocation, "courier.drop-sound");
         }
@@ -475,7 +475,7 @@ public final class ThiefCourierTestService {
         courier.holdTicksRemaining = courier.settings.despawnDelayTicks();
     }
 
-    private ReturnTarget resolveReturnTarget(TestCourier courier) {
+    private ReturnTarget resolveReturnTarget(Courier courier) {
         if (courier.overrideDropLocation != null) {
             Location drop = courier.overrideDropLocation.clone();
             return new ReturnTarget(drop.clone().add(0, 0.8, 0), drop);
@@ -495,7 +495,7 @@ public final class ThiefCourierTestService {
         return first.distanceSquared(second) < 0.000001;
     }
 
-    private void removeNaturally(TestCourier courier, boolean dropCarried) {
+    private void removeNaturally(Courier courier, boolean dropCarried) {
         couriers.remove(courier.allay.getUniqueId());
         if (dropCarried && dropCarriedItem(courier, courier.lastLocation)) {
             broadcastSound(courier.lastLocation, "courier.drop-sound");
@@ -506,13 +506,13 @@ public final class ThiefCourierTestService {
     }
 
     /** 插件关闭时保全物品，但不播放退出过程中的游戏音效。 */
-    private void removeSilently(TestCourier courier, boolean dropCarried) {
+    private void removeSilently(Courier courier, boolean dropCarried) {
         couriers.remove(courier.allay.getUniqueId());
         if (dropCarried) dropCarriedItem(courier, courier.lastLocation);
         if (courier.allay.isValid()) courier.allay.remove();
     }
 
-    private boolean dropCarriedItem(TestCourier courier, Location location) {
+    private boolean dropCarriedItem(Courier courier, Location location) {
         ItemStack carried = courier.carriedItem;
         if (carried == null || carried.getType().isAir()) {
             carried = courier.allay.getEquipment().getItemInMainHand();
@@ -525,7 +525,7 @@ public final class ThiefCourierTestService {
     }
 
     /** 覆盖悦灵主手前先转移意外物品，避免无声删除或替换。 */
-    private boolean ejectUnexpectedHeldItem(TestCourier courier, Location location) {
+    private boolean ejectUnexpectedHeldItem(Courier courier, Location location) {
         if (courier.carriedItem != null) return false;
         ItemStack held = courier.allay.getEquipment().getItemInMainHand();
         if (held.getType().isAir() || location == null || location.getWorld() == null) return false;
@@ -577,7 +577,7 @@ public final class ThiefCourierTestService {
         }
     }
 
-    private static final class TestCourier {
+    private static final class Courier {
         private final Allay allay;
         private final UUID targetId;
         private final UUID ownerId;
@@ -596,7 +596,7 @@ public final class ThiefCourierTestService {
         private double currentSpeed;
         private double curveProgress;
 
-        private TestCourier(Allay allay, UUID targetId, UUID ownerId, Location origin,
+        private Courier(Allay allay, UUID targetId, UUID ownerId, Location origin,
                             TriggerData triggerData, CourierSettings settings) {
             this.allay = allay;
             this.targetId = targetId;
