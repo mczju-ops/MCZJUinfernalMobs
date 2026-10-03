@@ -63,15 +63,6 @@ public final class ThiefCourierService {
         task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, 1L, 1L);
     }
 
-    /** 在主人头顶生成悦灵，飞向玩家后再追踪主人返程。 */
-    public boolean spawnFor(Player player, LivingEntity owner) {
-        if (player == null || !player.isOnline() || owner == null || !owner.isValid() || owner.isDead()) {
-            return false;
-        }
-        if (player.getWorld() != owner.getWorld()) return false;
-        return spawnCourier(player, owner, null);
-    }
-
     /** 正式词条入口；返回 true 表示悦灵已成功生成。 */
     public boolean launch(Player player, LivingEntity owner, MobState state,
                           InfernalMobHandle handle, long releasedTick, int cooldownTicks) {

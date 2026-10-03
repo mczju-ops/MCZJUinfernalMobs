@@ -82,7 +82,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         thiefCourierService = new ThiefCourierService(this, configLoader);
 
         InfernalMobCommand imCmd = new InfernalMobCommand(this, configLoader, mobFactory, combatService,
-                killStatsService, thiefCourierService);
+                killStatsService);
         getCommand("im").setExecutor(imCmd);
         getCommand("im").setTabCompleter(imCmd);
 
