@@ -91,6 +91,7 @@ public final class ThiefCourierTestService {
         Allay allay = region.spawn(origin, Allay.class, entity -> configure(entity, settings));
         if (!allay.isValid()) return false;
         getDarkRedTeam().addEntity(allay);
+        spawnSpawnParticles(origin);
         couriers.put(allay.getUniqueId(), new TestCourier(
                 allay, player.getUniqueId(), owner.getUniqueId(), origin, triggerData, settings));
         playSound(player, "sound");
@@ -186,6 +187,7 @@ public final class ThiefCourierTestService {
                 if (transferMainHand(target, courier)) {
                     playSound(target, "courier.steal-sound");
                 } else {
+                    spawnStealFailedParticles(courier.allay);
                     playSound(target, "courier.steal-failed-sound");
                 }
                 courier.phase = FlightPhase.RETURNING;
@@ -408,6 +410,28 @@ public final class ThiefCourierTestService {
         if (skillConfig != null) SoundPlayback.broadcast(location, skillConfig.getSound(path));
     }
 
+    /** 生成时的女巫粒子从悦灵位置向四周散开。 */
+    private void spawnSpawnParticles(Location location) {
+        if (location == null || location.getWorld() == null) return;
+        location.getWorld().spawnParticle(Particle.WITCH, location, 24,
+                0.35, 0.45, 0.35, 0.08);
+    }
+
+    /** 夺取失败时在悦灵头顶冒出少量愤怒粒子。 */
+    private void spawnStealFailedParticles(Allay allay) {
+        if (allay == null || !allay.isValid()) return;
+        Location head = allay.getLocation().clone().add(0, allay.getHeight() - 0.2, 0);
+        head.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, head, 2,
+                0.12, 0.05, 0.12, 0.04);
+    }
+
+    /** 正常消失时在悦灵当前位置播放一团烟雾。 */
+    private void spawnDespawnParticles(Location location) {
+        if (location == null || location.getWorld() == null) return;
+        location.getWorld().spawnParticle(Particle.POOF, location, 12,
+                0.2, 0.3, 0.2, 0.12);
+    }
+
     private void finishReturn(TestCourier courier, Location dropLocation) {
         if (dropCarriedItem(courier, dropLocation)) {
             broadcastSound(courier.lastLocation, "courier.drop-sound");
@@ -441,6 +465,7 @@ public final class ThiefCourierTestService {
         if (dropCarried && dropCarriedItem(courier, courier.lastLocation)) {
             broadcastSound(courier.lastLocation, "courier.drop-sound");
         }
+        spawnDespawnParticles(courier.lastLocation);
         broadcastSound(courier.lastLocation, "courier.despawn-sound");
         if (courier.allay.isValid()) courier.allay.remove();
     }
