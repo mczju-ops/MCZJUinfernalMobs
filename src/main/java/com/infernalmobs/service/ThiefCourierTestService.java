@@ -185,6 +185,8 @@ public final class ThiefCourierTestService {
             if (result == MoveResult.HIT || result == MoveResult.REACHED) {
                 if (transferMainHand(target, courier)) {
                     playSound(target, "courier.steal-sound");
+                } else {
+                    playSound(target, "courier.steal-failed-sound");
                 }
                 courier.phase = FlightPhase.RETURNING;
                 ReturnTarget returnTarget = resolveReturnTarget(courier);

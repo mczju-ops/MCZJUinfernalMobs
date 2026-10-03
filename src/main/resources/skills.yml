@@ -264,6 +264,10 @@ skills:
         id: "entity.allay.item_taken"
         volume: 1.0
         pitch: 1.0
+      steal-failed-sound:
+        id: "entity.illusioner.hurt"
+        volume: 1.0
+        pitch: 1.2
       drop-sound:
         id: "entity.allay.item_thrown"
         volume: 1.0
