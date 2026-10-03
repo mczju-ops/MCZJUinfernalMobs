@@ -164,6 +164,17 @@ public final class ThiefCourierTestService {
                         courier.settings.outboundSpeed(), START_SPEED_RATIO);
             }
 
+            if (courier.phase == FlightPhase.RETURN_DELAY) {
+                if (courier.holdTicksRemaining > 0) {
+                    courier.holdTicksRemaining--;
+                    continue;
+                }
+                courier.phase = FlightPhase.RETURNING;
+                ReturnTarget returnTarget = resolveReturnTarget(courier);
+                beginCurve(courier, returnTarget.flightLocation(), courier.settings.returnSpeed(),
+                        RETURN_START_SPEED_RATIO);
+            }
+
             if (courier.phase == FlightPhase.RETURNING) {
                 ReturnTarget returnTarget = resolveReturnTarget(courier);
                 MoveResult result = moveTowards(courier, returnTarget.flightLocation(), null,
@@ -186,16 +197,22 @@ public final class ThiefCourierTestService {
             MoveResult result = moveTowards(courier, targetLocation, target.getBoundingBox(),
                     courier.settings.outboundSpeed());
             if (result == MoveResult.HIT || result == MoveResult.REACHED) {
-                if (transferMainHand(target, courier)) {
+                boolean stolen = transferMainHand(target, courier);
+                if (stolen) {
                     playSound(target, "courier.steal-sound");
                 } else {
                     spawnStealFailedParticles(courier.allay);
                     playSound(target, "courier.steal-failed-sound");
                 }
-                courier.phase = FlightPhase.RETURNING;
-                ReturnTarget returnTarget = resolveReturnTarget(courier);
-                beginCurve(courier, returnTarget.flightLocation(), courier.settings.returnSpeed(),
-                        RETURN_START_SPEED_RATIO);
+                if (stolen) {
+                    courier.phase = FlightPhase.RETURNING;
+                    ReturnTarget returnTarget = resolveReturnTarget(courier);
+                    beginCurve(courier, returnTarget.flightLocation(), courier.settings.returnSpeed(),
+                            RETURN_START_SPEED_RATIO);
+                } else {
+                    courier.phase = FlightPhase.RETURN_DELAY;
+                    courier.holdTicksRemaining = ThreadLocalRandom.current().nextInt(10, 21);
+                }
             } else if (result == MoveResult.FAILED) {
                 removeNaturally(courier, false);
             }
@@ -542,6 +559,7 @@ public final class ThiefCourierTestService {
         SPAWN_HOLD,
         OUTBOUND,
         RETURNING,
+        RETURN_DELAY,
         DESPAWN_HOLD
     }
 
