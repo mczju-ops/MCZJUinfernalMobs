@@ -9,9 +9,8 @@ import com.infernalmobs.model.MobState;
 import com.infernalmobs.util.Keys;
 import com.infernalmobs.util.MiniMessageHelper;
 import com.infernalmobs.util.SoundPlayback;
-import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.RegionAccessor;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Allay;
 import org.bukkit.entity.Entity;
@@ -22,6 +21,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
@@ -41,14 +42,19 @@ public final class ThiefCourierTestService {
     private static final double RETURN_START_SPEED_RATIO = 0.25;
     private static final double ENDPOINT_SMOOTHING = 0.25;
 
+    private static final String DARK_RED_TEAM_NAME = "thief_courier_team";
+
     private final JavaPlugin plugin;
     private final ConfigLoader config;
     private final Map<UUID, TestCourier> couriers = new ConcurrentHashMap<>();
     private BukkitTask task;
 
+    private final Scoreboard scoreboard;
+
     public ThiefCourierTestService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
         this.config = config;
+        this.scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
     }
 
     public void start() {
@@ -84,6 +90,7 @@ public final class ThiefCourierTestService {
         RegionAccessor region = origin.getWorld();
         Allay allay = region.spawn(origin, Allay.class, entity -> configure(entity, settings));
         if (!allay.isValid()) return false;
+        getDarkRedTeam().addEntity(allay);
         couriers.put(allay.getUniqueId(), new TestCourier(
                 allay, player.getUniqueId(), owner.getUniqueId(), origin, triggerData, settings));
         playSound(player, "sound");
@@ -463,6 +470,20 @@ public final class ThiefCourierTestService {
         courier.allay.getEquipment().setItemInMainHand(ItemStack.empty());
         location.getWorld().dropItemNaturally(location, held.clone());
         return true;
+    }
+
+    private Team getDarkRedTeam() {
+        Team team = scoreboard.getTeam(DARK_RED_TEAM_NAME);
+
+        if (team == null) {
+            team = scoreboard.registerNewTeam(DARK_RED_TEAM_NAME);
+        }
+
+        if (!team.hasColor() ||!NamedTextColor.DARK_RED.equals(team.color())) {
+            team.color(NamedTextColor.DARK_RED);
+        }
+
+        return team;
     }
 
     private enum MoveResult {
