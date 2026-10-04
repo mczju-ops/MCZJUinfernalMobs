@@ -65,7 +65,7 @@
 <dependency>
     <groupId>com.github.mczju-ops</groupId>
     <artifactId>MCZJUInfernalMobs-API</artifactId>
-    <version>1.5.0</version>   <!-- 发布 tag；开发期可用 master-SNAPSHOT 或 commit hash -->
+        <version>1.5.0</version>
     <scope>provided</scope>
 </dependency>
 ```

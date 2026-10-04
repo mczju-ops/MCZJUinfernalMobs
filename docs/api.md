@@ -2,7 +2,7 @@
 
 本文档介绍如何让其他插件（如 MagicItems、异色炒鸡、炒鸡渔夫等）对接炒鸡怪插件的公开 API。
 
-- 版本：`beta/event-api-rework` 分支（API `apiVersion() = 2`）
+- 版本：稳定 API（`apiVersion() = 2`）
 - 依赖方式：软依赖 + `ServicesManager`（无需硬依赖，炒鸡缺失时正常降级）
 - 环境：Paper API `26.2.build` 或更高版本、JDK 25
 
@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.5.0</version>   <!-- 发布 tag；开发期可用分支名或 commit hash -->
+        <version>1.5.0</version>
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -77,26 +77,26 @@ public final class MyPlugin extends JavaPlugin {
 
 接口：`com.infernalmobs.api.InfernalMobsApi`
 
-| 方法 | 说明 |
-| --- | --- |
-| `boolean isInfernal(LivingEntity entity)` | 实体是否已被炒鸡化 |
-| `boolean isThiefCourier(LivingEntity entity)` | 实体是否为 thief 词条召唤的悦灵信使 |
-| `Optional<InfernalMobHandle> getHandle(LivingEntity entity)` | 获取炒鸡怪门面句柄（未炒鸡化为空） |
-| `List<String> getAffixIds(LivingEntity entity)` | 直接查询炒鸡怪词条 skillId 列表（未炒鸡化为空列表） |
-| `void removeEntity(LivingEntity entity)` | 安全移除生物；炒鸡怪会先卸载词条并注销状态，普通生物直接移除；不触发死亡流程 |
-| `boolean isAffixSuppressed(LivingEntity entity, String skillId)` | 查询某个词条是否被禁用（未炒鸡化返回 `false`） |
-| `void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed)` | 设定词条禁用状态（未炒鸡化无效） |
-| `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条 |
+| 方法 | 说明                                                             |
+| --- |----------------------------------------------------------------|
+| `boolean isInfernal(LivingEntity entity)` | 实体是否已被炒鸡化                                                      |
+| `boolean isThiefCourier(LivingEntity entity)` | 实体是否为 thief 词条召唤的悦灵信使                                          |
+| `Optional<InfernalMobHandle> getHandle(LivingEntity entity)` | 获取炒鸡怪门面句柄（未炒鸡化为空）                                              |
+| `List<String> getAffixIds(LivingEntity entity)` | 直接查询炒鸡怪词条 skillId 列表（未炒鸡化为空列表）                                 |
+| `void removeEntity(LivingEntity entity)` | 安全移除生物；炒鸡怪会先卸载词条并注销状态，普通生物直接移除；不触发死亡流程                         |
+| `boolean isAffixSuppressed(LivingEntity entity, String skillId)` | 查询某个词条是否被禁用（未炒鸡化返回 `false`）                                    |
+| `void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed)` | 设定词条禁用状态（未炒鸡化无效）                                               |
+| `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条                                                  |
 | `String getAffixDisplayName(String affixId)` | 查询 `skills.yml` 中 `skills.<id>.display` 的词条显示名；未知 ID 退回英文 `id` |
-| `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名 |
-| `List<ItemStack> rollLevelLootItems(int mobLevel)` | 按怪物等级执行一次等级池抽取，只返回生成成功的物品 |
-| `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为 |
-| `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照 |
-| `List<InfernalPlayerKillStats> getAllPlayerKillStats()` | 获取所有已有记录玩家的 UUID、最近名称与击杀统计快照 |
-| `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息 |
-| `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`） |
-| `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射） |
-| `int apiVersion()` | API 版本（当前 2） |
+| `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名                                    |
+| `List<ItemStack> rollLevelLootItems(int mobLevel)` | 按怪物等级执行一次等级池抽取，只返回生成成功的物品                                      |
+| `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为                               |
+| `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照                                            |
+| `List<InfernalPlayerKillStats> getAllPlayerKillStats()` | 获取所有已有记录玩家的 UUID、最近名称与击杀统计快照                                   |
+| `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息                                          |
+| `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`）                            |
+| `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射）                                             |
+| `int apiVersion()` | API 版本（当前 2）                                                   |
 
 `spawnInfernalMob` 返回 `null` 表示生成失败（类型/位置无效、词条全无效、或生成事件被取消）。
 
