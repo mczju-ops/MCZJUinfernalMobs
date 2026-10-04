@@ -34,6 +34,6 @@ public final class ThiefCourierListener implements Listener {
 
     private boolean isCourier(Entity entity) {
         if (!(entity instanceof LivingEntity living)) return false;
-        return living.getPersistentDataContainer().has(Keys.THIEF_COURIER, PersistentDataType.BYTE);
+        return living.getPersistentDataContainer().getOrDefault(Keys.THIEF_COURIER, PersistentDataType.BOOLEAN, false);
     }
 }

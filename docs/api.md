@@ -80,6 +80,7 @@ public final class MyPlugin extends JavaPlugin {
 | 方法 | 说明 |
 | --- | --- |
 | `boolean isInfernal(LivingEntity entity)` | 实体是否已被炒鸡化 |
+| `boolean isThiefCourier(LivingEntity entity)` | 实体是否为 thief 词条召唤的悦灵信使 |
 | `Optional<InfernalMobHandle> getHandle(LivingEntity entity)` | 获取炒鸡怪门面句柄（未炒鸡化为空） |
 | `List<String> getAffixIds(LivingEntity entity)` | 直接查询炒鸡怪词条 skillId 列表（未炒鸡化为空列表） |
 | `void removeEntity(LivingEntity entity)` | 安全移除生物；炒鸡怪会先卸载词条并注销状态，普通生物直接移除；不触发死亡流程 |

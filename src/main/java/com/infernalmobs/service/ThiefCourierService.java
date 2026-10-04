@@ -364,7 +364,7 @@ public final class ThiefCourierService {
 
     /** RegionAccessor 的初始化回调会在实体加入世界前执行，避免客户端看到未配置的悦灵。 */
     private void configure(Allay allay, CourierSettings settings) {
-        allay.getPersistentDataContainer().set(Keys.THIEF_COURIER, PersistentDataType.BYTE, (byte) 1);
+        allay.getPersistentDataContainer().set(Keys.THIEF_COURIER, PersistentDataType.BOOLEAN, true);
         allay.customName(MiniMessageHelper.deserialize(settings.name()));
         allay.setInvisible(true);
         allay.setGlowing(true);
