@@ -565,7 +565,7 @@ public final class ThiefCourierService {
         }
         if (carried.getType().isAir() || location == null || location.getWorld() == null) return false;
         courier.allay.getEquipment().setItemInMainHand(ItemStack.empty());
-        location.getWorld().dropItemNaturally(location, carried.clone());
+        (location.getWorld().dropItemNaturally(location, carried.clone())).setInvulnerable(true); // 扔出的掉落物为无敌
         courier.carriedItem = null;
         return true;
     }
@@ -576,7 +576,7 @@ public final class ThiefCourierService {
         ItemStack held = courier.allay.getEquipment().getItemInMainHand();
         if (held.getType().isAir() || location == null || location.getWorld() == null) return false;
         courier.allay.getEquipment().setItemInMainHand(ItemStack.empty());
-        location.getWorld().dropItemNaturally(location, held.clone());
+        (location.getWorld().dropItemNaturally(location, held.clone())).setInvulnerable(true); // 扔出的掉落物为无敌
         return true;
     }
 
