@@ -2,9 +2,9 @@
 
 本文档介绍如何让其他插件（如 MagicItems、异色炒鸡、炒鸡渔夫等）对接炒鸡怪插件的公开 API。
 
-- 版本：`beta/event-api-rework` 分支（API `apiVersion() = 1`）
+- 版本：稳定 API（`apiVersion() = 2`）
 - 依赖方式：软依赖 + `ServicesManager`（无需硬依赖，炒鸡缺失时正常降级）
-- 环境：Paper `api-version: '1.21.4'`、JDK 21+
+- 环境：Paper API `26.2.build` 或更高版本、JDK 25
 
 ---
 
@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.4.0</version>   <!-- 发布 tag；开发期可用分支名或 commit hash -->
+        <version>1.5.0</version>
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -77,26 +77,31 @@ public final class MyPlugin extends JavaPlugin {
 
 接口：`com.infernalmobs.api.InfernalMobsApi`
 
-| 方法 | 说明 |
-| --- | --- |
-| `boolean isInfernal(LivingEntity entity)` | 实体是否已被炒鸡化 |
-| `Optional<InfernalMobHandle> getHandle(LivingEntity entity)` | 获取炒鸡怪门面句柄（未炒鸡化为空） |
-| `List<String> getAffixIds(LivingEntity entity)` | 直接查询炒鸡怪词条 skillId 列表（未炒鸡化为空列表） |
-| `boolean isAffixSuppressed(LivingEntity entity, String skillId)` | 查询某个词条是否被禁用（未炒鸡化返回 `false`） |
-| `void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed)` | 设定词条禁用状态（未炒鸡化无效） |
-| `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条 |
-| `String getAffixDisplayName(String affixId)` | 查询词条显示名（优先 `skill_name.yml`，否则 `config.yml` 的 `display`，再退回英文 `id`） |
-| `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名 |
-| `List<ItemStack> rollLevelLootItems(int mobLevel)` | 按怪物等级执行一次等级池抽取，只返回生成成功的物品 |
-| `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为 |
-| `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照 |
-| `List<InfernalPlayerKillStats> getAllPlayerKillStats()` | 获取所有已有记录玩家的 UUID、最近名称与击杀统计快照 |
-| `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息 |
-| `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`） |
-| `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射） |
-| `int apiVersion()` | API 版本（当前 1） |
+| 方法 | 说明                                                             |
+| --- |----------------------------------------------------------------|
+| `boolean isInfernal(LivingEntity entity)` | 实体是否已被炒鸡化                                                      |
+| `boolean isThiefCourier(LivingEntity entity)` | 实体是否为 thief 词条召唤的悦灵信使                                          |
+| `Optional<InfernalMobHandle> getHandle(LivingEntity entity)` | 获取炒鸡怪门面句柄（未炒鸡化为空）                                              |
+| `List<String> getAffixIds(LivingEntity entity)` | 直接查询炒鸡怪词条 skillId 列表（未炒鸡化为空列表）                                 |
+| `void removeEntity(LivingEntity entity)` | 安全移除生物；炒鸡怪会先卸载词条并注销状态，普通生物直接移除；不触发死亡流程                         |
+| `boolean isAffixSuppressed(LivingEntity entity, String skillId)` | 查询某个词条是否被禁用（未炒鸡化返回 `false`）                                    |
+| `void setAffixSuppressed(LivingEntity entity, String skillId, boolean suppressed)` | 设定词条禁用状态（未炒鸡化无效）                                               |
+| `void setAffixSuppressed(LivingEntity entity, String skillId)` | 便捷重载：直接禁用指定词条                                                  |
+| `String getAffixDisplayName(String affixId)` | 查询 `skills.yml` 中 `skills.<id>.display` 的词条显示名；未知 ID 退回英文 `id` |
+| `String getSkillDisplayName(String skillId)` | `getAffixDisplayName` 的兼容别名                                    |
+| `List<ItemStack> rollLevelLootItems(int mobLevel)` | 按怪物等级执行一次等级池抽取，只返回生成成功的物品                                      |
+| `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为                               |
+| `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照                                            |
+| `List<InfernalPlayerKillStats> getAllPlayerKillStats()` | 获取所有已有记录玩家的 UUID、最近名称与击杀统计快照                                   |
+| `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息                                          |
+| `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`）                            |
+| `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射）                                             |
+| `int apiVersion()` | API 版本（当前 2）                                                   |
 
 `spawnInfernalMob` 返回 `null` 表示生成失败（类型/位置无效、词条全无效、或生成事件被取消）。
+
+`removeEntity` 必须在服务端主线程调用。它不会触发 `EntityDeathEvent`，因此不会产生亡语、原版死亡掉落、炒鸡掉落、击杀统计或击杀播报。
+当目标是炒鸡怪时，插件会先执行完整的技能卸载，再调用 Bukkit 的实体移除操作；目标不是炒鸡怪时则直接调用实体移除。
 
 **示例：查询生物是否为炒鸡、带哪些词条，并判断是否被禁用（异色炒鸡 / MagicItems 可用）**
 ```java
@@ -176,7 +181,7 @@ public enum InfernalAffix {
 
 `getGuaranteedLootStatuses` 只返回保底全局启用且当前轮换生效的规则。尚未开始累计的规则也会返回，
 此时 `currentProgress()` 为 0。进度单位是等级掉落池抽取次数，不一定等同于击杀数；
-`maximumMobLevel()` 为 `null` 表示没有等级上限。
+`maximumMobLevel()` 为 `null` 表示没有等级上限。新版中 `progressId()` 与 `ruleId()` 相同，奖励字段表示当前轮换套实际生效的奖励。
 
 ```java
 InfernalKillStats stats = api.getKillStats(player.getUniqueId());
@@ -300,9 +305,9 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | sapper | `InfernalMobSapperEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | spear | `InfernalMobSpearEvent` | RANGE | `getChargeTicks/setChargeTicks`、`getLungeTicks/setLungeTicks`、`getLungeSpeedAmplifier/setLungeSpeedAmplifier`、`getSpearItem/setSpearItem` |
 | storm | `InfernalMobStormEvent` | DUAL | `getStrikeLocation/setStrikeLocation`、`getDamage/setDamage`、`isEffectOnly/setEffectOnly` |
-| sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight`、`getWarnSound/setWarnSound`、`getEruptSound/setEruptSound`、`getSoundVolume/setSoundVolume` |
+| sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight` |
 | swap | `InfernalMobSwapEvent` | PASSIVE | `getMobDestination/setMobDestination`、`getPlayerDestination/setPlayerDestination` |
-| thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
+| thief | `InfernalMobThiefStealAttemptEvent`、`InfernalMobThiefResultEvent` | DUAL | 夺取尝试事件：`getPlayer`、`getCourier`、`get/setItemStack`、`get/setDropLocation`、`get/setCooldownTicks`；结果事件：`getAttemptedItem`、`getStolenItem`、`getDropLocation`、`getResult`、`getFailureReason` |
 | tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |
 | vengeance | `InfernalMobVengeanceEvent` | PASSIVE | `getDamage/setDamage`（使用原生 THORNS 伤害来源） |
 | vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | `getSummonCount/setSummonCount`、`getSpawnLocation/setSpawnLocation` |
@@ -356,11 +361,21 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 **示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java
 @EventHandler
-public void onThief(InfernalMobThiefEvent e) {
+public void onThief(InfernalMobThiefStealAttemptEvent e) {
     e.setDropLocation(e.getPlayer().getLocation());   // 掉到玩家脚下
     e.setCooldownTicks(e.getCooldownTicks() / 2);     // 冷却减半
 }
 ```
+
+`InfernalMobThiefStealAttemptEvent` 在悦灵命中玩家且通过空手、创造模式、`im_thief_resistance`
+等内置检查后、实际转移物品之前广播，继承 `InfernalAffixTriggeredEvent`，可以取消本次夺取，
+也可以替换待夺取物品、掉落位置和最终冷却。外部反制插件不应在此事件中立即消费道具，
+应结合结果事件确认最终结果后再消费。内置检查失败时不会广播本事件。
+
+`InfernalMobThiefResultEvent` 在本次处理完成后广播，只读且不可取消。`getResult()` 为
+`STOLEN` 时表示转移成功；为 `FAILED` 时可通过 `getFailureReason()` 区分
+`CANCELLED`、`EMPTY_HAND`、`CREATIVE`、`RESISTANT_ITEM`、`ITEM_CHANGED` 和
+`INVALID_ITEM`。失败时 `getStolenItem()` 为空物品。
 
 **示例：mama 母体——翻倍产子**
 ```java

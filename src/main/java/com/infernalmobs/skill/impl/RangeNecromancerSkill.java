@@ -5,10 +5,15 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.Keys;
+import com.infernalmobs.util.PdcHandleCodec;
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.WitherSkull;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
 /**
@@ -65,17 +70,21 @@ public class RangeNecromancerSkill implements Skill {
             s.setYield(event.getExplosionPower());
             s.setCharged(event.isCharged());
             s.setIsIncendiary(false);
-            s.setMetadata("infernalmobs_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), mob.getUniqueId()));
-            s.setMetadata("infernalmobs_necromancer_handle", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getHandle()));
-            s.setMetadata("infernalmobs_necromancer_level", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getLevel()));
-            s.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
+            var pdc = s.getPersistentDataContainer();
+            pdc.set(Keys.NECROMANCER_SOURCE, PersistentDataType.STRING,
+                    mob.getUniqueId().toString());
+            pdc.set(Keys.NECROMANCER_LEVEL, PersistentDataType.INTEGER,
+                    event.getLevel());
+            pdc.set(Keys.NECROMANCER_SKILL_ID, PersistentDataType.STRING, getId());
+            PdcHandleCodec.write(pdc, ctx.getOrCreateHandle(), Keys.NECROMANCER_HANDLE_AFFIXES,
+                    Keys.NECROMANCER_HANDLE_SUPPRESSED, Keys.NECROMANCER_HANDLE_DISPLAY_NAME);
         });
         scheduleProjectileLifetime(skull, ctx.getPlugin(), event.getLifetimeTicks());
     }
 
-    private static void scheduleProjectileLifetime(org.bukkit.entity.Entity entity,
-                                                   org.bukkit.plugin.Plugin plugin, int maxTicks) {
-        entity.getScheduler().runDelayed(plugin, task -> {
+    private static void scheduleProjectileLifetime(Entity entity,
+                                                   JavaPlugin plugin, int maxTicks) {
+        entity.getScheduler().runDelayed(plugin, _ -> {
             if (entity.isValid()) entity.remove();
         }, null, maxTicks);
     }

@@ -14,10 +14,13 @@ import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
+import com.infernalmobs.service.SkillService;
+import com.infernalmobs.util.Keys;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -63,6 +66,12 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
     }
 
     @Override
+    public boolean isThiefCourier(LivingEntity entity) {
+        if (entity == null) return false;
+        return entity.getPersistentDataContainer().getOrDefault(Keys.THIEF_COURIER, PersistentDataType.BOOLEAN, false);
+    }
+
+    @Override
     public Optional<InfernalMobHandle> getHandle(LivingEntity entity) {
         if (entity == null) return Optional.empty();
         MobState state = combatService.getMobState(entity.getUniqueId());
@@ -81,6 +90,16 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state == null) return List.of();
         return state.getProfile().getAffixIds();
+    }
+
+    @Override
+    public void removeEntity(LivingEntity entity) {
+        if (entity == null) return;
+        MobState state = combatService.getMobState(entity.getUniqueId());
+        if (state != null) {
+            combatService.unequipAndUnregister(entity, state, SkillService.UnequipReason.EXTERNAL_REMOVE);
+        }
+        entity.remove();
     }
 
     @Override
@@ -170,25 +189,27 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         Map<String, Integer> progressById = service.getProgressById(playerId.toString());
         LootService lootService = lootServiceSupplier != null ? lootServiceSupplier.get() : null;
         return service.getActiveRules().stream()
-                .sorted(Comparator.comparing(rule -> rule.id))
-                .map(rule -> {
-                    int storedProgress = progressById.getOrDefault(rule.progressId, 0);
+                .sorted(Comparator.comparing(active -> active.rule().id))
+                .map(active -> {
+                    var rule = active.rule();
+                    var reward = active.reward();
+                    int storedProgress = progressById.getOrDefault(rule.id, 0);
                     boolean completed = storedProgress < 0;
                     String rewardDisplayName = lootService != null
-                            ? lootService.getLootDisplayName(rule.itemId)
-                            : rule.itemId;
+                            ? lootService.getLootDisplayName(reward.itemId)
+                            : reward.itemId;
                     return new InfernalGuaranteedLootStatus(
                             rule.id,
-                            rule.progressId,
-                            completed ? rule.count : storedProgress,
-                            rule.count,
+                            rule.id,
+                            completed ? rule.requiredRolls : storedProgress,
+                            rule.requiredRolls,
                             completed,
-                            rule.resetOnDrop,
+                            rule.resetAfterReward,
                             rule.levelMin,
                             rule.levelMax >= 0 ? rule.levelMax : null,
-                            rule.itemId,
+                            reward.itemId,
                             rewardDisplayName,
-                            rule.itemAmount
+                            reward.amount
                     );
                 })
                 .toList();

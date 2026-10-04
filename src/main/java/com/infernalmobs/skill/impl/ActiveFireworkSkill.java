@@ -5,6 +5,8 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.Keys;
+import com.infernalmobs.util.PdcHandleCodec;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
 import org.bukkit.Location;
@@ -48,8 +50,8 @@ public class ActiveFireworkSkill implements Skill {
                 .withColor(Color.RED)
                 .withFade(Color.RED)
                 .with(FireworkEffect.Type.BALL)
-                .trail(config.getSection().getBoolean("trail", false))
-                .flicker(config.getSection().getBoolean("flicker", false))
+                .trail(config.getBoolean("trail", false))
+                .flicker(config.getBoolean("flicker", false))
                 .build();
 
         int level = ctx.getMobState().getProfile().getLevel();
@@ -59,10 +61,12 @@ public class ActiveFireworkSkill implements Skill {
 
         Location spawnLocation = event.getSpawnLocation();
         Firework fw = spawnLocation.getWorld().spawn(spawnLocation, Firework.class);
-        fw.setMetadata("infernalmobs_firework_source", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getEntity().getUniqueId()));
-        fw.setMetadata("infernalmobs_firework_handle", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getHandle()));
-        fw.setMetadata("infernalmobs_firework_level", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), level));
-        fw.setMetadata("infernalmobs_skill_id", new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
+        var pdc = fw.getPersistentDataContainer();
+        pdc.set(Keys.FIREWORK_SOURCE, org.bukkit.persistence.PersistentDataType.STRING,
+                ctx.getEntity().getUniqueId().toString());
+        pdc.set(Keys.FIREWORK_LEVEL, org.bukkit.persistence.PersistentDataType.INTEGER, level);
+        pdc.set(Keys.FIREWORK_SKILL_ID, org.bukkit.persistence.PersistentDataType.STRING, getId());
+        PdcHandleCodec.write(pdc, ctx.getOrCreateHandle());
         FireworkMeta meta = fw.getFireworkMeta();
         meta.setPower(config.getInt("power", 1));
         meta.addEffect(event.getFireworkEffect());

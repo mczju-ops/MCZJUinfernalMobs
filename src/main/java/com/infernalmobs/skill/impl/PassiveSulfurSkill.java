@@ -2,23 +2,33 @@ package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.affix.effect.InfernalMobSulfurLaunchEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMobSulfurEvent;
+import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.config.SoundConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
 import org.bukkit.Particle;
-import org.bukkit.Sound;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 受击时在攻击者脚下生成硫磺喷泉：先有地面预警圈，后可喷发。
  * 预警阶段地面粒子圈 + whirlpool_ambient 音效；喷发阶段粒子柱从下到上生成 + upwards_inside 音效。
  */
 public class PassiveSulfurSkill implements Skill {
+
+    /** 每只实体只保留一个正在运行的硫磺喷泉任务；该登记只用于防止重复释放。 */
+    private final Map<UUID, BukkitTask> activeFountains = new ConcurrentHashMap<>();
 
     @Override
     public String getId() {
@@ -33,6 +43,7 @@ public class PassiveSulfurSkill implements Skill {
     @Override
     public void onEquip(SkillContext ctx, SkillConfig config) {}
 
+    /** 硫磺在初始事件通过后视为脱手技能，实体生命周期不会取消已释放的喷泉。 */
     @Override
     public void onUnequip(SkillContext ctx) {}
 
@@ -53,17 +64,12 @@ public class PassiveSulfurSkill implements Skill {
         double radius = config.getDouble("radius", 1.0);
         double upward = config.getDouble("upward", 1.15);
         double columnHeight = config.getDouble("column-height", 2.5);
-        float soundVolume = (float) config.getDouble("sound-volume", 2.0);
-        Sound warnSound = parseSound(
-                config.getString("warn-sound", "BLOCK_BUBBLE_COLUMN_WHIRLPOOL_AMBIENT"),
-                Sound.BLOCK_BUBBLE_COLUMN_WHIRLPOOL_AMBIENT);
-        Sound eruptSound = parseSound(
-                config.getString("erupt-sound", "BLOCK_BUBBLE_COLUMN_UPWARDS_INSIDE"),
-                Sound.BLOCK_BUBBLE_COLUMN_UPWARDS_INSIDE);
+        SoundConfig warnSound = config.getSound("warn-sound");
+        SoundConfig eruptSound = config.getSound("erupt-sound");
 
         InfernalMobSulfurEvent event = new InfernalMobSulfurEvent(
                 mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
-                center, warnTicks, radius, upward, columnHeight, warnSound, eruptSound, soundVolume);
+                center, warnTicks, radius, upward, columnHeight);
         if (!ctx.fire(event)) return;
 
         center = event.getCenter();
@@ -72,22 +78,25 @@ public class PassiveSulfurSkill implements Skill {
         radius = event.getRadius();
         upward = event.getUpward();
         columnHeight = event.getColumnHeight();
-        soundVolume = event.getSoundVolume();
-        warnSound = event.getWarnSound();
-        eruptSound = event.getEruptSound();
-
         // 预警音效
-        center.getWorld().playSound(center, warnSound, soundVolume, 0.8f);
+        SoundPlayback.broadcast(center, warnSound);
 
         Location finalCenter = center;
         int finalWarnTicks = warnTicks;
         double finalRadius = radius;
         double finalUpward = upward;
         double finalColumnHeight = columnHeight;
-        float finalSoundVolume = soundVolume;
-        Sound finalEruptSound = eruptSound;
+        SoundConfig finalEruptSound = eruptSound;
+        InfernalMobHandle releasedHandle = ctx.getOrCreateHandle();
+        int releasedLevel = ctx.getMobState().getProfile().getLevel();
+        boolean releasedWeakened = ctx.isWeakened();
+        var plugin = ctx.getPlugin();
 
-        new BukkitRunnable() {
+        BukkitTask previous = activeFountains.remove(mob.getUniqueId());
+        if (previous != null) previous.cancel();
+
+        UUID mobUuid = mob.getUniqueId();
+        BukkitTask task = new BukkitRunnable() {
             private int tick;
 
             @Override
@@ -106,19 +115,19 @@ public class PassiveSulfurSkill implements Skill {
                 }
 
                 if (tick == finalWarnTicks) {
-                    finalCenter.getWorld().playSound(
-                            finalCenter, finalEruptSound, finalSoundVolume, 1.0f);
+                    SoundPlayback.broadcast(finalCenter, finalEruptSound);
 
                     for (Player p : finalCenter.getWorld().getNearbyPlayers(
                             finalCenter, finalRadius, finalRadius, finalRadius)) {
                         if (!p.isOnline() || p.isDead()) continue;
                         double factor = 1.0;
-                        if (ctx.isWeakened() && p.equals(target)) factor *= 0.5;
+                        if (releasedWeakened && p.equals(target)) factor *= 0.5;
                         InfernalMobSulfurLaunchEvent launchEvent = new InfernalMobSulfurLaunchEvent(
-                                mob, p, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
+                                mob, p, releasedHandle, releasedLevel,
                                 finalUpward * factor);
                         // 这是喷发后的逐玩家阶段事件，不改变 sulfur 已经成功触发及提交冷却的事实。
-                        if (!ctx.fire(launchEvent)) continue;
+                        plugin.getServer().getPluginManager().callEvent(launchEvent);
+                        if (launchEvent.isCancelled()) continue;
 
                         double up = launchEvent.getUpward();
                         if (up > 0.01) {
@@ -129,6 +138,7 @@ public class PassiveSulfurSkill implements Skill {
 
                 int columnTick = tick - finalWarnTicks;
                 if (columnTick > 10) {
+                    activeFountains.remove(mobUuid);
                     cancel();
                     return;
                 }
@@ -142,6 +152,7 @@ public class PassiveSulfurSkill implements Skill {
                 tick++;
             }
         }.runTaskTimer(ctx.getPlugin(), 0L, 1L);
+        activeFountains.put(mobUuid, task);
     }
 
     private Location toGroundLocation(Location loc) {
@@ -157,12 +168,4 @@ public class PassiveSulfurSkill implements Skill {
         return ground;
     }
 
-    private Sound parseSound(String name, Sound fallback) {
-        try {
-            if (name == null) return fallback;
-            return Sound.valueOf(name.trim().toUpperCase().replace('.', '_'));
-        } catch (IllegalArgumentException ignored) {
-            return fallback;
-        }
-    }
 }

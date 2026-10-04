@@ -2,10 +2,10 @@ package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.affix.triggered.InfernalMobBerserkEvent;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.util.SoundPlayback;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
-import org.bukkit.Sound;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -50,10 +50,6 @@ public class ActiveBerserkSkill implements Skill {
             damageEvent.setDamage(damageEvent.getDamage() + event.getBonusDamage());
         }
 
-        String soundKey = config.getString("sound", "ENTITY_PHANTOM_BITE");
-        try {
-            Sound sound = Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            mob.getWorld().playSound(mob.getLocation(), sound, 0.5f, 0.7f);
-        } catch (IllegalArgumentException ignored) {}
+        SoundPlayback.broadcast(mob.getLocation(), config.getSound("sound"));
     }
 }

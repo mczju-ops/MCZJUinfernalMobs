@@ -5,6 +5,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
@@ -57,13 +58,10 @@ public class PassiveSwapSkill implements Skill {
             return;
         }
 
-        String soundKey = config.getString("sound", "ENTITY_SHULKER_TELEPORT");
-        try {
-            org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            Location finalMobLocation = ctx.getEntity().getLocation();
-            Location finalPlayerLocation = player.getLocation();
-            finalMobLocation.getWorld().playSound(finalMobLocation, sound, 0.8f, 1f);
-            finalPlayerLocation.getWorld().playSound(finalPlayerLocation, sound, 0.8f, 1f);
-        } catch (IllegalArgumentException ignored) {}
+        var sound = config.getSound("sound");
+        Location finalMobLocation = ctx.getEntity().getLocation();
+        Location finalPlayerLocation = player.getLocation();
+        SoundPlayback.broadcast(finalMobLocation, sound);
+        SoundPlayback.broadcast(finalPlayerLocation, sound);
     }
 }

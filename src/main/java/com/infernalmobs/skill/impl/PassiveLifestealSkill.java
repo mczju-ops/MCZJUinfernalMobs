@@ -3,6 +3,7 @@ package com.infernalmobs.skill.impl;
 import com.infernalmobs.api.event.affix.triggered.InfernalMobLifestealEvent;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.service.CombatService;
+import com.infernalmobs.service.SkillSessionManager;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
@@ -37,7 +38,9 @@ public class PassiveLifestealSkill implements Skill {
 
     @Override
     public void onUnequip(SkillContext ctx) {
-        stop(ctx.getEntity().getUniqueId());
+        UUID uuid = ctx.getEntity().getUniqueId();
+        stop(uuid);
+        getSessionManager(ctx).unregister(uuid, getId());
     }
 
     @Override
@@ -59,6 +62,7 @@ public class PassiveLifestealSkill implements Skill {
         int healCount = durationTicks / HEAL_PERIOD_TICKS;
         if (healCount <= 0 || healPerSecond <= 0.0) {
             stop(uuid);
+            getSessionManager(ctx).unregister(uuid, getId());
             return;
         }
 
@@ -72,7 +76,10 @@ public class PassiveLifestealSkill implements Skill {
         ScheduledTask task = ctx.getEntity().getScheduler().runAtFixedRate(
                 ctx.getPlugin(),
                 scheduledTask -> tick(ctx, uuid, active, scheduledTask),
-                () -> activeLifesteals.remove(uuid, active),
+                () -> {
+                    activeLifesteals.remove(uuid, active);
+                    getSessionManager(ctx).unregister(uuid, getId());
+                },
                 HEAL_PERIOD_TICKS,
                 HEAL_PERIOD_TICKS);
         if (task == null) {
@@ -81,6 +88,8 @@ public class PassiveLifestealSkill implements Skill {
         }
 
         active.task = task;
+        SkillSessionManager sessions = getSessionManager(ctx);
+        sessions.register(uuid, getId(), () -> stop(uuid));
         if (activeLifesteals.get(uuid) != active) task.cancel();
     }
 
@@ -91,6 +100,7 @@ public class PassiveLifestealSkill implements Skill {
         }
         if (!ctx.getEntity().isValid() || ctx.getEntity().isDead()) {
             activeLifesteals.remove(uuid, active);
+            getSessionManager(ctx).unregister(uuid, getId());
             task.cancel();
             return;
         }
@@ -98,6 +108,7 @@ public class PassiveLifestealSkill implements Skill {
         double healAmount = active.consumeHeal();
         if (healAmount < 0.0) {
             activeLifesteals.remove(uuid, active);
+            getSessionManager(ctx).unregister(uuid, getId());
             task.cancel();
             return;
         }
@@ -109,6 +120,7 @@ public class PassiveLifestealSkill implements Skill {
 
         if (active.isFinished()) {
             activeLifesteals.remove(uuid, active);
+            getSessionManager(ctx).unregister(uuid, getId());
             task.cancel();
         }
     }
@@ -116,6 +128,11 @@ public class PassiveLifestealSkill implements Skill {
     private void stop(UUID uuid) {
         ActiveLifesteal active = activeLifesteals.remove(uuid);
         if (active != null && active.task != null) active.task.cancel();
+    }
+
+    private SkillSessionManager getSessionManager(SkillContext ctx) {
+        return ((com.infernalmobs.InfernalMobsPlugin) ctx.getPlugin())
+                .getCombatService().getSkillSessionManager();
     }
 
     private static final class ActiveLifesteal {

@@ -1,161 +1,204 @@
 package com.infernalmobs.service;
 
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
-/**
- * 击杀统计服务：按等级、按玩家 UUID 记录击杀数；落盘时在每位玩家下写入 {@code name} 便于阅读。
- * 内存存储，每分钟定时落盘 + onDisable 落盘。
- */
-public class KillStatsService {
+/** 击杀统计内存服务。磁盘只在启动加载、定时快照保存和关闭保存时访问。 */
+public final class KillStatsService {
 
     private static final String FILE_NAME = "kill_stats.yml";
     private static final String KEY_PLAYERS = "players";
-    /** YAML 中与等级统计并列的显示名键（非数字，不参与等级解析） */
     private static final String KEY_DISPLAY_NAME = "name";
 
     private final JavaPlugin plugin;
     private final File dataFile;
-    /** 玩家 UUID 字符串 -> (等级 -> 击杀数) */
-    private final Map<String, Map<Integer, Integer>> data = new ConcurrentHashMap<>();
-    /** 玩家 UUID -> 最近一次击杀时的游戏内名称（落盘写入 name） */
-    private final Map<String, String> displayNames = new ConcurrentHashMap<>();
-    private volatile boolean dirty;
+    private final Object dataLock = new Object();
+    private final Object saveLock = new Object();
+    private final Map<String, Map<Integer, Integer>> data = new HashMap<>();
+    private final Map<String, String> displayNames = new HashMap<>();
+    private long changeVersion;
+    private long savedVersion;
 
     public KillStatsService(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.dataFile = new File(plugin.getDataFolder(), FILE_NAME);
+        this.dataFile = new File(new File(plugin.getDataFolder(), "data"), FILE_NAME);
     }
 
-    /** 从 YAML 加载到内存，主类 onEnable 时调用。 */
+    /** 启动时调用一次。新版不会探测或迁移根目录下的旧数据文件。 */
     public void load() {
-        data.clear();
-        displayNames.clear();
-        dirty = false;
-        if (!dataFile.exists()) return;
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(dataFile);
-        var playersSec = yaml.getConfigurationSection(KEY_PLAYERS);
-        if (playersSec == null) return;
-        for (String playerId : playersSec.getKeys(false)) {
-            var levelSec = playersSec.getConfigurationSection(playerId);
-            if (levelSec == null) continue;
-            String storedName = levelSec.getString(KEY_DISPLAY_NAME);
-            if (storedName != null && !storedName.isBlank()) {
-                displayNames.put(playerId, storedName.trim());
-            }
-            Map<Integer, Integer> byLevel = new ConcurrentHashMap<>();
-            for (String levelKey : levelSec.getKeys(false)) {
-                if (KEY_DISPLAY_NAME.equalsIgnoreCase(levelKey)) continue;
-                try {
-                    int level = Integer.parseInt(levelKey);
-                    int count = levelSec.getInt(levelKey, 0);
-                    if (count > 0) byLevel.put(level, count);
-                } catch (NumberFormatException ignored) {}
-            }
-            if (!byLevel.isEmpty()) data.put(playerId, byLevel);
-        }
-    }
+        synchronized (dataLock) {
+            data.clear();
+            displayNames.clear();
+            changeVersion = 0;
+            savedVersion = 0;
+            if (!dataFile.isFile()) return;
 
-    /** 将脏数据落盘到 YAML。调度器与 onDisable 时调用。 */
-    public void saveIfDirty() {
-        if (!dirty) return;
-        dirty = false;
-        YamlConfiguration yaml = new YamlConfiguration();
-        yaml.options().header("""
-                players 下主键为玩家 UUID。
-                每位玩家下: name 为落盘时最后已知的游戏内名称（便于阅读）；数字键为怪物等级 -> 击杀数。
-                """);
-        var playersSec = yaml.createSection(KEY_PLAYERS);
-        for (Map.Entry<String, Map<Integer, Integer>> e : data.entrySet()) {
-            Map<Integer, Integer> byLevel = e.getValue();
-            if (byLevel.isEmpty()) continue;
-            var levelSec = playersSec.createSection(e.getKey());
-            String nm = displayNames.get(e.getKey());
-            if (nm != null && !nm.isBlank()) {
-                levelSec.set(KEY_DISPLAY_NAME, nm.trim());
+            YamlConfiguration yaml = new YamlConfiguration();
+            try {
+                yaml.load(dataFile);
+            } catch (IOException | InvalidConfigurationException ex) {
+                plugin.getLogger().warning("加载 data/kill_stats.yml 失败，将使用空的内存数据：" + ex.getMessage());
+                return;
             }
-            for (Map.Entry<Integer, Integer> le : byLevel.entrySet()) {
-                if (le.getValue() > 0) levelSec.set(String.valueOf(le.getKey()), le.getValue());
+            var players = yaml.getConfigurationSection(KEY_PLAYERS);
+            if (players == null) return;
+            for (String playerId : players.getKeys(false)) {
+                var levels = players.getConfigurationSection(playerId);
+                if (levels == null) continue;
+                String storedName = levels.getString(KEY_DISPLAY_NAME);
+                if (storedName != null && !storedName.isBlank()) {
+                    displayNames.put(playerId, storedName.trim());
+                }
+                Map<Integer, Integer> byLevel = new HashMap<>();
+                for (String levelKey : levels.getKeys(false)) {
+                    if (KEY_DISPLAY_NAME.equalsIgnoreCase(levelKey)) continue;
+                    try {
+                        int level = Integer.parseInt(levelKey);
+                        int count = levels.getInt(levelKey, 0);
+                        if (level > 0 && count > 0) byLevel.put(level, count);
+                    } catch (NumberFormatException ignored) {
+                        // 非数字键不属于等级统计。
+                    }
+                }
+                if (!byLevel.isEmpty()) data.put(playerId, byLevel);
             }
-        }
-        try {
-            if (!dataFile.getParentFile().exists()) dataFile.getParentFile().mkdirs();
-            if (!dataFile.exists()) dataFile.createNewFile();
-            yaml.save(dataFile);
-        } catch (IOException ex) {
-            plugin.getLogger().warning("保存 kill_stats.yml 失败: " + ex.getMessage());
         }
     }
 
     /**
-     * 记录一次击杀。玩家击杀炒鸡怪时调用。
-     *
-     * @param playerUuid   玩家 UUID 字符串
-     * @param displayName  当前游戏内名称，用于写入 YAML 的 name 字段（可 null）
-     * @param level        怪物等级
+     * 保存当前稳定快照。可从异步定时任务或主线程关闭流程调用；同一服务的保存不会重叠。
+     * 只有写盘成功才确认快照版本，失败后下一次调用会重试。
      */
-    public void addKill(String playerUuid, String displayName, int level) {
-        if (playerUuid == null || playerUuid.isEmpty()) return;
-        if (displayName != null && !displayName.isBlank()) {
-            displayNames.put(playerUuid, displayName.trim());
+    public void saveIfDirty() {
+        synchronized (saveLock) {
+            SaveSnapshot snapshot;
+            synchronized (dataLock) {
+                if (changeVersion == savedVersion) return;
+                LinkedHashMap<String, PlayerData> players = new LinkedHashMap<>();
+                data.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
+                    Map<Integer, Integer> levels = new LinkedHashMap<>();
+                    entry.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey())
+                            .filter(level -> level.getValue() > 0)
+                            .forEach(level -> levels.put(level.getKey(), level.getValue()));
+                    if (!levels.isEmpty()) {
+                        players.put(entry.getKey(), new PlayerData(displayNames.get(entry.getKey()), levels));
+                    }
+                });
+                snapshot = new SaveSnapshot(changeVersion, players);
+            }
+
+            try {
+                writeSnapshot(snapshot);
+                synchronized (dataLock) {
+                    savedVersion = Math.max(savedVersion, snapshot.version());
+                }
+            } catch (Exception ex) {
+                plugin.getLogger().warning("保存 data/kill_stats.yml 失败，将在下个周期重试：" + ex.getMessage());
+            }
         }
-        data.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>())
-            .merge(Math.max(1, level), 1, Integer::sum);
-        dirty = true;
     }
 
-    /** 获取某玩家某等级的击杀数。 */
+    private void writeSnapshot(SaveSnapshot snapshot) throws IOException {
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.options().header("""
+                players 下主键为玩家 UUID。
+                每位玩家下: name 为最后已知游戏内名称；数字键为怪物等级 -> 击杀数。
+                """);
+        var players = yaml.createSection(KEY_PLAYERS);
+        snapshot.players().forEach((playerId, playerData) -> {
+            var levels = players.createSection(playerId);
+            if (playerData.displayName() != null) levels.set(KEY_DISPLAY_NAME, playerData.displayName());
+            playerData.levels().forEach((level, count) -> levels.set(String.valueOf(level), count));
+        });
+        ensureParentDirectory();
+        yaml.save(dataFile);
+    }
+
+    private void ensureParentDirectory() throws IOException {
+        File parent = dataFile.getParentFile();
+        if (!parent.isDirectory() && !parent.mkdirs() && !parent.isDirectory()) {
+            throw new IOException("无法创建数据目录 " + parent);
+        }
+    }
+
+    public void addKill(String playerUuid, String displayName, int level) {
+        if (playerUuid == null || playerUuid.isBlank()) return;
+        synchronized (dataLock) {
+            if (displayName != null && !displayName.isBlank()) {
+                displayNames.put(playerUuid, displayName.trim());
+            }
+            data.computeIfAbsent(playerUuid, ignored -> new HashMap<>())
+                    .merge(Math.max(1, level), 1, Integer::sum);
+            changeVersion++;
+        }
+    }
+
     public int getKills(String playerId, int level) {
-        Map<Integer, Integer> byLevel = data.get(playerId);
-        if (byLevel == null) return 0;
-        return byLevel.getOrDefault(level, 0);
+        synchronized (dataLock) {
+            Map<Integer, Integer> levels = data.get(playerId);
+            return levels != null ? levels.getOrDefault(level, 0) : 0;
+        }
     }
 
-    /** 获取某玩家各等级击杀数（只读视图）。 */
     public Map<Integer, Integer> getKillsByLevel(String playerId) {
-        Map<Integer, Integer> byLevel = data.get(playerId);
-        if (byLevel == null) return Map.of();
-        return Collections.unmodifiableMap(new HashMap<>(byLevel));
+        synchronized (dataLock) {
+            Map<Integer, Integer> levels = data.get(playerId);
+            return levels != null ? Map.copyOf(levels) : Map.of();
+        }
     }
 
-    /** 获取某玩家总击杀数。 */
     public int getTotalKills(String playerId) {
-        Map<Integer, Integer> byLevel = data.get(playerId);
-        if (byLevel == null) return 0;
-        return byLevel.values().stream().mapToInt(Integer::intValue).sum();
+        synchronized (dataLock) {
+            Map<Integer, Integer> levels = data.get(playerId);
+            return levels != null ? levels.values().stream().mapToInt(Integer::intValue).sum() : 0;
+        }
     }
 
-    /** 获取所有已有记录玩家的击杀统计内存快照。 */
     public List<PlayerStatsSnapshot> getAllPlayerStats() {
-        return data.entrySet().stream()
-                .map(entry -> new PlayerStatsSnapshot(
-                        entry.getKey(),
-                        displayNames.get(entry.getKey()),
-                        entry.getValue()
-                ))
-                .toList();
+        synchronized (dataLock) {
+            List<PlayerStatsSnapshot> snapshots = new ArrayList<>(data.size());
+            data.forEach((playerId, levels) -> snapshots.add(new PlayerStatsSnapshot(
+                    playerId, displayNames.get(playerId), levels)));
+            return List.copyOf(snapshots);
+        }
     }
 
-    /** API 映射使用的单玩家内部快照。 */
-    public record PlayerStatsSnapshot(
-            String playerId,
-            String displayName,
-            Map<Integer, Integer> killsByLevel
-    ) {
+    public void markDirty() {
+        synchronized (dataLock) {
+            changeVersion++;
+        }
+    }
+
+    private record SaveSnapshot(long version, Map<String, PlayerData> players) {
+        private SaveSnapshot {
+            players = Collections.unmodifiableMap(new LinkedHashMap<>(players));
+        }
+    }
+
+    private record PlayerData(String displayName, Map<Integer, Integer> levels) {
+        private PlayerData {
+            displayName = displayName != null && !displayName.isBlank() ? displayName.trim() : null;
+            levels = Collections.unmodifiableMap(new LinkedHashMap<>(levels));
+        }
+    }
+
+    public record PlayerStatsSnapshot(String playerId, String displayName,
+                                      Map<Integer, Integer> killsByLevel) {
         public PlayerStatsSnapshot {
             playerId = Objects.requireNonNull(playerId, "playerId");
             displayName = displayName != null && !displayName.isBlank() ? displayName.trim() : null;
             killsByLevel = killsByLevel != null ? Map.copyOf(killsByLevel) : Map.of();
         }
-    }
-
-    /** 标记为脏，用于外部需要强制保存时。 */
-    public void markDirty() {
-        dirty = true;
     }
 }

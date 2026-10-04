@@ -14,6 +14,10 @@ public record ProtectedAnimalsConfig(
         String messageTemplate,
         boolean clearExp
 ) {
+    public ProtectedAnimalsConfig {
+        types = Set.copyOf(types);
+    }
+
     public static ProtectedAnimalsConfig disabled() {
         return new ProtectedAnimalsConfig(false, Collections.emptySet(),
                 "<bold><red><player_name>欺负炒鸡小动物！", true);

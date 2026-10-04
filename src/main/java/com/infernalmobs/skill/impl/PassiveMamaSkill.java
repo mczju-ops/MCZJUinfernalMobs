@@ -2,20 +2,19 @@ package com.infernalmobs.skill.impl;
 
 import com.infernalmobs.api.event.affix.triggered.InfernalMobMamaEvent;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.util.SoundPlayback;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Ageable;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Mob;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -45,7 +44,11 @@ public class PassiveMamaSkill implements Skill {
     private static final Set<EntityType> DISALLOWED_FOR_MAMA = Set.of(EntityType.WARDEN, EntityType.WITHER);
 
     private static void debugLog(SkillContext ctx, String msg) {
-        if (ctx.getPlugin() instanceof com.infernalmobs.InfernalMobsPlugin p && p.getConfigLoader().isDebug()) {
+        debugLog(ctx.getPlugin(), msg);
+    }
+
+    private static void debugLog(org.bukkit.plugin.java.JavaPlugin plugin, String msg) {
+        if (plugin instanceof com.infernalmobs.InfernalMobsPlugin p && p.getConfigLoader().isDebug()) {
             p.getLogger().info("[InfernalMobs:debug:mama] " + msg);
         }
     }
@@ -122,19 +125,9 @@ public class PassiveMamaSkill implements Skill {
             levelRange = new int[] { levelMin, levelMax };
         } else {
             int[] def = TIER_LEVEL_RANGE[tier - 1];
-            ConfigurationSection tierSec = config.getSection() != null ? config.getSection().getConfigurationSection("tier-level-ranges") : null;
-            if (tierSec != null && tierSec.contains(String.valueOf(tier))) {
-                ConfigurationSection t = tierSec.getConfigurationSection(String.valueOf(tier));
-                if (t != null) {
-                    int min = t.getInt("min", def[0]);
-                    int max = t.getInt("max", def[1]);
-                    levelRange = new int[] { min, Math.max(min, max) };
-                } else {
-                    levelRange = def;
-                }
-            } else {
-                levelRange = def;
-            }
+            int min = config.getInt("tier-level-ranges." + tier + ".min", def[0]);
+            int max = config.getInt("tier-level-ranges." + tier + ".max", def[1]);
+            levelRange = new int[] { min, Math.max(min, max) };
         }
 
         boolean baby = config.getBoolean("baby", true);
@@ -164,15 +157,16 @@ public class PassiveMamaSkill implements Skill {
         final int effMax = ev.getChildLevelMax();
         final boolean effBaby = ev.isBaby();
         final double effNoBabyScale = ev.getNoBabyScale();
+        final org.bukkit.plugin.java.JavaPlugin plugin = ctx.getPlugin();
 
         new BukkitRunnable() {
             @Override
             public void run() {
                 if (loc.getWorld() == null) {
-                    debugLog(ctx, "延迟任务: world 为 null，取消生成");
+                    debugLog(plugin, "延迟任务: world 为 null，取消生成");
                     return;
                 }
-                debugLog(ctx, "延迟任务执行: 开始生成 " + effCount + " 只 " + effChildType + " 于 " + loc);
+                debugLog(plugin, "延迟任务执行: 开始生成 " + effCount + " 只 " + effChildType + " 于 " + loc);
                 for (int i = 0; i < effCount; i++) {
                     LivingEntity child = (LivingEntity) loc.getWorld().spawnEntity(loc, effChildType);
                     boolean useScale = false;
@@ -180,32 +174,30 @@ public class PassiveMamaSkill implements Skill {
                         // Paper 26.2: 优先检查实体是否具备 IsBaby 数据能力（Ageable 接口）
                         if (hasBabyCapability(child)) {
                             ((Ageable) child).setBaby();
-                            debugLog(ctx, "子怪 " + effChildType + " 使用幼年形态 (IsBaby)");
+                            debugLog(plugin, "子怪 " + effChildType + " 使用幼年形态 (IsBaby)");
                         } else {
                             useScale = true;
-                            debugLog(ctx, "子怪 " + effChildType + " 不支持幼年形态，回退到 SCALE 缩放");
+                            debugLog(plugin, "子怪 " + effChildType + " 不支持幼年形态，回退到 SCALE 缩放");
                         }
                     }
                     int childLevel = (int) ThreadLocalRandom.current().nextLong(effMin, (long) effMax + 1L);
                     factory.mechanizeWithExcludedAffixes(child, loc, childLevel, List.of("mama"));
-                    if (useScale) applyScale(ctx, child, effNoBabyScale);
+                    if (useScale) applyScale(plugin, child, effNoBabyScale);
                 }
-                try {
-                    loc.getWorld().playSound(loc, org.bukkit.Sound.ENTITY_ZOMBIE_INFECT, 0.8f, 0.8f);
-                } catch (IllegalArgumentException ignored) {}
-                debugLog(ctx, "生成完成，共 " + effCount + " 只");
+                SoundPlayback.broadcast(loc, config.getSound("sound"));
+                debugLog(plugin, "生成完成，共 " + effCount + " 只");
             }
-        }.runTask(ctx.getPlugin());
+        }.runTask(plugin);
     }
 
     /** 和 /attribute <实体> minecraft:generic.scale base set <值> 等价；API 里常量名为 Attribute.SCALE。 */
-    private static void applyScale(SkillContext ctx, LivingEntity entity, double scale) {
+    private static void applyScale(JavaPlugin plugin, LivingEntity entity, double scale) {
         if (scale <= 0.01 || scale > 10.0) return;
         var attr = entity.getAttribute(Attribute.SCALE);
         if (attr != null) {
             attr.setBaseValue(scale);
         } else {
-            debugLog(ctx, "applyScale: 实体无 SCALE 属性，实体=" + entity.getType());
+            debugLog(plugin, "applyScale: 实体无 SCALE 属性，实体=" + entity.getType());
         }
     }
 
@@ -220,41 +212,16 @@ public class PassiveMamaSkill implements Skill {
         if (entity instanceof Ageable) {
             // 额外过滤：排除已知无幼年视觉形态的 Ageable 实体
             EntityType type = entity.getType();
-            if (type == EntityType.WANDERING_TRADER) {
-                return false; // 流浪商人虽有 Ageable 但无幼年外观
-            }
-            return true;
-        }
-        // 部分实体虽未实现 Ageable 但仍可能有幼年形态（罕见）
-        // 此处通过 Mob 间接判断（Armadillo 等在 1.21+ 有 AgeableMob）
-        if (entity instanceof Mob mob) {
-            // 如果实体是 Breedable 的子类，通常支持幼年
-            return mob instanceof org.bukkit.entity.Breedable;
+            return type != EntityType.WANDERING_TRADER; // 流浪商人虽有 Ageable 但无幼年外观
         }
         return false;
     }
 
     private Set<EntityType> parseAllowedTypes(SkillConfig config) {
-        List<String> raw = config.getStringList("allowed-types");
-        if (raw == null || raw.isEmpty()) return Set.of();
-        Set<EntityType> set = new HashSet<>();
-        for (String s : raw) {
-            try {
-                set.add(EntityType.valueOf(s.trim().toUpperCase()));
-            } catch (IllegalArgumentException ignored) {}
-        }
-        return set;
+        return config.getEntityTypeSet("allowed-types");
     }
 
     private Set<EntityType> parseBlockedTypes(SkillConfig config) {
-        List<String> raw = config.getStringList("blocked-types");
-        if (raw == null || raw.isEmpty()) return Set.of();
-        Set<EntityType> set = new HashSet<>();
-        for (String s : raw) {
-            try {
-                set.add(EntityType.valueOf(s.trim().toUpperCase()));
-            } catch (IllegalArgumentException ignored) {}
-        }
-        return set;
+        return config.getEntityTypeSet("blocked-types");
     }
 }

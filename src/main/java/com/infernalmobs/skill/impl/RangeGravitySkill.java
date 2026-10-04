@@ -5,6 +5,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -46,8 +47,6 @@ public class RangeGravitySkill implements Skill {
         target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION,
                 event.getDurationTicks(), event.getAmplifier(), false, true));
 
-        try {
-            target.getWorld().playSound(target.getLocation(), org.bukkit.Sound.ENTITY_SHULKER_SHOOT, 0.5f, 1.2f);
-        } catch (IllegalArgumentException ignored) {}
+        SoundPlayback.broadcast(target.getLocation(), config.getSound("sound"));
     }
 }

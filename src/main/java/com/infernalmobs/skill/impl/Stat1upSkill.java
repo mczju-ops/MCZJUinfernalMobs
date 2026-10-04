@@ -8,9 +8,9 @@ import com.infernalmobs.particle.ParticleSource;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
 import org.bukkit.Particle;
-import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
 
@@ -56,11 +56,7 @@ public class Stat1upSkill implements Skill {
             entity.setHealth(healthAfterRecovery);
         }
 
-        String soundKey = config.getString("sound", "BLOCK_BREWING_STAND_BREW");
-        try {
-            Sound s = Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            entity.getWorld().playSound(entity.getLocation(), s, 1f, 1f);
-        } catch (IllegalArgumentException ignored) {}
+            SoundPlayback.broadcast(entity.getLocation(), config.getSound("sound"));
 
         Location at = entity.getLocation();
         ParticleEffect.create()
@@ -73,11 +69,8 @@ public class Stat1upSkill implements Skill {
 
     private double getHealCeiling(LivingEntity entity, MobState mobState) {
         var attr = entity.getAttribute(Attribute.MAX_HEALTH);
-        double maxHp = attr != null ? attr.getValue() : entity.getMaxHealth();
-        double zCap = CombatService.zombieFamilyHealCap(entity, mobState);
-        if (!Double.isInfinite(zCap)) {
-            maxHp = Math.min(maxHp, zCap);
-        }
-        return Math.min(maxHp, entity.getMaxHealth());
+        double zCap = CombatService.zombieRecoveryCapWithoutLeaderBonus(entity, mobState);
+        if (attr == null) return zCap;
+        return Math.min(attr.getValue(), zCap);
     }
 }

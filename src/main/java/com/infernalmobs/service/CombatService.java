@@ -1,45 +1,21 @@
 package com.infernalmobs.service;
 
-import com.infernalmobs.affix.Affix;
-import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.affix.InfernalAffixAttemptEvent;
-import com.infernalmobs.api.event.affix.effect.InfernalMobFireworkDamageEvent;
-import com.infernalmobs.api.event.affix.effect.InfernalMobGhastlyDamageEvent;
-import com.infernalmobs.api.event.affix.effect.InfernalMobNecromancerDamageEvent;
-import com.infernalmobs.api.event.affix.effect.InfernalMobStormDamageEvent;
-import com.infernalmobs.api.event.affix.triggered.InfernalMob1upEvent;
 import com.infernalmobs.config.ConfigLoader;
-import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
-import com.infernalmobs.skill.SkillContext;
-import com.infernalmobs.skill.SkillType;
-import com.infernalmobs.skill.impl.RangeSpearSkill;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Fireball;
-import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.LightningStrike;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.WitherSkull;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.inventory.EntityEquipment;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 战斗驱动服务。负责：
@@ -51,177 +27,93 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class CombatService {
 
+    private static final long TICK_INTERVAL = 5L;
+    private static final long RANGE_CHECK_INTERVAL = 20L;
+
     private final JavaPlugin plugin;
-    private final ConfigLoader config;
-    private final Map<UUID, MobState> mobStates = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> lastActiveTick = new ConcurrentHashMap<>();
-    /** 炒鸡怪捡起的物品（用于 replace-vanilla-drops 时恢复到死亡掉落） */
-    private final Map<UUID, List<ItemStack>> pickedUpItems = new ConcurrentHashMap<>();
-    private com.infernalmobs.factory.MobFactory mobFactory;
-    private BukkitRunnable cleanupTask;
+    private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
+    private final SkillSessionManager skillSessionManager;
+    private final MobStatService mobStatService = new MobStatService();
+    private final RangeSkillService rangeSkillService;
+    private final AttackSkillService attackSkillService;
+    private final AttackDamageService attackDamageService;
+    private final DeathSkillService deathSkillService;
+    private final DamageReactionSkillService damageReactionSkillService;
+    private final SpecialDamageService specialDamageService;
+    private final SkillAttemptService skillAttemptService;
+    private MobFactory mobFactory;
+    private SkillService skillService;
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
-        this.config = config;
+        this.skillSessionManager = new SkillSessionManager(plugin);
+        this.specialDamageService = new SpecialDamageService(plugin);
+        this.skillAttemptService = new SkillAttemptService(plugin, config);
+        this.rangeSkillService = new RangeSkillService(plugin, config, skillAttemptService);
+        this.attackSkillService = new AttackSkillService(plugin, config, skillAttemptService);
+        this.attackDamageService = new AttackDamageService();
+        this.deathSkillService = new DeathSkillService(plugin, config, skillAttemptService);
+        this.damageReactionSkillService = new DamageReactionSkillService(plugin, config);
     }
 
     public void registerMob(UUID entityUuid, MobState state) {
-        mobStates.put(entityUuid, state);
-        lastActiveTick.put(entityUuid, currentTick);
+        mobRegistry.register(entityUuid, state);
+    }
+
+    public void setSkillService(SkillService skillService) {
+        this.skillService = skillService;
+    }
+
+    public SpecialDamageService getSpecialDamageService() {
+        return specialDamageService;
+    }
+
+    /** 终止实体技能会话后再注销内存状态。 */
+    public void unequipAndUnregister(LivingEntity entity, MobState state,
+                                     SkillService.UnequipReason reason) {
+        if (entity == null || state == null) return;
+        SkillService currentSkillService = skillService;
+        if (currentSkillService != null) {
+            currentSkillService.unequip(entity, state, state.getProfile().getAffixes(), reason);
+        }
+        unregisterMob(entity.getUniqueId());
     }
 
     public void unregisterMob(UUID entityUuid) {
-        mobStates.remove(entityUuid);
-        lastActiveTick.remove(entityUuid);
-        pickedUpItems.remove(entityUuid);
+        skillSessionManager.cancel(entityUuid);
+        mobRegistry.unregister(entityUuid);
+    }
+
+    public SkillSessionManager getSkillSessionManager() {
+        return skillSessionManager;
     }
 
     public MobState getMobState(UUID entityUuid) {
-        return mobStates.get(entityUuid);
-    }
-
-    /** 记录炒鸡怪捡起的物品（克隆存储，避免后续元数据/堆叠变化影响）。 */
-    public void recordPickedUpItem(UUID entityUuid, ItemStack item) {
-        if (entityUuid == null || item == null || item.getType().isAir() || item.getAmount() <= 0) return;
-        pickedUpItems.computeIfAbsent(entityUuid, k -> new ArrayList<>()).add(item.clone());
-    }
-
-    /** 消费并返回该炒鸡怪捡起的所有物品。 */
-    public List<ItemStack> consumePickedUpItems(UUID entityUuid) {
-        if (entityUuid == null) return List.of();
-        List<ItemStack> items = pickedUpItems.remove(entityUuid);
-        if (items == null || items.isEmpty()) return List.of();
-        return new ArrayList<>(items);
-    }
-
-    /**
-     * replace-vanilla-drops 时补回玩家被捡走的物品：仅当前仍穿/拿在身上的栏位，
-     * 且能从拾取记录中匹配到的才掉落；曾捡起后又扔掉的条目不会进入掉落（记录会清空）。
-     */
-    public List<ItemStack> releasePickedUpItemsStillEquipped(LivingEntity entity) {
-        UUID uuid = entity.getUniqueId();
-        EntityEquipment eq = entity.getEquipment();
-        List<ItemStack> drops = new ArrayList<>();
-        if (eq != null) {
-            for (EquipmentSlot slot : PICKUP_TRACKED_EQUIPMENT_SLOTS) {
-                ItemStack inSlot = getItemInEquipmentSlot(eq, slot);
-                if (inSlot == null || inSlot.getType().isAir() || inSlot.getAmount() <= 0) continue;
-                ItemStack matched = consumeMatchedPickedUpItem(uuid, inSlot);
-                if (matched != null && !matched.getType().isAir() && matched.getAmount() > 0) {
-                    drops.add(matched);
-                }
-            }
-        }
-        pickedUpItems.remove(uuid);
-        return drops;
-    }
-
-    private static final EquipmentSlot[] PICKUP_TRACKED_EQUIPMENT_SLOTS = {
-            EquipmentSlot.HAND, EquipmentSlot.OFF_HAND,
-            EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
-    };
-
-    private static ItemStack getItemInEquipmentSlot(EntityEquipment eq, EquipmentSlot slot) {
-        return switch (slot) {
-            case HAND -> eq.getItemInMainHand();
-            case OFF_HAND -> eq.getItemInOffHand();
-            case HEAD -> eq.getHelmet();
-            case CHEST -> eq.getChestplate();
-            case LEGS -> eq.getLeggings();
-            case FEET -> eq.getBoots();
-            default -> null;
-        };
-    }
-
-    /**
-     * 怪物将物品丢到地上时调用：从拾取记录中按相似物品扣减数量（与 {@link #consumeMatchedPickedUpItem} 同一套匹配规则）。
-     */
-    public void unrecordDroppedPickedUpItem(UUID entityUuid, ItemStack dropped) {
-        if (entityUuid == null || dropped == null || dropped.getType().isAir() || dropped.getAmount() <= 0) return;
-        removeMatchedPickedUpAmount(entityUuid, dropped);
-    }
-
-    /**
-     * 按“相似物品”从拾取记录中消费数量，并返回可掉落的克隆物品（amount 为实际可消费数量）。
-     * 用于变身时仅掉落后天拾取（非自带）的装备。
-     */
-    public ItemStack consumeMatchedPickedUpItem(UUID entityUuid, ItemStack equipped) {
-        if (entityUuid == null || equipped == null || equipped.getType().isAir() || equipped.getAmount() <= 0) return null;
-        int consumed = removeMatchedPickedUpAmount(entityUuid, equipped);
-        if (consumed <= 0) return null;
-        ItemStack out = equipped.clone();
-        out.setAmount(consumed);
-        return out;
-    }
-
-    /** 从拾取记录中扣减与 reference 相似的堆叠数量，返回实际扣减数量。 */
-    private int removeMatchedPickedUpAmount(UUID entityUuid, ItemStack reference) {
-        List<ItemStack> items = pickedUpItems.get(entityUuid);
-        if (items == null || items.isEmpty()) return 0;
-
-        int needed = reference.getAmount();
-        int consumed = 0;
-        for (int i = 0; i < items.size() && needed > 0; i++) {
-            ItemStack tracked = items.get(i);
-            if (tracked == null || tracked.getType().isAir() || tracked.getAmount() <= 0) continue;
-            if (!tracked.isSimilar(reference)) continue;
-
-            int use = Math.min(needed, tracked.getAmount());
-            needed -= use;
-            consumed += use;
-
-            int left = tracked.getAmount() - use;
-            if (left <= 0) {
-                items.set(i, null);
-            } else {
-                tracked.setAmount(left);
-            }
-        }
-        items.removeIf(Objects::isNull);
-        if (items.isEmpty()) pickedUpItems.remove(entityUuid);
-        return consumed;
+        return mobRegistry.get(entityUuid);
     }
 
     /** 获取当前追踪的炒鸡怪数量 */
     public int getTrackedCount() {
-        return mobStates.size();
+        return mobRegistry.size();
     }
 
     /** 获取所有追踪中的炒鸡怪（UUID -> MobState），用于外部索引 */
     public Map<UUID, MobState> getTrackedMobs() {
-        return new HashMap<>(mobStates);
+        return mobRegistry.snapshot();
     }
 
-    public void setMobFactory(com.infernalmobs.factory.MobFactory factory) {
+    public void setMobFactory(MobFactory factory) {
         this.mobFactory = factory;
     }
 
-    /**
-     * 僵尸系炒鸡怪回血上限：按「原版基础 20 血 × 炒鸡等级」封顶。
-     * 头领僵尸等会抬高 MAX_HEALTH，若回血可回到 attr 满血会远超普通 20× 等级；再生/瞬间治疗等统一按此假装仍是普通僵尸血量池。
-     *
-     * @return 非僵尸系返回 {@link Double#POSITIVE_INFINITY} 表示不额外限制
-     */
-    public static double zombieFamilyHealCap(LivingEntity entity, MobState state) {
-        if (entity == null || state == null) return Double.POSITIVE_INFINITY;
-        int lv = Math.max(1, state.getProfile().getLevel());
-        EntityType t = entity.getType();
-        return switch (t) {
-            case ZOMBIE, ZOMBIE_VILLAGER, HUSK, DROWNED, BOGGED -> 20.0 * lv;
-            default -> Double.POSITIVE_INFINITY;
-        };
+    /** 忽略原版领头僵尸额外生命后的恢复上限。 */
+    public static double zombieRecoveryCapWithoutLeaderBonus(LivingEntity entity, MobState state) {
+        return MobStatService.zombieRecoveryCapWithoutLeaderBonus(entity, state);
     }
 
-    /** 获取治疗可达到的生命值上限，同时考虑实体属性、Paper 上限与僵尸系等级上限。 */
+    /** 获取治疗可达到的生命值上限，同时考虑实体属性与领头僵尸加成限制。 */
     public static double healCeiling(LivingEntity entity, MobState state) {
-        var attr = entity.getAttribute(Attribute.MAX_HEALTH);
-        double attrMax = attr != null ? attr.getValue() : entity.getMaxHealth();
-        double paperMax = entity.getMaxHealth();
-        double zCap = zombieFamilyHealCap(entity, state);
-        if (!Double.isInfinite(zCap)) {
-            return Math.min(Math.min(attrMax, zCap), paperMax);
-        }
-        return Math.min(attrMax, paperMax);
+        return MobStatService.healCeiling(entity, state);
     }
 
     /**
@@ -232,403 +124,68 @@ public class CombatService {
      * 例：原 20/80 + Lv10 → 200/800（不会强制回满血）。
      */
     public void applyStats(LivingEntity entity, MobState mobState) {
-        var attr = entity.getAttribute(Attribute.MAX_HEALTH);
-        if (attr != null) {
-            int level = Math.max(1, mobState.getProfile().getLevel());
-            double baseMax = attr.getBaseValue();
-            double baseCurrent = entity.getHealth();
-
-            double newMax = baseMax * level
-                    + mobState.getStatMap().get(com.infernalmobs.model.StatMap.HP_BONUS);
-            attr.setBaseValue(newMax);
-
-            // 当前血量等比缩放。
-            // Paper 对 setHealth() 的实际上限是 entity.getMaxHealth()（属性值被 MC 原生截断为 1024），
-            // 因此必须以 getMaxHealth() 为上限，否则超 1024 会抛 IllegalArgumentException。
-            double effectiveCap = entity.getMaxHealth();
-            double newCurrent = baseCurrent * level;
-            entity.setHealth(Math.max(0.1, Math.min(effectiveCap, newCurrent)));
-        }
-
-        double speedBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.SPEED_MULTIPLIER);
-        if (speedBonus != 0 && entity.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
-            double base = entity.getAttribute(Attribute.MOVEMENT_SPEED).getBaseValue();
-            entity.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(base * (1 + speedBonus));
-        }
+        mobStatService.applyStats(entity, mobState);
     }
 
     /**
      * 怪物攻击玩家时：应用伤害加成，并触发 ACTIVE 与 DUAL 技能。
      */
     public void onMobAttack(EntityDamageByEntityEvent event, LivingEntity damager, Player victim, MobState mobState) {
-        if (event.getCause() == EntityDamageEvent.DamageCause.THORNS) return;
-
-        double damageBonus = mobState.getStatMap().get(com.infernalmobs.model.StatMap.DAMAGE_BONUS);
-        if (damageBonus > 0) {
-            event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) + damageBonus);
-        }
-        for (Affix affix : mobState.getProfile().getAffixes()) {
-            if (affix.getSkill() instanceof RangeSpearSkill spear
-                    && spear.handleMeleeHit(event, damager, victim)) {
-                break;
-            }
-        }
-        if (event.isCancelled()) return;
-        triggerActiveSkills(event, damager, victim, mobState);
-        triggerDualSkills(damager, victim, mobState);
+        if (!attackDamageService.prepare(event, damager, victim, mobState)) return;
+        attackSkillService.triggerMobAttackSkills(event, damager, victim, mobState,
+                currentTick, mobFactory);
     }
 
     /**
      * 怪物受到任意伤害时，检测 1up 等技能。
      */
     public void onMobDamaged(EntityDamageEvent event, LivingEntity victim) {
-        MobState state = mobStates.get(victim.getUniqueId());
+        MobState state = mobRegistry.get(victim.getUniqueId());
         if (state == null) return;
-
-        for (Affix affix : state.getProfile().getAffixes()) {
-            if (!"1up".equals(affix.getSkillId())) continue;
-            if (state.hasUsedOneTime("1up")) continue;
-
-            com.infernalmobs.config.SkillConfig sc = config.getSkillConfig("1up");
-            if (sc == null) continue;
-
-            double threshold = sc.getDouble("hp-threshold", 8);
-            double healthAfter = victim.getHealth() - event.getFinalDamage();
-            if (healthAfter > threshold) continue;   // 还在阈值以上，不触发
-            if (healthAfter <= 0) continue;          // 致命一击，不拦截，让怪直接死亡
-
-            if (!(affix.getSkill() instanceof com.infernalmobs.skill.impl.Stat1upSkill skill)) continue;
-            double recoveryAmount = skill.calculateRecoveryAmount(victim, state);
-            if (!state.useOneTimeIfNotUsed("1up")) continue;
-
-            // 1up 真正触发事件：外部可取消本次保命
-            LivingEntity damager = event instanceof EntityDamageByEntityEvent e2 && e2.getDamager() instanceof LivingEntity le ? le : null;
-            InfernalMobHandle handle = new InfernalMobHandle(victim, state.getProfile().getLevel(), state.getProfile().getAffixIds(), state.getSuppressedAffixes());
-            InfernalMob1upEvent e = new InfernalMob1upEvent(victim, damager, handle, state.getProfile().getLevel(), recoveryAmount);
-            plugin.getServer().getPluginManager().callEvent(e);
-            if (e.isCancelled()) break;
-
-            event.setDamage(0.0);
-            skill.trigger(victim, sc, state, e.getRecoveryAmount());
-            break;
-        }
+        damageReactionSkillService.handle(event, victim, state);
     }
 
     /**
      * 玩家攻击怪物时，触发 PASSIVE 与 DUAL 技能。
      */
     public void onPlayerAttackMob(EntityDamageByEntityEvent event, LivingEntity victim, Player damager, MobState mobState) {
-        for (Affix affix : mobState.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.PASSIVE && affix.getSkill().getType() != SkillType.DUAL) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-            int cooldownTicks = sc.getInt("cooldown-ticks", affix.getSkill().getType() == SkillType.DUAL ? 60 : 0);
-            if (cooldownTicks > 0 && mobState.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-            SkillContext ctx = new SkillContext(plugin, victim, mobState);
-            ctx.setTargetPlayer(damager);
-            ctx.setTriggerEvent(event);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixAttemptEvent(affix, ctx, victim, damager, mobState)) continue;
-            affix.getSkill().onTrigger(ctx, sc);
-            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldownTicks);
-        }
+        attackSkillService.triggerPlayerAttackSkills(event, victim, damager, mobState,
+                currentTick, mobFactory);
     }
 
-    /**
-     * 处理火球命中：命中实体/方块都允许爆炸，仅对直接命中的实体补火。擦肩而过不点燃由火球 setFireTicks(0) 保证。
-     */
-    public void onProjectileHit(ProjectileHitEvent event) {
-        if (!event.getEntity().hasMetadata("infernalmobs_damage")) return;
-        int fireTicks = 0;
-        if (event.getEntity().hasMetadata("infernalmobs_fire_ticks")) {
-            List<MetadataValue> fireMeta = event.getEntity().getMetadata("infernalmobs_fire_ticks");
-            if (!fireMeta.isEmpty()) fireTicks = fireMeta.get(0).asInt();
-        }
-        if (event.getHitEntity() instanceof LivingEntity hit) {
-            if (fireTicks > 0) hit.setFireTicks(Math.max(hit.getFireTicks(), fireTicks));
-        }
-        // 不 cancel，命中实体或方块都按 ExplosionPower 爆炸
-    }
+    /** 按服务端 tick 计数；本服务的状态只在主线程读写。 */
+    private long currentTick = 0;
+    private BukkitTask tickTask;
 
-    /**
-     * 广播 ghastly 火球的逐受害者伤害事件；直击使用配置伤害，爆炸保留原版距离衰减。
-     */
-    public void handleGhastlyDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Fireball fireball)) return;
-        List<MetadataValue> skillMetadata = fireball.getMetadata("infernalmobs_skill_id");
-        if (skillMetadata.isEmpty() || !"ghastly".equals(skillMetadata.getFirst().asString())) return;
-        if (!(event.getEntity() instanceof LivingEntity victim)) return;
-
-        List<MetadataValue> sourceMetadata = fireball.getMetadata("infernalmobs_source");
-        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
-        LivingEntity mob = findEntity(mobUuid);
-        if (mob == null || !mob.isValid()) return;
-
-        List<MetadataValue> handleMetadata = fireball.getMetadata("infernalmobs_ghastly_handle");
-        if (handleMetadata.isEmpty() || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
-        List<MetadataValue> levelMetadata = fireball.getMetadata("infernalmobs_ghastly_level");
-        if (levelMetadata.isEmpty()) return;
-
-        if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
-            List<MetadataValue> damageMetadata = fireball.getMetadata("infernalmobs_damage");
-            if (!damageMetadata.isEmpty()) event.setDamage(Math.max(0.0, damageMetadata.getFirst().asDouble()));
-        }
-
-        InfernalMobGhastlyDamageEvent damageEvent = new InfernalMobGhastlyDamageEvent(
-                mob, victim, fireball, handle, levelMetadata.getFirst().asInt(), event.getCause(), event.getDamage());
-        plugin.getServer().getPluginManager().callEvent(damageEvent);
-        if (damageEvent.isCancelled()) {
-            event.setCancelled(true);
-            return;
-        }
-        event.setDamage(damageEvent.getDamage());
-    }
-
-    /**
-     * 广播 necromancer 凋灵之首的逐受害者伤害事件。
-     */
-    public void handleNecromancerDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof WitherSkull witherSkull)) return;
-        List<MetadataValue> skillMetadata = witherSkull.getMetadata("infernalmobs_skill_id");
-        if (skillMetadata.isEmpty() || !"necromancer".equals(skillMetadata.getFirst().asString())) return;
-        if (!(event.getEntity() instanceof LivingEntity victim)) return;
-
-        List<MetadataValue> sourceMetadata = witherSkull.getMetadata("infernalmobs_source");
-        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
-        LivingEntity mob = findEntity(mobUuid);
-        if (mob == null || !mob.isValid()) return;
-
-        List<MetadataValue> handleMetadata = witherSkull.getMetadata("infernalmobs_necromancer_handle");
-        if (handleMetadata.isEmpty()
-                || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
-        List<MetadataValue> levelMetadata = witherSkull.getMetadata("infernalmobs_necromancer_level");
-        if (levelMetadata.isEmpty()) return;
-
-        InfernalMobNecromancerDamageEvent damageEvent = new InfernalMobNecromancerDamageEvent(
-                mob, victim, witherSkull, handle, levelMetadata.getFirst().asInt(),
-                event.getCause(), event.getDamage());
-        plugin.getServer().getPluginManager().callEvent(damageEvent);
-        if (damageEvent.isCancelled()) {
-            event.setCancelled(true);
-            return;
-        }
-        event.setDamage(damageEvent.getDamage());
-    }
-
-    /**
-     * 广播 storm 真实闪电的逐受害者伤害事件，并应用 Triggered 事件确定的基础伤害。
-     */
-    public void handleStormDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof LightningStrike lightning)) return;
-        List<MetadataValue> skillMetadata = lightning.getMetadata("infernalmobs_skill_id");
-        if (skillMetadata.isEmpty() || !"storm".equals(skillMetadata.getFirst().asString())) return;
-        if (!(event.getEntity() instanceof LivingEntity victim)) return;
-
-        List<MetadataValue> damageMetadata = lightning.getMetadata("infernalmobs_damage");
-        if (damageMetadata.isEmpty()) return;
-        event.setDamage(Math.max(0.0, damageMetadata.getFirst().asDouble()));
-
-        List<MetadataValue> sourceMetadata = lightning.getMetadata("infernalmobs_source");
-        if (sourceMetadata.isEmpty() || !(sourceMetadata.getFirst().value() instanceof UUID mobUuid)) return;
-        LivingEntity mob = findEntity(mobUuid);
-        if (mob == null || !mob.isValid()) return;
-
-        List<MetadataValue> handleMetadata = lightning.getMetadata("infernalmobs_storm_handle");
-        if (handleMetadata.isEmpty()
-                || !(handleMetadata.getFirst().value() instanceof InfernalMobHandle handle)) return;
-        List<MetadataValue> levelMetadata = lightning.getMetadata("infernalmobs_storm_level");
-        if (levelMetadata.isEmpty()) return;
-
-        InfernalMobStormDamageEvent damageEvent = new InfernalMobStormDamageEvent(
-                mob, victim, lightning, handle, levelMetadata.getFirst().asInt(), event.getDamage());
-        plugin.getServer().getPluginManager().callEvent(damageEvent);
-        if (damageEvent.isCancelled() || damageEvent.getDamage() <= 0.0) {
-            event.setCancelled(true);
-            return;
-        }
-        event.setDamage(damageEvent.getDamage());
-    }
-
-    /**
-     * 烟花爆炸伤害归因到释放技能的怪物，使死亡信息等显示正确来源。
-     */
-    public void handleFireworkDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Firework fw) || !fw.hasMetadata("infernalmobs_firework_source")) return;
-        List<MetadataValue> sourceMetadata = fw.getMetadata("infernalmobs_firework_source");
-        if (sourceMetadata.isEmpty() || !(sourceMetadata.get(0).value() instanceof UUID mobUuid)) return;
-        LivingEntity mob = findEntity(mobUuid);
-        if (mob == null || !mob.isValid()) return;
-        if (!(event.getEntity() instanceof LivingEntity victim)) return;
-
-        List<MetadataValue> handleMetadata = fw.getMetadata("infernalmobs_firework_handle");
-        if (handleMetadata.isEmpty() || !(handleMetadata.get(0).value() instanceof InfernalMobHandle handle)) return;
-        List<MetadataValue> levelMetadata = fw.getMetadata("infernalmobs_firework_level");
-        if (levelMetadata.isEmpty()) return;
-        int level = levelMetadata.get(0).asInt();
-
-        double damage = event.getDamage();
-        event.setCancelled(true);
-        InfernalMobFireworkDamageEvent damageEvent = new InfernalMobFireworkDamageEvent(
-                mob, victim, fw, handle, level, damage);
-        plugin.getServer().getPluginManager().callEvent(damageEvent);
-        if (damageEvent.isCancelled() || damageEvent.getDamage() <= 0.0) return;
-        victim.damage(damageEvent.getDamage(), mob);
-    }
-
-    private volatile long currentTick = 0;
-
-    /**
-     * 启动 tick 任务（用于 ACTIVE 技能 CD 计数等），以及可选的定期不活跃清理任务。
-     */
+    /** 启动战斗周期任务；普通战斗时钟每 5 tick 推进，范围技能每 20 tick 检查一次。 */
     public void startTickTask() {
-        new BukkitRunnable() {
+        if (tickTask != null && !tickTask.isCancelled()) return;
+        tickTask = new BukkitRunnable() {
             @Override
             public void run() {
-                currentTick++;
-                for (Map.Entry<UUID, MobState> e : mobStates.entrySet()) {
+                currentTick += TICK_INTERVAL;
+                for (Map.Entry<UUID, MobState> e : mobRegistry.snapshot().entrySet()) {
                     LivingEntity entity = findEntity(e.getKey());
                     if (entity == null || !entity.isValid()) {
                         unregisterMob(e.getKey());
                         continue;
                     }
-                    // 范围技能降频：每 20 tick（1 秒）检测一次，降低高频扫描开销
-                    if (currentTick % 20 == 0) {
-                        tickRangeSkills(entity, e.getValue());
+                    if (currentTick % RANGE_CHECK_INTERVAL == 0) {
+                        rangeSkillService.tick(entity, e.getValue(), currentTick, mobFactory);
                     }
                 }
             }
-        }.runTaskTimer(plugin, 20L, 1L);
-
-        var reg = config.getMobRegistryConfig();
-        if (reg != null && reg.cleanupEnabled() && cleanupTask == null) {
-            long intervalTicks = Math.max(20, reg.cleanupIntervalSeconds() * 20L);
-            cleanupTask = new BukkitRunnable() {
-                @Override
-                public void run() {
-                    runCleanupCycle(reg.inactiveRadius(), reg.inactiveSeconds());
-                }
-            };
-            cleanupTask.runTaskTimer(plugin, intervalTicks, intervalTicks);
-        }
+        }.runTaskTimer(plugin, TICK_INTERVAL, TICK_INTERVAL);
     }
 
-    private static final String IM_LEVEL = "im_level";
-
-    /** 清理周期：移除无效实体；无玩家附近则更新 lastActiveTick，超过 inactiveSeconds 无玩家则清除；清除孤立 im_level 标签实体。 */
-    private void runCleanupCycle(double inactiveRadius, int inactiveSeconds) {
-        removeOrphanedImLevelEntities();
-
-        long inactiveTicks = inactiveSeconds * 20L;
-        for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
-            LivingEntity entity = findEntity(uuid);
-            if (entity == null || !entity.isValid()) {
-                unregisterMob(uuid);
-                continue;
-            }
-            Player nearby = findNearestPlayer(entity, inactiveRadius);
-            if (nearby != null) {
-                lastActiveTick.put(uuid, currentTick);
-                continue;
-            }
-            long last = lastActiveTick.getOrDefault(uuid, currentTick);
-            if (currentTick - last >= inactiveTicks) {
-                entity.remove();
-                unregisterMob(uuid);
-            }
+    /** 关服时只释放内存引用；实体状态已在每次变化时同步到 PDC。 */
+    public void shutdown() {
+        if (tickTask != null) {
+            tickTask.cancel();
+            tickTask = null;
         }
-    }
-
-    /** 关服时调用：取消清理任务，并根据配置决定是否清除所有炒鸡怪 */
-    public void cleanupOnShutdown() {
-        if (cleanupTask != null) cleanupTask.cancel();
-        var reg = config.getMobRegistryConfig();
-        if (reg == null || !reg.killOnShutdown()) return;
-        for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
-            LivingEntity entity = findEntity(uuid);
-            if (entity != null && entity.isValid()) entity.remove();
-            mobStates.remove(uuid);
-            lastActiveTick.remove(uuid);
-        }
-    }
-
-    /** 范围技能：玩家在范围内时按概率触发 */
-    private void tickRangeSkills(LivingEntity entity, MobState state) {
-        for (Affix affix : state.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.RANGE) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-
-            double range = sc.getDouble("range", 8);
-            Player target = findNearestPlayer(entity, range);
-            if (target == null) continue;
-
-            int cooldown = sc.getInt("cooldown-ticks", 100);
-            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-
-            // ghastly 与 necromancer 共享投射物冷却，错开释放
-            if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
-                long lastProj = state.getBuff(com.infernalmobs.skill.impl.RangeNecromancerSkill.PROJECTILE_BUFF);
-                if (lastProj > 0 && currentTick - lastProj < 40) continue;
-            }
-
-            SkillContext ctx = new SkillContext(plugin, entity, state);
-            ctx.setTargetPlayer(target);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixAttemptEvent(affix, ctx, entity, target, state)) continue;
-
-            double chance = sc.getDouble("chance", 0.02);
-            if (Math.random() >= chance) continue;
-
-            affix.getSkill().onTrigger(ctx, sc);
-            if (ctx.isTriggered()) {
-                ctx.commitCooldown(affix.getSkillId(), cooldown);
-                if ("ghastly".equals(affix.getSkillId()) || "necromancer".equals(affix.getSkillId())) {
-                    state.setBuff(com.infernalmobs.skill.impl.RangeNecromancerSkill.PROJECTILE_BUFF, currentTick);
-                }
-            }
-        }
-    }
-
-    /**
-     * 怪物对玩家造成伤害时触发 ACTIVE 技能。
-     */
-    private void triggerActiveSkills(EntityDamageByEntityEvent event, LivingEntity damager,
-                                     Player victim, MobState state) {
-        for (Affix affix : state.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.ACTIVE) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-            int cooldown = sc.getInt("cooldown-ticks", 100);
-            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-            SkillContext ctx = new SkillContext(plugin, damager, state);
-            ctx.setTargetPlayer(victim);
-            ctx.setTriggerEvent(event);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixAttemptEvent(affix, ctx, damager, victim, state)) continue;
-            affix.getSkill().onTrigger(ctx, sc);
-            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldown);
-        }
-    }
-
-    /** DUAL 技能：怪物攻击玩家时触发 */
-    private void triggerDualSkills(LivingEntity damager, Player victim, MobState state) {
-        for (Affix affix : state.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.DUAL) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-            int cooldown = sc.getInt("cooldown-ticks", 60);
-            if (cooldown > 0 && state.isOnCooldown(affix.getSkillId(), currentTick)) continue;
-            SkillContext ctx = new SkillContext(plugin, damager, state);
-            ctx.setTargetPlayer(victim);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            if (!fireAffixAttemptEvent(affix, ctx, damager, victim, state)) continue;
-            affix.getSkill().onTrigger(ctx, sc);
-            if (ctx.isTriggered()) ctx.commitCooldown(affix.getSkillId(), cooldown);
-        }
+        skillSessionManager.cancelAll();
+        mobRegistry.clear();
     }
 
     /**
@@ -638,63 +195,7 @@ public class CombatService {
      */
     public void onMobDeath(EntityDeathEvent event, LivingEntity entity, MobState mobState,
                            List<ItemStack> collectTo) {
-        Player killer = entity.getKiller();
-        for (Affix affix : mobState.getProfile().getAffixes()) {
-            if (affix.getSkill().getType() != SkillType.DEATH) continue;
-            SkillConfig sc = config.getSkillConfig(affix.getSkillId());
-            if (sc == null) continue;
-            SkillContext ctx = new SkillContext(plugin, entity, mobState);
-            ctx.setTargetPlayer(killer);
-            ctx.setTriggerEvent(event);
-            ctx.setCurrentTick(currentTick);
-            if (mobFactory != null) ctx.setMobFactory(mobFactory);
-            ctx.setCollectTo(collectTo);
-            if (!fireAffixAttemptEvent(affix, ctx, entity, killer, mobState)) continue;
-            affix.getSkill().onTrigger(ctx, sc);
-        }
-    }
-
-    /**
-     * 在非 STAT 词条进入技能条件与概率判定前广播 {@link InfernalAffixAttemptEvent}。
-     * 调用本方法前应先完成冷却、目标等内部资格检查；取消后不继续判定，也不产生新冷却。
-     */
-    private boolean fireAffixAttemptEvent(Affix affix, SkillContext ctx,
-                                          LivingEntity mob, LivingEntity target, MobState state) {
-        if (affix.getSkill().getType() == SkillType.STAT) return true;
-        if (plugin == null) return true;
-        InfernalMobHandle handle = new InfernalMobHandle(mob,
-                state.getProfile().getLevel(), state.getProfile().getAffixIds(),
-                state.getSuppressedAffixes());
-        ctx.setHandle(handle);
-        InfernalAffixAttemptEvent event = new InfernalAffixAttemptEvent(
-                affix.getSkillId(), affix.getSkill().getType(), mob, target, handle,
-                state.getProfile().getLevel());
-        plugin.getServer().getPluginManager().callEvent(event);
-        return !event.isCancelled();
-    }
-
-    /**
-     * 扫描 enabled-worlds 中所有生物：有 im_level 的 PDC 但不是炒鸡怪（未注册）的则移除。
-     * 返回移除的实体数量。可由指令 /im cleantags 或定期清理调用。
-     */
-    public int removeOrphanedImLevelEntities() {
-        List<String> worlds = config.getEnabledWorlds();
-        if (worlds == null || worlds.isEmpty()) return 0;
-
-        NamespacedKey key = new NamespacedKey(plugin, IM_LEVEL);
-        int count = 0;
-        for (String name : worlds) {
-            org.bukkit.World w = plugin.getServer().getWorld(name);
-            if (w == null) continue;
-            for (LivingEntity entity : new ArrayList<>(w.getLivingEntities())) {
-                if (!entity.isValid() || entity instanceof Player) continue;
-                if (!entity.getPersistentDataContainer().has(key, PersistentDataType.INTEGER)) continue;
-                if (mobStates.containsKey(entity.getUniqueId())) continue;  // 是炒鸡怪，跳过
-                entity.remove();
-                count++;
-            }
-        }
-        return count;
+        deathSkillService.trigger(event, entity, mobState, collectTo, currentTick, mobFactory);
     }
 
     /** 清除指定位置半径内的炒鸡怪，返回清除数量。 */
@@ -702,43 +203,26 @@ public class CombatService {
         if (center == null || center.getWorld() == null || radius <= 0) return 0;
         double radiusSq = radius * radius;
         int count = 0;
-        for (UUID uuid : new ArrayList<>(mobStates.keySet())) {
+        for (UUID uuid : mobRegistry.idsSnapshot()) {
             LivingEntity entity = findEntity(uuid);
-            if (entity == null || !entity.isValid()) {
+            MobState state = mobRegistry.get(uuid);
+            if (entity == null || !entity.isValid() || state == null) {
                 unregisterMob(uuid);
                 continue;
             }
             if (!entity.getWorld().equals(center.getWorld())) continue;
             if (center.distanceSquared(entity.getLocation()) > radiusSq) continue;
+            unequipAndUnregister(entity, state, SkillService.UnequipReason.ADMIN_REMOVE);
             entity.remove();
-            unregisterMob(uuid);
             count++;
         }
         return count;
     }
 
-    /**
-     * 按 UUID 取实体。必须用 {@link org.bukkit.Server#getEntity(UUID)}，禁止每 tick 全服遍历生物（会随实体数爆炸）。
-     */
     private LivingEntity findEntity(UUID uuid) {
         if (uuid == null) return null;
         Entity e = plugin.getServer().getEntity(uuid);
         if (!(e instanceof LivingEntity le)) return null;
         return le.isValid() ? le : null;
-    }
-
-
-    private Player findNearestPlayer(LivingEntity entity, double range) {
-        Player nearest = null;
-        double minSq = range * range;
-        for (Player p : entity.getWorld().getPlayers()) {
-            if (!p.isOnline() || p.getGameMode() == org.bukkit.GameMode.SPECTATOR) continue;
-            double dSq = p.getLocation().distanceSquared(entity.getLocation());
-            if (dSq < minSq) {
-                minSq = dSq;
-                nearest = p;
-            }
-        }
-        return nearest;
     }
 }

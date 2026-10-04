@@ -1,7 +1,7 @@
 name: InfernalMobs
 version: ${project.version}
 main: com.infernalmobs.InfernalMobsPlugin
-api-version: '1.21.4'
+api-version: '26.2'
 description: 炒鸡怪 - 丰富原版怪物战斗的 Infernal 风格插件
 author: MCZJU
 softdepend:
@@ -10,7 +10,7 @@ softdepend:
 commands:
   im:
     description: 炒鸡怪管理指令（需权限 infernalmobs.admin）
-    usage: /<command> <spawn|stats|debug|reload|clear|cleantags> [参数]
+    usage: /<command> <spawn|stats|debug|reload|clear> [参数]
 
 permissions:
   infernalmobs.admin:

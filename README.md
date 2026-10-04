@@ -15,10 +15,9 @@
 - [命令列表](#命令列表)
 - [配置文件说明](#配置文件说明)
   - [config.yml](#configyml)
-  - [loot.yml](#lootyml)
-  - [loot/&lt;N&gt;.yml](#lootnyml)
-  - [guaranteed_loot.yml](#guaranteed_lootyml)
-  - [loot_name.yml](#loot_nameyml)
+  - [loot/settings.yml](#lootsettingsyml)
+  - [loot/levels/&lt;N&gt;.yml](#lootlevelsnyml)
+  - [loot/guaranteed.yml](#lootguaranteedyml)
 - [区域系统](#区域系统)
 - [保底掉落](#保底掉落)
 - [炒鸡小动物保护](#炒鸡小动物保护)
@@ -30,8 +29,8 @@
 
 | 项目 | 要求 |
 |------|------|
-| 服务端 | Paper 1.21.4+（API `1.21.4-R0.1-SNAPSHOT`） |
-| Java | 17+ |
+| 服务端 | Paper API `26.2.build` 或更高版本 |
+| Java | 25 |
 | 软依赖 | [MCZJUItemCreator](https://github.com/mczju-ops/MCZJUItemCreator)（掉落与保底功能需要） |
 
 ---
@@ -66,7 +65,7 @@
 <dependency>
     <groupId>com.github.mczju-ops</groupId>
     <artifactId>MCZJUInfernalMobs-API</artifactId>
-    <version>1.1.0</version>   <!-- 发布 tag；开发期可用 master-SNAPSHOT 或 commit hash -->
+        <version>1.5.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -87,7 +86,7 @@ if (affixIds.contains(InfernalAffix.WITHERING.id())) {
 }
 
 String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
-// 优先返回 skill_name.yml 中配置的值；否则 config.yml 的 display；再退回英文 id
+// 返回 skills.yml 中 skills.<id>.display；未知 ID 退回英文 id
 // 例："<dark_purple>凋零</dark_purple>"
 ```
 
@@ -97,12 +96,13 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 
 - **炒鸡怪生成**：自然/刷怪笼等触发的生物，以可配置概率被「炒鸡化」——分配 **等级**、**词条** 及 **头顶显示名**。
 - **词条系统**：每只炒鸡怪携带若干技能词条，影响其战斗行为（毒、盲目、变形、窃取武器等）。等级越高词条越多。
-- **区域配置**：按世界坐标范围划分独立区域，支持自定义等级范围、技能池、变形白名单。
+- **区域配置**：按世界坐标范围划分独立区域，支持覆写等级权重、命名词条池、词条数量和变形池。
 - **掉落奖励**：与 MCZJUItemCreator 联动，按等级池抽取道具；支持月份轮换套与额外广播。
-- **保底掉落**：累计击杀到阈值后必定掉落指定物品，进度持久化。
+- **保底掉落**：累计等级池实际抽取次数达到阈值后必定掉落指定物品，进度持久化。
 - **击杀统计**：记录每位玩家对各等级炒鸡怪的击杀数，可指令查询。
 - **小动物保护**：可配置的生物类型列表，炒鸡版本死亡时不产生奖励，并在全服广播警告。
 - **特殊道具**：全知之眼（查看词条）、幻形之锁（封印变形）、缴械反制器（抵御窃取）。
+- **实体恢复**：等级、词条和跨加载玩法状态保存在实体 PDC 中，区块重新加载或服务器重启后恢复；仍遵循原版自然消失规则。
 
 ---
 
@@ -204,7 +204,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 - 大幅延长触发怪的 `thief` 技能冷却
 - 播放反制粒子与音效
 
-> 主手物品若带有 `im_thief_resistance` PDC 标记，可完全免疫缴械。
+> 主手物品若带有 `im_thief_resistance` PDC 标记，悦灵命中后会放弃夺取该物品；该标记不会阻止 `thief` 词条触发或悦灵生成。
 
 ---
 
@@ -220,125 +220,103 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 | `/im stats` | 显示当前追踪的炒鸡怪数量 |
 | `/im stats <玩家>` | 查看指定玩家的各等级击杀统计 |
 | `/im debug [on\|off]` | 临时开关调试输出（不写回配置） |
-| `/im reload` | 重载所有配置（含区域、loot、幻形白名单等） |
+| `/im reload` | 原子重载 `config.yml`、`skills.yml`、`regions.yml`、`messages.yml`；本阶段不重载掉落配置 |
 | `/im clear [半径]` | 清除周围炒鸡怪，半径默认 32（1–256） |
-| `/im cleantags` | 清理残留标签但未被管理的孤立实体 |
 
 ---
 
 ## 配置文件说明
 
+核心配置已经拆为四个文件。旧版配置不会被兼容读取或自动迁移，具体映射见 [配置迁移指南](docs/配置迁移指南.md)。
+
 ### config.yml
 
+只保存全局行为：配置版本、调试开关、经验倍率、启用世界、生成原因和自动生成实体白名单。只有世界和生成原因均符合时，`allow-types` 才参与普通自动炒鸡化判断；变形目标和坐骑类型使用各自的独立白名单。
+
 ```yaml
+config-version: 1
 debug: false
-
-# 启用炒鸡系统的世界列表
-enabled-worlds:
-  - world
-
-# 触发炒鸡化的生成原因（CreatureSpawnEvent.SpawnReason）
-infernal-spawn-reasons:
-  - NATURAL
-  - SPAWNER
-
-defaults:
-  level:
-    fallback-min: 1   # 无区域时等级下限
-    fallback-max: 5   # 无区域时等级上限
-  infernal:
-    allow-types: []   # 全局白名单（空=全部允许）
-    deny-types: []    # 全局黑名单
-  affix:
-    count-formula: level  # level = 等级几就几个词条
-    min: 1
-    max: 5
-
-# 技能权重（全局池，区域可覆盖）
-skill-weights:
-  poisonous: 10
-  morph: 5
-  # ...
-
-# 死亡播报配置
-death-messages:
-  enabled: true
-  broadcast-level-threshold: 8  # 达到此等级才全服播报
-  level-colors:
-    1: "#aaaaaa"
-    5: "#ffff55"
-    10: "#ff5555"
-    # ...
-
-# 炒鸡小动物保护
-protected-animals:
-  enabled: true
-  types:
-    - CAT
-    - RABBIT
-    - CHICKEN
-  kill-broadcast: "<red>{player} 欺负炒鸡小动物！"
-
-# 区域配置（见下方区域系统章节）
-regions:
-  example_region:
-    world: world_the_end
-    min: [-500, 0, -500]
-    max: [500, 256, 500]
-    priority: 10
-    level-min: 8
-    level-max: 15
-    skill-pool:
-      morph: 20
-      ender: 15
-    morph-types:
-      - ENDERMAN
-      - SHULKER
-
-# 各技能数值参数
-skills:
-  morph:
-    type: DUAL
-    display: "变身"
-    chance: 0.15
-    cooldown-ticks: 100
-    suppress-particle: TRIAL_OMEN
-    suppress-sound: BLOCK_VAULT_REJECT_REWARDED_PLAYER
-  thief:
-    type: DUAL
-    display: "窃取"
-    chance: 0.3
-    delay-ticks: 40
-    counter-duration-ticks: 300
-  # ...
+exp-multiplier: 5.0
+enabled-worlds: [world]
+infernal-spawn-reasons: [NATURAL, SPAWNER]
+allow-types: [] # 生成原因和世界均符合时生效；空列表表示不限制自动炒鸡化实体类型
 ```
+
+### skills.yml
+
+保存命名词条池、词条显示名和技能参数。技能类型由源码注册，不再配置 `type`。
+
+```yaml
+pools:
+  default:
+    poisonous: 10
+    morph: 5
+
+skills:
+  poisonous:
+    display: "<dark_green>剧毒</dark_green>"
+    duration-ticks: 200
+    amplifier: 1
+```
+
+### regions.yml
+
+`base-rules` 是完整基础规则。区域只允许在 `overrides` 中整体替换 `levels.weights`、`skill-pool`、`affix-count` 或 `morph-pool`；未出现的字段继承基础规则。
+
+```yaml
+base-rules:
+  levels:
+    weights: { "1": 10, "2": 5 }
+  skill-pool: default
+  affix-count: { formula: level, min: 1, max: 15 }
+  morph-pool: [ZOMBIE, SKELETON]
+
+regions:
+  example:
+    world: world
+    min: [-500, -64, -500]
+    max: [500, 320, 500]
+    priority: 10
+    overrides:
+      levels:
+        weights: { "3": 10, "4": 5 }
+```
+
+### messages.yml
+
+保存死亡播报和保护动物消息。原版实体名使用客户端翻译，`mob_name.yml` 和 `skill_name.yml` 已删除。
 
 ---
 
-### loot.yml
+### loot/settings.yml
 
 ```yaml
-enable: true
-replace-vanilla-drops: true   # 是否替换原版掉落
+enabled: true
+replace-vanilla-drops: true   # 清空原版掉落，但保留六个装备槽中掉落率 >= 100% 的装备
 
 # 月份轮换套（set 1～N 按月交替）
 rotation:
-  enable: false
+  enabled: false
   sets: 3
 
 # 每次击杀额外掉落次数（按等级映射）
 drop-times:
-  enable: true
   fallback: [1, 1]     # [最少, 最多]
   1:  [1, 1]
   5:  [1, 2]
   10: [2, 3]
   15: [3, 5]
+
+special:
+  enabled: true
+  item-id: nether_star
+  rates:
+    WARDEN: 0.8
 ```
 
 ---
 
-### loot/&lt;N&gt;.yml
+### loot/levels/&lt;N&gt;.yml
 
 等级 `N`（1–15）对应的奖励池，文件名即等级编号。
 
@@ -359,64 +337,52 @@ rewards:
 
 ---
 
-### guaranteed_loot.yml
+### loot/guaranteed.yml
 
 ```yaml
-enable: true
+enabled: true
+
+rotation:
+  enabled: true
+  sets: 2
 
 rules:
   my_rule:
-    level-min: 10      # 适用等级范围
+    level-min: 10
     level-max: 99
-    count: 500         # 每累计击杀 500 次必得
-    item-id: nether_star
-    item-amount: 1
-    reset-on-drop: true          # 达标后重置进度
-    progress-id: shared_prog     # 可选，多规则共用进度条
-    rotation-set: 1              # 可选，仅限指定轮换套期间
+    required-rolls: 500          # 累计等级池实际抽取次数
+    reset-after-reward: true
+    rewards:
+      - item-id: reward_a
+        amount: 1
+        rotation-set: 1
+      - item-id: reward_b
+        amount: 1
+        rotation-set: 2
 ```
 
-进度数据存储在 `guaranteed_loot_progress.yml`（自动创建）。
+每条规则只累计一次进度，并按当前轮换套选择一个奖励。达到阈值后，`reset-after-reward: true` 会直接归零；否则标记为永久完成。进度存储在 `data/guaranteed_loot_progress.yml`。
 
----
-
-### loot_name.yml
-
-```yaml
-# ItemCreator 物品 ID → 广播中显示的中文名
-infernal_exchange_token: "炒鸡兑换券"
-thief_counter: "缴械反制器"
-```
+等级奖励池会在启动或 `/im reload` 时完整读入不可变快照，战斗期间不读取 YAML。`loot_name.yml` 已删除，广播名称取实际生成的 `ItemStack` 名称组件。
 
 ---
 
 ## 区域系统
 
-插件按世界 + 轴对齐包围盒（AABB）划分区域，每个区域可独立配置：
+插件按世界和轴对齐包围盒划分区域。重叠时取 `priority` 最高者；同优先级按 YAML 声明顺序取第一个。配置加载时，每个区域都会解析为完整的最终规则，生成过程中不再临时合并 YAML。
 
-| 配置项 | 说明 |
-|--------|------|
-| `world` | 世界名 |
-| `min` / `max` | 三维坐标 `[x, y, z]` |
-| `priority` | 优先级，多区域重叠时取最高值 |
-| `level-min` / `level-max` | 等级随机范围 |
-| `infernal-allow-types` | 区域内允许的实体类型（覆盖全局） |
-| `infernal-deny-types` | 区域内禁止的实体类型 |
-| `skill-pool` | 区域技能权重（完全覆盖全局池） |
-| `morph-types` | `morph` 词条的变形目标池（可选） |
-
-生成时，服务端按 **priority 从高到低** 找第一个坐标命中的区域；若无匹配区域则使用 `defaults.level.fallback-min/max`。
+区域只可覆写四项：逐等级权重 `levels.weights`、命名池引用 `skill-pool`、词条数量 `affix-count`、变形目标 `morph-pool`。字段存在时整体替换，缺失时继承 `base-rules`。第一版不支持区域实体过滤、任意深层合并或多层继承。
 
 ---
 
 ## 保底掉落
 
-`GuaranteedLootService` 追踪每位玩家的击杀进度：
+`GuaranteedLootService` 追踪每位玩家的等级池抽取进度：
 
-1. 击杀一只非保护动物的炒鸡怪，且等级落在规则的 `level-min`～`level-max` 之间，则该规则计数 +1。
-2. 计数达到 `count` 后，向玩家发放 `item-id` 指定的 ItemCreator 物品。
-3. 若 `reset-on-drop: true`，发放后进度归零；否则保留累计值。
-4. `progress-id` 相同的多条规则共用同一进度条，适合多奖励共享计数。
+1. 击杀一只非保护动物的炒鸡怪，且该等级存在当前可抽取奖励时，按本次 `drop-times` 结果增加规则进度。
+2. 进度达到 `required-rolls` 后，按当前轮换套选择规则内的一个奖励。
+3. 若 `reset-after-reward: true`，发放后直接归零；否则标记为已完成并停止累计。
+4. 特殊实体掉落、保底奖励和 API 主动抽取不会增加进度。
 
 ---
 
@@ -435,5 +401,23 @@ thief_counter: "缴械反制器"
 ## 击杀统计
 
 - `/im stats <玩家>` 显示该玩家对各等级炒鸡怪的击杀次数与总计。
-- 数据存储于 `kill_stats.yml`（自动创建目录与文件）。
-- 定时自动落盘，服务器关闭时强制保存。
+- 玩家统计存储于 `data/kill_stats.yml`。
+- 全服按等级、实体类型统计由玩家击杀的炒鸡怪数量，存储于 `data/mob_kill_stats.yml`；受保护小动物也计入该全服统计。
+- 运行期间查询和更新只访问内存；运行数据每分钟异步保存一次，插件关闭时执行最终保存，失败会在下个周期重试。
+
+全服统计使用完整实体类型 ID，`levels` 保存按等级明细，`all-levels` 保存所有等级合计：
+
+```yaml
+data-version: 1
+all-levels:
+  "minecraft:zombie": 15
+  "minecraft:cow": 2
+levels:
+  "1":
+    "minecraft:zombie": 10
+    "minecraft:cow": 2
+  "2":
+    "minecraft:zombie": 5
+```
+
+加载时以 `levels` 为权威数据重新计算 `all-levels`；两者不一致时会记录警告，并在下一次保存时修正总表。

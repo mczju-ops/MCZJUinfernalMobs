@@ -5,6 +5,8 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.Keys;
+import com.infernalmobs.util.PdcHandleCodec;
 import org.bukkit.Location;
 import org.bukkit.entity.LightningStrike;
 import org.bukkit.entity.Player;
@@ -56,15 +58,13 @@ public class DualStormSkill implements Skill {
         }
 
         LightningStrike lightning = finalLocation.getWorld().strikeLightning(finalLocation);
-        lightning.setMetadata("infernalmobs_skill_id",
-                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), getId()));
-        lightning.setMetadata("infernalmobs_source",
-                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getEntity().getUniqueId()));
-        lightning.setMetadata("infernalmobs_storm_handle",
-                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), ctx.getHandle()));
-        lightning.setMetadata("infernalmobs_storm_level",
-                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getLevel()));
-        lightning.setMetadata("infernalmobs_damage",
-                new org.bukkit.metadata.FixedMetadataValue(ctx.getPlugin(), event.getDamage()));
+        var pdc = lightning.getPersistentDataContainer();
+        pdc.set(Keys.STORM_SKILL_ID, org.bukkit.persistence.PersistentDataType.STRING, getId());
+        pdc.set(Keys.STORM_SOURCE, org.bukkit.persistence.PersistentDataType.STRING,
+                ctx.getEntity().getUniqueId().toString());
+        pdc.set(Keys.STORM_LEVEL, org.bukkit.persistence.PersistentDataType.INTEGER, event.getLevel());
+        pdc.set(Keys.STORM_DAMAGE, org.bukkit.persistence.PersistentDataType.DOUBLE, event.getDamage());
+        PdcHandleCodec.write(pdc, ctx.getOrCreateHandle(), Keys.STORM_HANDLE_AFFIXES,
+                Keys.STORM_HANDLE_SUPPRESSED, Keys.STORM_HANDLE_DISPLAY_NAME);
     }
 }

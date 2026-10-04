@@ -5,6 +5,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -55,10 +56,6 @@ public class RangeTosserSkill implements Skill {
         if (!ctx.fire(event)) return;
         player.setVelocity(toMob.multiply(event.getForce()).setY(event.getUpward()));
 
-        String soundKey = config.getString("sound", "ENTITY_BREEZE_JUMP");
-        try {
-            org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            player.getWorld().playSound(player.getLocation(), sound, 1f, 0.8f);
-        } catch (IllegalArgumentException ignored) {}
+            SoundPlayback.broadcast(player.getLocation(), config.getSound("sound"));
     }
 }

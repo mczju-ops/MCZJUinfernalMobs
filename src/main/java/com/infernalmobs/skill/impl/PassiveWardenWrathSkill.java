@@ -5,6 +5,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -119,17 +120,9 @@ public class PassiveWardenWrathSkill implements Skill {
         Location mobLoc = ctx.getEntity().getEyeLocation();
         Location playerLoc = player.getLocation().add(0, player.getHeight() * 0.5, 0);
         boolean soundAtPlayer = config.getBoolean("sound-at-player", true);
-        float soundVolume = (float) config.getDouble("sound-volume", 1.8);
-
-        String soundKey = config.getString("sound", "ENTITY_WARDEN_SONIC_BOOM");
-        try {
-            org.bukkit.Sound sound = org.bukkit.Sound.valueOf(soundKey.toUpperCase().replace(".", "_"));
-            Location soundAt = soundAtPlayer ? playerLoc : mobLoc;
-            soundAt.getWorld().playSound(soundAt, sound, soundVolume, 1f);
-            debugLog(ctx, "音效已播放 at=" + (soundAtPlayer ? "player" : "mob"));
-        } catch (IllegalArgumentException e) {
-            debugLog(ctx, "音效失败: " + soundKey + " " + e.getMessage());
-        }
+        Location soundAt = soundAtPlayer ? playerLoc : mobLoc;
+        SoundPlayback.broadcast(soundAt, config.getSound("sound"));
+        debugLog(ctx, "音效已播放 at=" + (soundAtPlayer ? "player" : "mob"));
 
         boolean particleEnabled = config.getBoolean("particle-sonic-boom", true);
         debugLog(ctx, "particle-sonic-boom=" + particleEnabled);

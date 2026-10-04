@@ -3,15 +3,16 @@ package com.infernalmobs.skill.impl;
 import com.infernalmobs.api.event.affix.effect.InfernalMobSpearHitEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMobSpearEvent;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.config.SoundConfig;
 import com.infernalmobs.skill.Skill;
 import com.infernalmobs.skill.SkillContext;
 import com.infernalmobs.skill.SkillType;
+import com.infernalmobs.service.SkillSessionManager;
+import com.infernalmobs.util.SoundPlayback;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.GameMode;
-import org.bukkit.Sound;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.enchantments.Enchantment;
@@ -25,12 +26,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -73,9 +69,6 @@ public class RangeSpearSkill implements Skill {
         if (target.getGameMode() == GameMode.CREATIVE || target.getGameMode() == GameMode.SPECTATOR) return;
         if (activeSpears.containsKey(mob.getUniqueId())) return;
 
-        Set<EntityType> holders = parseEntityTypeSet(config, "enabled-holders");
-        if (!holders.isEmpty() && !holders.contains(mob.getType())) return;
-
         EntityEquipment equip = mob.getEquipment();
         if (equip == null) return;
 
@@ -87,7 +80,11 @@ public class RangeSpearSkill implements Skill {
         int lungeTicks = Math.max(1, config.getInt("lunge-ticks", 30));
         int speedAmplifier = Math.max(0, config.getInt("lunge-speed-amplifier", 4));
         int sharpnessLevel = Math.max(0, config.getInt("sharpness-level", 5));
-        ItemStack spearItem = createSpearItem(config.getString("item", "NETHERITE_SPEAR"), sharpnessLevel);
+        ItemStack spearItem = createSpearItem(
+                config.getMaterial("item", Material.NETHERITE_SPEAR), sharpnessLevel);
+        SoundConfig chargeSound = config.getSound("charge-sound");
+        SoundConfig chargeMidSound = config.getSound("charge-mid-sound");
+        SoundConfig lungeSound = config.getSound("lunge-sound");
 
         InfernalMobSpearEvent event = new InfernalMobSpearEvent(
                 mob, target, ctx.getHandle(), ctx.getMobState().getProfile().getLevel(),
@@ -110,7 +107,7 @@ public class RangeSpearSkill implements Skill {
         equip.setItemInMainHand(spearItem);
         equip.setItemInMainHandDropChance(0f);
 
-        mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_STUNNED, 1.0f, 2.0f);
+        SoundPlayback.broadcast(mob.getLocation(), chargeSound);
 
         BukkitRunnable task = new BukkitRunnable() {
             private int tick;
@@ -134,7 +131,7 @@ public class RangeSpearSkill implements Skill {
                         mob.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, ringLoc, 1, 0, 0, 0, 0);
                     }
                     if (tick == active.chargeTicks / 2) {
-                        mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_RAVAGER_STUNNED, 1.0f, 2.0f);
+                        SoundPlayback.broadcast(mob.getLocation(), chargeMidSound);
                     }
                     tick++;
                     return;
@@ -147,7 +144,7 @@ public class RangeSpearSkill implements Skill {
                             false, false, true);
                     active.speedEffectApplied = mob.addPotionEffect(active.spearSpeedEffect);
                     active.phase = SpearPhase.LUNGING;
-                    mob.getWorld().playSound(mob.getLocation(), Sound.ITEM_SPEAR_LUNGE_3, 1.0f, 2.0f);
+                    SoundPlayback.broadcast(mob.getLocation(), lungeSound);
                 }
 
                 Vector facing = mob.getLocation().getDirection().setY(0);
@@ -168,6 +165,8 @@ public class RangeSpearSkill implements Skill {
             }
         };
         active.task = task;
+        getSessionManager(ctx).register(mob.getUniqueId(), getId(),
+                () -> finishSession(active, false));
         task.runTaskTimer(ctx.getPlugin(), 0L, 1L);
     }
 
@@ -203,6 +202,7 @@ public class RangeSpearSkill implements Skill {
     private void finishSession(ActiveSpear active, boolean deferCleanup) {
         if (active == null || !active.finished.compareAndSet(false, true)) return;
         activeSpears.remove(active.mob.getUniqueId(), active);
+        getSessionManager(active.ctx).unregister(active.mob.getUniqueId(), getId());
         if (active.task != null) active.task.cancel();
 
         if (deferCleanup && active.ctx.getPlugin().isEnabled()) {
@@ -228,6 +228,11 @@ public class RangeSpearSkill implements Skill {
         }
     }
 
+    private SkillSessionManager getSessionManager(SkillContext ctx) {
+        return ((com.infernalmobs.InfernalMobsPlugin) ctx.getPlugin())
+                .getCombatService().getSkillSessionManager();
+    }
+
     private boolean isSameSpearSpeed(PotionEffect current, PotionEffect spear) {
         return current != null && spear != null
                 && current.getAmplifier() == spear.getAmplifier()
@@ -248,40 +253,19 @@ public class RangeSpearSkill implements Skill {
                 previous.getAmplifier(), previous.isAmbient(), previous.hasParticles(), previous.hasIcon()));
     }
 
-    private ItemStack createSpearItem(String itemName, int sharpnessLevel) {
-        try {
-            Material material = Material.valueOf(itemName.trim().toUpperCase());
-            if (material.isItem()) {
-                ItemStack item = new ItemStack(material);
-                if (sharpnessLevel > 0) {
-                    ItemMeta meta = item.getItemMeta();
-                    if (meta != null) {
-                        meta.addEnchant(Enchantment.SHARPNESS, sharpnessLevel, true);
-                        item.setItemMeta(meta);
-                    }
+    private ItemStack createSpearItem(Material material, int sharpnessLevel) {
+        if (material != null && material.isItem()) {
+            ItemStack item = new ItemStack(material);
+            if (sharpnessLevel > 0) {
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.addEnchant(Enchantment.SHARPNESS, sharpnessLevel, true);
+                    item.setItemMeta(meta);
                 }
-                return item;
             }
-        } catch (IllegalArgumentException | NullPointerException ignored) {
+            return item;
         }
         return new ItemStack(Material.NETHERITE_SPEAR);
-    }
-
-    private Set<EntityType> parseEntityTypeSet(SkillConfig config, String... keys) {
-        Set<EntityType> out = new HashSet<>();
-        if (config == null || keys == null) return out;
-        for (String key : keys) {
-            if (key == null || key.isBlank()) continue;
-            List<String> raw = config.getStringList(key);
-            if (raw == null || raw.isEmpty()) continue;
-            for (String s : raw) {
-                if (s == null || s.isBlank()) continue;
-                try {
-                    out.add(EntityType.valueOf(s.trim().toUpperCase(Locale.ROOT)));
-                } catch (IllegalArgumentException ignored) {}
-            }
-        }
-        return out;
     }
 
     private enum SpearPhase {

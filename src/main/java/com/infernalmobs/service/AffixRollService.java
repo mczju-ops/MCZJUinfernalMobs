@@ -11,8 +11,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 词条抽取服务。
- * 词条数量：count-formula=level 时 n级n条；否则用 tier 公式。
- * 技能池：区域有 skill-pool 则用区域，否则用全局。
+ * 词条数量等于等级并受 min/max 限制；技能池来自加载期解析完成的最终生成规则。
  */
 public class AffixRollService {
 
@@ -77,30 +76,26 @@ public class AffixRollService {
 
     /**
      * 根据等级与区域计算词条数量。
-     * "level" = n 级 n 条；"tier" = min + floor(level/tier-threshold)。
+     * 词条数量等于等级，再受配置的 min/max 边界限制。
      */
     public int computeAffixCount(int level, RegionConfig region) {
-        String formula = config.getAffixCountFormula();
-        if ("level".equalsIgnoreCase(formula)) {
-            return Math.max(config.getAffixMin(), Math.min(level, config.getAffixMax()));
-        }
-        int tier = level / config.getAffixTierThreshold();
-        int count = config.getAffixMin() + tier;
-        return Math.min(count, config.getAffixMax());
+        return (region != null
+                ? region.rules().affixCount()
+                : config.currentSnapshot().baseSpawnRules().affixCount())
+                .countForLevel(level);
     }
 
     /**
      * 从技能池中抽取指定数量的词条。
-     * region 有 skillPool 则用区域池，否则用全局 skillWeights。
      * 保证：同一只怪物内不重复（n 级最多 n 个不同词条，受全局 max 与池大小限制）。
      */
     public List<Affix> rollAffixes(int level, int count, RegionConfig region) {
-        Map<String, Integer> weights = region != null && !region.getSkillPool().isEmpty()
-                ? region.getSkillPool()
-                : config.getSkillWeights();
+        Map<String, Integer> weights = region != null
+                ? region.rules().skillPool()
+                : config.currentSnapshot().baseSpawnRules().skillPool();
         if (weights.isEmpty()) return Collections.emptyList();
 
-        // 鏋勫缓鍙敤鎶?鑳芥睜
+        // 构建可用技能池。
         List<String> ids = new ArrayList<>();
         List<Integer> weightList = new ArrayList<>();
         for (String id : weights.keySet()) {
@@ -111,7 +106,7 @@ public class AffixRollService {
         }
         if (ids.isEmpty()) return Collections.emptyList();
 
-        // 瀹為檯鏁伴噺涓嶈兘瓒呰繃姹犱腑鍙敤鎶?鑳芥暟锛岄伩鍏嶉噸澶?
+        // 实际数量不能超过池中可用技能数，避免重复。
         int actualCount = Math.min(count, ids.size());
 
         List<Affix> result = new ArrayList<>();
@@ -121,7 +116,7 @@ public class AffixRollService {
             if (skill == null) continue;
             result.add(new Affix(skillId, skill));
 
-            // 涓嶅啀鍏佽閫夊埌鍚屼竴涓妧鑳斤細绉婚櫎璇ユ潯鐩紝瀹炵幇鈥滄棤鏀惧洖鎶藉彇鈥?
+            // 移除已抽中的技能，实现无放回抽取。
             int idx = ids.indexOf(skillId);
             if (idx >= 0) {
                 ids.remove(idx);
@@ -162,9 +157,9 @@ public class AffixRollService {
         int remaining = count - result.size();
         if (remaining <= 0) return result;
 
-        Map<String, Integer> weights = region != null && !region.getSkillPool().isEmpty()
-                ? region.getSkillPool()
-                : config.getSkillWeights();
+        Map<String, Integer> weights = region != null
+                ? region.rules().skillPool()
+                : config.currentSnapshot().baseSpawnRules().skillPool();
         if (weights.isEmpty()) return result;
 
         List<String> ids = new ArrayList<>();
@@ -199,9 +194,9 @@ public class AffixRollService {
                 ? new HashSet<>(excludedSkillIds)
                 : Collections.emptySet();
 
-        Map<String, Integer> weights = region != null && !region.getSkillPool().isEmpty()
-                ? region.getSkillPool()
-                : config.getSkillWeights();
+        Map<String, Integer> weights = region != null
+                ? region.rules().skillPool()
+                : config.currentSnapshot().baseSpawnRules().skillPool();
         if (weights.isEmpty()) return Collections.emptyList();
 
         List<String> ids = new ArrayList<>();
@@ -231,25 +226,14 @@ public class AffixRollService {
         return sorted(result);
     }
 
-    /** 从预设构建固定词条列表。 */
-    public List<Affix> fromPreset(com.infernalmobs.config.PresetConfig preset) {
-        List<Affix> result = new ArrayList<>();
-        for (com.infernalmobs.config.PresetConfig.SkillEntry e : preset.getSkills()) {
-            Skill skill = SkillRegistry.get(e.getId());
-            if (skill == null) continue;
-            result.add(new Affix(e.getId(), skill));
-        }
-        return sorted(result);
-    }
-
     private String rollOne(List<String> ids, List<Integer> weights) {
         int total = weights.stream().mapToInt(Integer::intValue).sum();
-        if (total <= 0) return ids.get(0);
+        if (total <= 0) return ids.getFirst();
         int r = ThreadLocalRandom.current().nextInt(total);
         for (int i = 0; i < ids.size(); i++) {
             r -= weights.get(i);
             if (r < 0) return ids.get(i);
         }
-        return ids.get(ids.size() - 1);
+        return ids.getLast();
     }
 }

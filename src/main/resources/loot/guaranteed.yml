@@ -1,0 +1,37 @@
+# 保底进度按等级池实际抽取次数累计，不按击杀数累计
+enabled: true
+
+# 轮换配置（按月切换激活套号）
+# sets 为总套数；规则内每个奖励可用 rotation-set 指定生效套号
+rotation:
+  enabled: false
+  sets: 2
+
+rules:
+  # 规则 id 同时也是 data/guaranteed_loot_progress.yml 中的进度 id
+  certificate_progress:
+    level-min: 10
+    level-max: 15
+    required-rolls: 1000
+    reset-after-reward: true
+    rewards:
+      - item-id: infernal_hero_certificate
+        amount: 1
+        rotation-set: 1
+      - item-id: infernal_magic_king_certificate
+        amount: 1
+        rotation-set: 2
+
+  # 一个进度规则可按轮换套选择不同奖励；同一套号在一条规则中只能出现一次
+  # rotating_example:
+  #   level-min: 10
+  #   level-max: 100
+  #   required-rolls: 500
+  #   reset-after-reward: true
+  #   rewards:
+  #     - item-id: reward_a
+  #       amount: 1
+  #       rotation-set: 1
+  #     - item-id: reward_b
+  #       amount: 1
+  #       rotation-set: 2

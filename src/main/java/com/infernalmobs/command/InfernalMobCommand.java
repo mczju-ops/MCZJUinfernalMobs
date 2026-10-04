@@ -49,7 +49,8 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private final CombatService combatService;
     private final KillStatsService killStatsService;
 
-    public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory, CombatService combatService, KillStatsService killStatsService) {
+    public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory,
+                              CombatService combatService, KillStatsService killStatsService) {
         this.plugin = plugin;
         this.configLoader = configLoader;
         this.mobFactory = mobFactory;
@@ -87,7 +88,6 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         if ("stats".equals(sub)) return handleStats(sender, args);
         if ("debug".equals(sub)) return handleDebug(sender, args);
         if ("clear".equals(sub)) return handleClear(sender, args);
-        if ("cleantags".equals(sub)) return handleCleanTags(sender);
         sendHelp(sender);
         return true;
     }
@@ -368,18 +368,19 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private boolean handleCleanTags(CommandSender sender) {
-        int count = combatService.removeOrphanedImLevelEntities();
-        send(sender, "<green>已清除 <count> 只有 im_level 标签但非炒鸡怪的孤立实体",
-                Placeholder.unparsed("count", String.valueOf(count)));
-        return true;
-    }
-
     private boolean handleReload(CommandSender sender) {
         try {
-            if (plugin != null) plugin.reloadRuntimeConfig();
-            else configLoader.reload();
-            send(sender, "<green>已重新加载炒鸡怪插件下所有配置文件");
+            var result = plugin != null ? plugin.reloadRuntimeConfig() : configLoader.reload();
+            if (!result.committed()) {
+                send(sender, "<red>重载失败，已继续使用旧配置。错误 <errors> 条，警告 <warnings> 条",
+                        Placeholder.unparsed("errors", String.valueOf(result.errorCount())),
+                        Placeholder.unparsed("warnings", String.valueOf(result.warningCount())));
+            } else if (result.degraded()) {
+                send(sender, "<yellow>配置已重载，但存在降级项。请检查控制台中的 <count> 条诊断",
+                        Placeholder.unparsed("count", String.valueOf(result.diagnostics().size())));
+            } else {
+                send(sender, "<green>已重新加载全部配置文件");
+            }
         } catch (Exception e) {
             send(sender, "<red>重载失败: <err>", Placeholder.unparsed("err", e.getMessage()));
         }
@@ -394,15 +395,14 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
         send(sender, "<gray>  例: /im spawnat 100 64 -200 world zombie 8 morph,ender</gray>");
         send(sender, "<yellow>/im stats [玩家]</yellow> <gray>- 查看追踪数，或指定玩家的击杀统计</gray>");
         send(sender, "<yellow>/im debug [on|off]</yellow> <gray>- 调试：技能日志与 mechanize 区域/等级输出</gray>");
-        send(sender, "<yellow>/im reload</yellow> <gray>- 从 config.yml 重新加载技能参数等配置</gray>");
+        send(sender, "<yellow>/im reload</yellow> <gray>- 完整校验并重载全部配置</gray>");
         send(sender, "<yellow>/im clear [半径]</yellow> <gray>- 清除周围指定半径内的炒鸡怪，默认 32</gray>");
-        send(sender, "<yellow>/im cleantags</yellow> <gray>- 清除有 im_level 标签但非炒鸡怪的孤立实体</gray>");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spawn", "spawnat", "stats", "debug", "reload", "clear", "cleantags").stream()
+            return Arrays.asList("spawn", "spawnat", "stats", "debug", "reload", "clear").stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }

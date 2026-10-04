@@ -1,0 +1,529 @@
+# 命名词条池。区域通过名称引用，字段出现时整体替换基础池。
+pools:
+  default:
+    poisonous: 10
+    armoured: 10
+    blinding: 10
+    withering: 10
+    quicksand: 10
+    bullwark: 10
+    1up: 10
+    cloaked: 10
+    ender: 10
+    ghastly: 10
+    lifesteal: 10
+    sprint: 10
+    sapper: 10
+    webber: 10
+    molten: 10
+    archer: 10
+    necromancer: 10
+    firework: 10
+    ghost: 10
+    confusing: 10
+    thief: 10
+    tosser: 10
+    storm: 10
+    vengeance: 10
+    weakness: 10
+    berserk: 10
+    mama: 10
+    gravity: 10
+    mounted: 10
+    morph: 10
+    refrigerate: 10
+    rust: 1
+    vexsummoner: 1
+    wardenwrath: 1
+    swap: 1
+
+  spawn: # 新手区
+    poisonous: 10
+    armoured: 10
+    blinding: 10
+    withering: 10
+    quicksand: 10
+    bullwark: 10
+    1up: 10
+    cloaked: 10
+    ender: 10
+    ghastly: 10
+    lifesteal: 10
+    sprint: 10
+    sapper: 10
+    webber: 10
+    molten: 10
+    archer: 10
+    necromancer: 10
+    firework: 10
+    ghost: 10
+    confusing: 10
+    thief: 1
+    tosser: 1
+    storm: 1
+    vengeance: 1
+    weakness: 1
+    berserk: 1
+    mama: 1
+    gravity: 1
+    mounted: 1
+    morph: 1
+    refrigerate: 1
+
+  abyssal: # 困难区
+    poisonous: 10
+    armoured: 10
+    blinding: 10
+    withering: 10
+    quicksand: 10
+    bullwark: 10
+    1up: 10
+    cloaked: 10
+    ender: 10
+    ghastly: 10
+    lifesteal: 10
+    sprint: 10
+    sapper: 10
+    webber: 10
+    molten: 10
+    archer: 10
+    necromancer: 10
+    firework: 10
+    ghost: 10
+    confusing: 10
+    thief: 10
+    tosser: 10
+    storm: 10
+    vengeance: 10
+    weakness: 10
+    berserk: 10
+    mama: 10
+    gravity: 10
+    mounted: 10
+    morph: 10
+    refrigerate: 10
+    rust: 10
+    vexsummoner: 10
+    wardenwrath: 10
+    swap: 10
+
+# 技能类型由源码定义，此处不再接受 type 字段。
+skills:
+  poisonous:
+    display: "<#3cff4e>剧毒</#3cff4e>"
+    duration-ticks: 160
+    amplifier: 1
+
+  blinding:
+    display: "<#1a1a1a>致盲</#1a1a1a>"
+    duration-ticks: 40
+    amplifier: 0
+
+  withering:
+    display: "<#5a0066>凋零</#5a0066>"
+    duration-ticks: 160
+    amplifier: 1
+
+  quicksand:
+    display: "<#e6d28f>流沙</#e6d28f>"
+    duration-ticks: 160
+    amplifier: 1
+
+  armoured:
+    display: "<#8aa0a8>披甲</#8aa0a8>"
+    armor-tier: 3 # 0=皮革 1=金 2=铁 3=钻石 4=下界合金；Lv11+ 时钻石可自动升为合金
+    resistance-duration-ticks: -1 # 不可穿盔甲时。不过应该用不到了，实际上都可以穿
+    resistance-amplifier: 1
+
+  bullwark:
+    display: "<#c18a00>壁垒</#c18a00>"
+    duration-ticks: -1
+    amplifier: 2
+
+  1up:
+    display: "<#00ff88>复生</#00ff88>"
+    hp-threshold: 8
+    sound:
+      id: "block.brewing_stand.brew"
+
+  cloaked:
+    display: "<#6e6e6e>隐匿</#6e6e6e>"
+    duration-ticks: -1
+
+  ender:
+    display: "<#a64dff>末影</#a64dff>"
+    cooldown-ticks: 40
+    chance: 0.3
+    distance: 2
+    sound:
+      id: "entity.enderman.teleport"
+
+  ghastly:
+    display: "<#ff6a00>火术</#ff6a00>"
+    range: 12
+    chance: 0.3
+    cooldown-ticks: 80
+    damage: 8
+    velocity: 1.2
+    fire-ticks: 60
+    explosion-power: 1
+    entity-lifetime-ticks: 100
+
+  lifesteal:
+    display: "<#ff0033>再生</#ff0033>"
+    duration-ticks: 80
+    heal-per-second: 1
+
+  sprint:
+    display: "<#ffd000>疾速</#ffd000>"
+    amplifier: 1
+
+  sapper:
+    display: "<#9b7b4f>蚀胃</#9b7b4f>"
+    duration-ticks: 240
+    amplifier: 1
+
+  webber:
+    display: "<#eaeaea>织网</#eaeaea>"
+    cooldown-ticks: 40
+    chance: 0.15
+    sound:
+      id: "block.cobweb.place"
+      pitch: 0.8
+    web-lifetime-ticks: 100
+    giant-sphere-chance: 0.15
+    giant-sphere-radius: 6
+    giant-sphere-thickness: 0.5
+    giant-sphere-lifetime-ticks: 200
+
+  molten:
+    display: "<#ff8c00>熔融</#ff8c00>"
+    fire-ticks: 60
+
+  archer:
+    display: "<#9e9e9e>箭术</#9e9e9e>"
+    cooldown-ticks: 40
+    chance: 0.5
+    arrow-count: 3
+    speed: 3.0
+    spread: 0.1
+    spread-config: 6
+    sound:
+      id: "entity.arrow.shoot"
+
+  necromancer:
+    display: "<#7a00cc>凋术</#7a00cc>"
+    range: 11
+    chance: 0.3
+    cooldown-ticks: 100
+    velocity: 1.0
+    explosion-power: 1.0
+    charged: false
+    entity-lifetime-ticks: 100
+
+  firework:
+    display: "<#ff3cac>绽放</#ff3cac>"
+    cooldown-ticks: 20
+    chance: 0.5
+    power: 1
+    trail: true
+    flicker: false
+
+  ghost:
+    display: "<#4b4b4b>亡魂</#4b4b4b>"
+    summon-level: 4
+    health: 40
+    float-speed: 0.3
+
+  confusing:
+    display: "<#cc66ff>致幻</#cc66ff>"
+    duration-ticks: 80
+    amplifier: 2
+
+  thief:
+    display: "<#c9a227>缴械</#c9a227>"
+    cooldown-ticks: 160
+    chance: 0.2
+    sound:
+      id: "entity.witch.celebrate"
+      pitch: 2.0
+    courier: # 召唤的悦灵的配置
+      name: "<#c9a227>窃兵小鬼</#c9a227>" # 通常不可见，因为悦灵是隐身的
+      max-health: 8.0
+      spawn-delay-ticks: 10
+      despawn-delay-ticks: 10
+      outbound-speed: 0.45
+      return-speed: 0.8
+      arc-height: 1.5 # 决定飞行轨迹（略微上凸）
+      max-lifetime-ticks: 300
+      drop-sound:
+        id: "item.bundle.drop_contents"
+        volume: 4.0
+        pitch: 2.0
+      steal-sound:
+        id: "entity.wind_charge.throw"
+        volume: 1.0
+        pitch: 1.0
+      steal-failed-sound: # 什么都没有夺取时
+        id: "entity.illusioner.hurt"
+        pitch: 1.2
+      death-sound:
+        id: "entity.vex.death"
+        volume: 4.0
+        pitch: 2.0
+      despawn-sound:
+        id: "entity.breeze.land"
+        volume: 4.0
+
+  tosser:
+    display: "<#00bcd4>牵引</#00bcd4>"
+    range: 6
+    chance: 0.2
+    cooldown-ticks: 120
+    force: 3
+    upward: 0.2
+    sound:
+      id: "entity.breeze.jump"
+      pitch: 0.8
+
+  storm:
+    display: "<#2979ff>雷暴</#2979ff>"
+    cooldown-ticks: 0
+    chance: 0.22
+    damage: 5
+
+  vengeance:
+    display: "<#ff1a1a>复仇</#ff1a1a>"
+    chance: 0.8
+    damage: 12
+    sound:
+      id: "entity.breeze.deflect"
+      volume: 0.6
+
+  weakness:
+    display: "<#8c8c8c>弱化</#8c8c8c>"
+    cooldown-ticks: 80
+    duration-ticks: 240
+    amplifier: 1
+
+  berserk:
+    display: "<#ff3300>狂暴</#ff3300>"
+    cooldown-ticks: 20
+    self-damage: 2
+    bonus-damage: 12
+    sound:
+      id: "entity.phantom.bite"
+      volume: 0.5
+      pitch: 0.7
+
+  mama:
+    display: "<#66ff66>增殖</#66ff66>"
+    chance: 0.15
+    cooldown-ticks: 200
+    count-by-tier: true
+    count: 4
+    baby: true
+    no-baby-scale: 0.5
+    level-min: -1
+    level-max: -1
+    tier-level-ranges:
+      "1": { min: 1, max: 3 }
+      "2": { min: 2, max: 5 }
+      "3": { min: 3, max: 7 }
+      "4": { min: 4, max: 10 }
+    blocked-types:
+      - WARDEN
+      - WITHER
+    allowed-types: []
+    sound:
+      id: "entity.zombie.infect"
+      volume: 0.8
+      pitch: 0.8
+
+  gravity:
+    display: "<#4a90e2>失重</#4a90e2>"
+    range: 8
+    chance: 0.3
+    cooldown-ticks: 100
+    duration-ticks: 100
+    amplifier: 0
+    sound:
+      id: "entity.shulker.shoot"
+      volume: 0.5
+      pitch: 1.2
+
+  mounted:
+    display: "<#d4af37>驭兽</#d4af37>"
+    enabled-holders:
+      - WITHER_SKELETON
+      - STRAY
+      - HUSK
+      - ZOMBIE_VILLAGER
+      - EVOKER
+      - VINDICATOR
+      - SKELETON
+      - ZOMBIE
+      - ENDERMAN
+      - WITCH
+      - SNOW_GOLEM
+      - VILLAGER
+      - ILLUSIONER
+      - DROWNED
+      - ZOMBIFIED_PIGLIN
+      - PIGLIN
+      - BLAZE
+      - BOGGED
+      - STRIDER
+      - PARCHED
+    enabled-passengers:
+      - WITHER_SKELETON
+      - STRAY
+      - HUSK
+      - ZOMBIE_VILLAGER
+      - EVOKER
+      - VINDICATOR
+      - SKELETON
+      - ZOMBIE
+      - ENDERMAN
+      - WITCH
+      - SNOW_GOLEM
+      - VILLAGER
+      - ILLUSIONER
+      - DROWNED
+      - ZOMBIFIED_PIGLIN
+      - PIGLIN
+      - BLAZE
+      - BOGGED
+      - STRIDER
+      - PARCHED
+    infernal-mounts: # 生成时是炒鸡怪
+      - SPIDER
+      - SKELETON_HORSE
+      - ZOMBIE_HORSE
+      - MULE
+      - PIG
+      - SHEEP
+      - COW
+      - CHICKEN
+      - HORSE
+      - POLAR_BEAR
+      - ZOGLIN
+      - STRIDER
+      - RAVAGER
+      - BLAZE
+      - ZOMBIE
+      - MAGMA_CUBE
+      - CAMEL_HUSK
+    enabled-mounts: # 生成时不是炒鸡怪
+      - SLIME
+      - GHAST
+
+  spear:
+    display: "<#8aa0a8>冲锋</#8aa0a8>"
+    range: 10
+    chance: 0.25
+    cooldown-ticks: 80
+    charge-ticks: 10
+    lunge-ticks: 80
+    lunge-speed-amplifier: 6
+    sharpness-level: 20
+    item: NETHERITE_SPEAR
+    charge-sound:
+      id: "entity.ravager.stunned"
+      volume: 1.0
+      pitch: 2.0
+    charge-mid-sound:
+      id: "entity.ravager.stunned"
+      volume: 1.0
+      pitch: 2.0
+    lunge-sound:
+      id: "item.spear.lunge_3"
+      volume: 1.0
+      pitch: 2.0
+    enabled-holders:
+      - ZOMBIE
+      - HUSK
+      - DROWNED
+      - ZOMBIE_VILLAGER
+      - SKELETON
+      - STRAY
+      - WITHER_SKELETON
+      - PIGLIN
+      - PIGLIN_BRUTE
+      - ZOMBIFIED_PIGLIN
+      - VINDICATOR
+      - EVOKER
+
+  sulfur:
+    display: "<#ffcc33>喷涌</#ffcc33>"
+    chance: 0.25
+    cooldown-ticks: 20
+    warn-ticks: 15
+    radius: 2.0
+    upward: 2.0
+    column-height: 2.5
+    warn-sound:
+      id: "block.bubble_column.whirlpool_ambient"
+      volume: 2.0
+      pitch: 0.8
+    erupt-sound:
+      id: "block.bubble_column.upwards_inside"
+      volume: 2.0
+
+  morph:
+    display: "<#ff66cc>幻形</#ff66cc>"
+    cooldown-ticks: 120
+    chance: 0.2
+    sound:
+      id: "block.ender_chest.open"
+      volume: 0.6
+      pitch: 0.7
+
+  refrigerate:
+    display: "<#66ccff>冻结</#66ccff>"
+    cooldown-ticks: 80
+    chance: 0.25
+    freeze-ticks: 100
+
+  rust:
+    display: "<#b7410e>锈蚀</#b7410e>"
+    chance: 0.3
+    damage-amount: 10
+    sound:
+      id: "entity.item.break"
+      pitch: 0.7
+
+  vexsummoner:
+    display: "<#9933ff>唤魔</#9933ff>"
+    chance: 0.25
+    cooldown-ticks: 60
+    summon-count: 2
+    max-nearby: 4
+    count-range: 16
+    sound:
+      id: "entity.evoker.prepare_summon"
+      pitch: 0.8
+
+  wardenwrath:
+    display: "<#00ffcc>咆哮</#00ffcc>"
+    chance: 0.25
+    cooldown-ticks: 80
+    damage: 16
+    knockback-horizontal: 2.5
+    knockback-vertical: 0.5
+    max-range: 15
+    decay-min-multiplier: 0.2
+    sound:
+      id: "entity.warden.sonic_boom"
+      volume: 1.8
+    sound-at-player: true
+    particle-sonic-boom: true
+    particle-ray-density: 20
+
+  swap:
+    display: "<#cc99ff>移形</#cc99ff>"
+    chance: 0.25
+    cooldown-ticks: 60
+    sound:
+      id: "entity.shulker.teleport"
+      volume: 0.8

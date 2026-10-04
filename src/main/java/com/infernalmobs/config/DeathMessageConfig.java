@@ -1,7 +1,5 @@
 package com.infernalmobs.config;
 
-import org.bukkit.entity.EntityType;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -11,12 +9,9 @@ import java.util.Map;
  */
 public record DeathMessageConfig(
         boolean enable,
-        String namePrefix,
         String defaultWeapon,
-        Map<Integer, String> levelPrefixes,
         Map<Integer, String> levelTierColors,
         List<String> messages,
-        Map<String, String> mobNames,
         boolean slainByEnable,
         List<String> slainByMessages,
         boolean slainByWithWeaponEnable,
@@ -29,6 +24,14 @@ public record DeathMessageConfig(
         List<String> killStealMessages,
         double killStealRange
 ) {
+    public DeathMessageConfig {
+        levelTierColors = Map.copyOf(levelTierColors);
+        messages = List.copyOf(messages);
+        slainByMessages = List.copyOf(slainByMessages);
+        slainByWithWeaponMessages = List.copyOf(slainByWithWeaponMessages);
+        killStealMessages = List.copyOf(killStealMessages);
+    }
+
     /** 等级前缀：初级(1-3)/中级(4-6)/高级(7-9)/炒鸡(10+)。Lv15 的炒鸡用 &lt;obfuscated&gt; 乱码效果。 */
     public String getLevelPrefix(int level) {
         if (level <= 3) return "初级";
@@ -52,19 +55,5 @@ public record DeathMessageConfig(
         if (level <= 9) return "<dark_purple>";
         if (level <= 12) return "<gold>";
         return "<red>";
-    }
-
-    public String getMobDisplayName(EntityType type) {
-        String name = mobNames.get(type.name());
-        if (name != null) return name;
-        String raw = type.name().toLowerCase().replace('_', ' ');
-        if (raw.isEmpty()) return type.name();
-        StringBuilder sb = new StringBuilder();
-        for (String word : raw.split(" ")) {
-            if (!word.isEmpty()) {
-                sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1)).append(" ");
-            }
-        }
-        return sb.toString().trim();
     }
 }
