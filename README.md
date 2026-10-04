@@ -401,5 +401,23 @@ rules:
 ## 击杀统计
 
 - `/im stats <玩家>` 显示该玩家对各等级炒鸡怪的击杀次数与总计。
-- 数据存储于 `data/kill_stats.yml`，运行期间查询和更新只访问内存。
-- 两类运行数据每分钟异步保存一次，插件关闭时执行最终保存；失败会在下个周期重试。
+- 玩家统计存储于 `data/kill_stats.yml`。
+- 全服按等级、实体类型统计由玩家击杀的炒鸡怪数量，存储于 `data/mob_kill_stats.yml`；受保护小动物也计入该全服统计。
+- 运行期间查询和更新只访问内存；运行数据每分钟异步保存一次，插件关闭时执行最终保存，失败会在下个周期重试。
+
+全服统计使用完整实体类型 ID，`levels` 保存按等级明细，`all-levels` 保存所有等级合计：
+
+```yaml
+data-version: 1
+all-levels:
+  "minecraft:zombie": 15
+  "minecraft:cow": 2
+levels:
+  "1":
+    "minecraft:zombie": 10
+    "minecraft:cow": 2
+  "2":
+    "minecraft:zombie": 5
+```
+
+加载时以 `levels` 为权威数据重新计算 `all-levels`；两者不一致时会记录警告，并在下一次保存时修正总表。

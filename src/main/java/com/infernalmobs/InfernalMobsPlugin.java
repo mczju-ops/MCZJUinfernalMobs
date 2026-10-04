@@ -22,6 +22,7 @@ import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.MobLevelService;
+import com.infernalmobs.service.MobKillStatsService;
 import com.infernalmobs.service.RegionService;
 import com.infernalmobs.service.SkillService;
 import com.infernalmobs.service.ThiefCourierService;
@@ -44,6 +45,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
     private ConfigLoader configLoader;
     private CombatService combatService;
     private KillStatsService killStatsService;
+    private MobKillStatsService mobKillStatsService;
     private GuaranteedLootService guaranteedLootService;
     private LootConfig lootConfig;
     private LootService lootService;
@@ -72,6 +74,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
         combatService.setSkillService(skillService);
         killStatsService = new KillStatsService(this);
         killStatsService.load();
+        mobKillStatsService = new MobKillStatsService(this);
+        mobKillStatsService.load();
         DeathMessageService deathMessageService = new DeathMessageService(configLoader);
         deathMessageService.setCombatService(combatService);
         RegionService regionService = new RegionService(configLoader);
@@ -87,7 +91,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new MobSpawnListener(configLoader, mobFactory, combatService, this), this);
         getServer().getPluginManager().registerEvents(new MobPersistenceListener(mobFactory), this);
-        getServer().getPluginManager().registerEvents(new CombatListener(this, combatService, deathMessageService, killStatsService), this);
+        getServer().getPluginManager().registerEvents(new CombatListener(
+                this, combatService, deathMessageService, killStatsService, mobKillStatsService), this);
         getServer().getPluginManager().registerEvents(new ThiefCourierListener(thiefCourierService), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
 
@@ -110,6 +115,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         dataSaveTask = getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
             synchronized (dataSaveLock) {
                 killStatsService.saveIfDirty();
+                mobKillStatsService.saveIfDirty();
                 guaranteedLootService.saveIfDirty();
             }
         }, 20 * 60, 20 * 60);
@@ -232,6 +238,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         synchronized (dataSaveLock) {
             if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
             if (killStatsService != null) killStatsService.saveIfDirty();
+            if (mobKillStatsService != null) mobKillStatsService.saveIfDirty();
         }
         if (mobFactory != null) mobFactory.persistLoadedStates();
         if (combatService != null) combatService.shutdown();
@@ -252,6 +259,10 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
     public KillStatsService getKillStatsService() {
         return killStatsService;
+    }
+
+    public MobKillStatsService getMobKillStatsService() {
+        return mobKillStatsService;
     }
 
     public GuaranteedLootService getGuaranteedLootService() {

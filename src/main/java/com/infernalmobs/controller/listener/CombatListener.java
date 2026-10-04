@@ -11,6 +11,7 @@ import com.infernalmobs.service.DeathMessageService;
 import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
+import com.infernalmobs.service.MobKillStatsService;
 import com.infernalmobs.service.SkillService;
 import com.infernalmobs.service.SpecialDamageService;
 import com.infernalmobs.util.MiniMessageHelper;
@@ -48,14 +49,16 @@ public class CombatListener implements Listener {
     private final SpecialDamageService specialDamageService;
     private final DeathMessageService deathMessageService;
     private final KillStatsService killStatsService;
+    private final MobKillStatsService mobKillStatsService;
 
     public CombatListener(JavaPlugin plugin, CombatService combatService, DeathMessageService deathMessageService,
-                          KillStatsService killStatsService) {
+                          KillStatsService killStatsService, MobKillStatsService mobKillStatsService) {
         this.plugin = plugin;
         this.combatService = combatService;
         this.specialDamageService = combatService.getSpecialDamageService();
         this.deathMessageService = deathMessageService;
         this.killStatsService = killStatsService;
+        this.mobKillStatsService = mobKillStatsService;
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -113,6 +116,11 @@ public class CombatListener implements Listener {
             boolean protectedAnimal = protectedAnimalsConfig != null
                     && protectedAnimalsConfig.enabled()
                     && protectedAnimalsConfig.protects(entity.getType());
+
+            // 全服怪物类型统计包含受保护小动物，但仍要求 Bukkit 判定存在玩家击杀者。
+            if (killer != null) {
+                mobKillStatsService.addKill(entity.getType(), state.getProfile().getLevel());
+            }
 
             // 炒鸡小动物：不给炒鸡奖励，清理掉落/经验并警告击杀者。
             if (protectedAnimal) {
