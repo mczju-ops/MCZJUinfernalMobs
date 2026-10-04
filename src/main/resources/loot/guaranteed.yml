@@ -9,23 +9,18 @@ rotation:
 
 rules:
   # 规则 id 同时也是 data/guaranteed_loot_progress.yml 中的进度 id
-  elite_guardian:
+  certificate_progress:
     level-min: 10
-    level-max: 100
+    level-max: 15
     required-rolls: 1000
     reset-after-reward: true
     rewards:
-      - item-id: nether_star
+      - item-id: infernal_hero_certificate
         amount: 1
-
-  early_pity:
-    level-min: 1
-    level-max: 5
-    required-rolls: 500
-    reset-after-reward: true
-    rewards:
-      - item-id: emerald
-        amount: 3
+        rotation-set: 1
+      - item-id: infernal_magic_king_certificate
+        amount: 1
+        rotation-set: 2
 
   # 一个进度规则可按轮换套选择不同奖励；同一套号在一条规则中只能出现一次
   # rotating_example:

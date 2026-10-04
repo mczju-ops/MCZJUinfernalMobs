@@ -19,7 +19,7 @@ infernal-spawn-reasons:
   - REINFORCEMENTS # 增援
   - TRIAL_SPAWNER # 试炼刷怪笼
 
-# 这些生物会在自然生成时被改造为炒鸡怪，空列表表示不限制
+# 上述条件下，这些生物会被改造为炒鸡怪，空列表表示不限制
 allow-types:
   - PUFFERFISH
   - BOGGED
@@ -35,3 +35,4 @@ allow-types:
   - CAVE_SPIDER
   - DROWNED
   - SPIDER
+  - PARCHED

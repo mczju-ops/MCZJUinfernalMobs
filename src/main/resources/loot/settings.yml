@@ -34,10 +34,13 @@ drop-times:
 
 # 特殊实体额外掉落。概率 = rates.<实体类型> x 炒鸡怪等级
 special:
-  enabled: false
-  item-id: nether_star
+  enable: true
+  item-id: primal_relic_lootbox
   rates:
-    RAVAGER: 0.15
+    RAVAGER: 0.2
+    IRON_GOLEM: 0.3
     ELDER_GUARDIAN: 0.3
-    WARDEN: 0.8
+    WARDEN: 1.0
     WITHER: 1.0
+    EVOKER: 0.15
+    ILLUSIONER: 0.15

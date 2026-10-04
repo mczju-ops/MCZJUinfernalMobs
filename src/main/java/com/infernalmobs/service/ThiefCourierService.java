@@ -345,8 +345,8 @@ public final class ThiefCourierService {
         double returnSpeed = clamp(skillConfig.getDouble("courier.return-speed", 0.55), 0.05, 2.0, 0.55);
         double arcHeight = clamp(skillConfig.getDouble("courier.arc-height", 1.2), 0.0, 5.0, 1.2);
         double maxHealth = clamp(skillConfig.getDouble("courier.max-health", 6.0), 0.1, 2048.0, 6.0);
-        String name = skillConfig.getString("courier.name", "<#c9a227>缴械信使</#c9a227>");
-        if (name.isBlank()) name = "<#c9a227>缴械信使</#c9a227>";
+        String name = skillConfig.getString("courier.name", "<#c9a227>窃兵小鬼</#c9a227>");
+        if (name.isBlank()) name = "<#c9a227>窃兵小鬼</#c9a227>";
         int maxLifetime = clamp(skillConfig.getInt("courier.max-lifetime-ticks", 200),
                 spawnDelay + 20, 1200);
         return new CourierSettings(name, maxHealth, spawnDelay, despawnDelay,
@@ -618,7 +618,7 @@ public final class ThiefCourierService {
                                    int despawnDelayTicks, double outboundSpeed, double returnSpeed,
                                    double arcHeight, int maxLifetimeTicks) {
         private static CourierSettings defaults() {
-            return new CourierSettings("<#c9a227>缴械信使</#c9a227>", 6.0,
+            return new CourierSettings("<#c9a227>窃兵小鬼</#c9a227>", 6.0,
                     10, 10, 0.45, 0.55, 1.2, 200);
         }
     }

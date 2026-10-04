@@ -37,7 +37,7 @@ pools:
     wardenwrath: 1
     swap: 1
 
-  spawn:
+  spawn: # 新手区
     poisonous: 10
     armoured: 10
     blinding: 10
@@ -70,7 +70,7 @@ pools:
     morph: 1
     refrigerate: 1
 
-  abyssal:
+  abyssal: # 困难区
     poisonous: 10
     armoured: 10
     blinding: 10
@@ -111,7 +111,7 @@ pools:
 skills:
   poisonous:
     display: "<#3cff4e>剧毒</#3cff4e>"
-    duration-ticks: 200
+    duration-ticks: 160
     amplifier: 1
 
   blinding:
@@ -131,8 +131,8 @@ skills:
 
   armoured:
     display: "<#8aa0a8>披甲</#8aa0a8>"
-    armor-tier: 3
-    resistance-duration-ticks: -1
+    armor-tier: 3 # 0=皮革 1=金 2=铁 3=钻石 4=下界合金；Lv11+ 时钻石可自动升为合金
+    resistance-duration-ticks: -1 # 不可穿盔甲时。不过应该用不到了，实际上都可以穿
     resistance-amplifier: 1
 
   bullwark:
@@ -152,13 +152,11 @@ skills:
 
   ender:
     display: "<#a64dff>末影</#a64dff>"
-    cooldown-ticks: 60
-    chance: 0.5
+    cooldown-ticks: 40
+    chance: 0.3
     distance: 2
     sound:
       id: "entity.enderman.teleport"
-      volume: 1.0
-      pitch: 1.0
 
   ghastly:
     display: "<#ff6a00>火术</#ff6a00>"
@@ -244,47 +242,43 @@ skills:
 
   thief:
     display: "<#c9a227>缴械</#c9a227>"
-    cooldown-ticks: 80
-    chance: 0.33
+    cooldown-ticks: 160
+    chance: 0.2
     sound:
-      id: "entity.wind_charge.throw"
-      volume: 0.8
-      pitch: 0.6
-    line-particle: SMALL_GUST
-    courier:
-      name: "<#c9a227>缴械信使</#c9a227>"
-      max-health: 6.0
+      id: "entity.witch.celebrate"
+      pitch: 2.0
+    courier: # 召唤的悦灵的配置
+      name: "<#c9a227>窃兵小鬼</#c9a227>" # 通常不可见，因为悦灵是隐身的
+      max-health: 8.0
       spawn-delay-ticks: 10
       despawn-delay-ticks: 10
       outbound-speed: 0.45
-      return-speed: 0.55
-      arc-height: 1.2
-      max-lifetime-ticks: 200
-      steal-sound:
-        id: "entity.allay.item_taken"
-        volume: 1.0
-        pitch: 1.0
-      steal-failed-sound:
-        id: "entity.illusioner.hurt"
-        volume: 1.0
-        pitch: 1.2
+      return-speed: 0.8
+      arc-height: 1.5 # 决定飞行轨迹（略微上凸）
+      max-lifetime-ticks: 300
       drop-sound:
-        id: "entity.allay.item_thrown"
+        id: "item.bundle.drop_contents"
+        volume: 4.0
+        pitch: 2.0
+      steal-sound:
+        id: "entity.wind_charge.throw"
         volume: 1.0
         pitch: 1.0
+      steal-failed-sound: # 什么都没有夺取时
+        id: "entity.illusioner.hurt"
+        pitch: 1.2
       death-sound:
-        id: "entity.allay.death"
-        volume: 1.0
-        pitch: 1.0
+        id: "entity.vex.death"
+        volume: 4.0
+        pitch: 2.0
       despawn-sound:
-        id: "entity.allay.item_taken"
-        volume: 1.0
-        pitch: 1.4
+        id: "entity.breeze.land"
+        volume: 4.0
 
   tosser:
     display: "<#00bcd4>牵引</#00bcd4>"
     range: 6
-    chance: 0.3
+    chance: 0.2
     cooldown-ticks: 120
     force: 3
     upward: 0.2
@@ -300,7 +294,7 @@ skills:
 
   vengeance:
     display: "<#ff1a1a>复仇</#ff1a1a>"
-    chance: 0.5
+    chance: 0.8
     damage: 12
     sound:
       id: "entity.breeze.deflect"
@@ -380,6 +374,7 @@ skills:
       - BLAZE
       - BOGGED
       - STRIDER
+      - PARCHED
     enabled-passengers:
       - WITHER_SKELETON
       - STRAY
@@ -400,15 +395,12 @@ skills:
       - BLAZE
       - BOGGED
       - STRIDER
-    infernal-mounts: []
-    enabled-mounts:
+      - PARCHED
+    infernal-mounts: # 生成时是炒鸡怪
       - SPIDER
       - SKELETON_HORSE
       - ZOMBIE_HORSE
       - MULE
-      - SLIME
-      - GHAST
-      - MAGMA_CUBE
       - PIG
       - SHEEP
       - COW
@@ -420,6 +412,11 @@ skills:
       - RAVAGER
       - BLAZE
       - ZOMBIE
+      - MAGMA_CUBE
+      - CAMEL_HUSK
+    enabled-mounts: # 生成时不是炒鸡怪
+      - SLIME
+      - GHAST
 
   spear:
     display: "<#8aa0a8>冲锋</#8aa0a8>"
@@ -461,7 +458,7 @@ skills:
     display: "<#ffcc33>喷涌</#ffcc33>"
     chance: 0.25
     cooldown-ticks: 20
-    warn-ticks: 20
+    warn-ticks: 15
     radius: 2.0
     upward: 2.0
     column-height: 2.5
@@ -476,7 +473,7 @@ skills:
   morph:
     display: "<#ff66cc>幻形</#ff66cc>"
     cooldown-ticks: 120
-    chance: 0.1
+    chance: 0.2
     sound:
       id: "block.ender_chest.open"
       volume: 0.6
