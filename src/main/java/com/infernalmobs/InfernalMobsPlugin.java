@@ -10,6 +10,7 @@ import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfigParser;
 import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
+import com.infernalmobs.controller.listener.CubeMobSplitListener;
 import com.infernalmobs.controller.listener.MobSpawnListener;
 import com.infernalmobs.controller.listener.MobPersistenceListener;
 import com.infernalmobs.controller.listener.ThiefCourierListener;
@@ -95,6 +96,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
                 this, combatService, deathMessageService, killStatsService, mobKillStatsService), this);
         getServer().getPluginManager().registerEvents(new ThiefCourierListener(thiefCourierService), this);
         getServer().getPluginManager().registerEvents(new CreeperExplodeListener(), this);
+        getServer().getPluginManager().registerEvents(new CubeMobSplitListener(), this);
 
         int restoredMobs = mobFactory.restoreLoadedEntities();
         if (restoredMobs > 0) getLogger().info("已从 PDC 恢复 " + restoredMobs + " 只炒鸡怪");
