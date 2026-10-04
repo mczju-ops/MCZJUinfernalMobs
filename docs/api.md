@@ -306,7 +306,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | storm | `InfernalMobStormEvent` | DUAL | `getStrikeLocation/setStrikeLocation`、`getDamage/setDamage`、`isEffectOnly/setEffectOnly` |
 | sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight` |
 | swap | `InfernalMobSwapEvent` | PASSIVE | `getMobDestination/setMobDestination`、`getPlayerDestination/setPlayerDestination` |
-| thief | `InfernalMobThiefHitEvent`、`InfernalMobThiefResultEvent` | DUAL | 命中事件：`getPlayer`、`getCourier`、`get/setItemStack`、`get/setDropLocation`、`get/setCooldownTicks`；结果事件：`getAttemptedItem`、`getStolenItem`、`getDropLocation`、`getResult`、`getFailureReason` |
+| thief | `InfernalMobThiefStealAttemptEvent`、`InfernalMobThiefResultEvent` | DUAL | 夺取尝试事件：`getPlayer`、`getCourier`、`get/setItemStack`、`get/setDropLocation`、`get/setCooldownTicks`；结果事件：`getAttemptedItem`、`getStolenItem`、`getDropLocation`、`getResult`、`getFailureReason` |
 | tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |
 | vengeance | `InfernalMobVengeanceEvent` | PASSIVE | `getDamage/setDamage`（使用原生 THORNS 伤害来源） |
 | vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | `getSummonCount/setSummonCount`、`getSpawnLocation/setSpawnLocation` |
@@ -360,16 +360,16 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 **示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java
 @EventHandler
-public void onThief(InfernalMobThiefHitEvent e) {
+public void onThief(InfernalMobThiefStealAttemptEvent e) {
     e.setDropLocation(e.getPlayer().getLocation());   // 掉到玩家脚下
     e.setCooldownTicks(e.getCooldownTicks() / 2);     // 冷却减半
 }
 ```
 
-`InfernalMobThiefHitEvent` 在悦灵命中玩家、通过内置抗性检查后、实际转移物品之前广播，继承
-`InfernalAffixTriggeredEvent`，可以取消本次夺取，也可以替换待夺取物品、掉落位置和最终冷却。
-带有 `im_thief_resistance` PDC 的主手物品会在此事件之前直接判定失败，因此不会触发外部命中监听器；
-取消或其他后续检查失败时，悦灵仍会返程，但不会夺走物品。
+`InfernalMobThiefStealAttemptEvent` 在悦灵命中玩家且通过空手、创造模式、`im_thief_resistance`
+等内置检查后、实际转移物品之前广播，继承 `InfernalAffixTriggeredEvent`，可以取消本次夺取，
+也可以替换待夺取物品、掉落位置和最终冷却。外部反制插件不应在此事件中立即消费道具，
+应结合结果事件确认最终结果后再消费。内置检查失败时不会广播本事件。
 
 `InfernalMobThiefResultEvent` 在本次处理完成后广播，只读且不可取消。`getResult()` 为
 `STOLEN` 时表示转移成功；为 `FAILED` 时可通过 `getFailureReason()` 区分

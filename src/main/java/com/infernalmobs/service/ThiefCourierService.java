@@ -1,7 +1,7 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefHitEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefStealAttemptEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefResultEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
@@ -392,33 +392,6 @@ public final class ThiefCourierService {
         Location dropLocation = resolveReturnTarget(courier).dropLocation();
 
         // 内置抗性优先于外部命中监听器，避免外部反制道具在本次夺取必然失败时被消费。
-        if (isThiefResistant(attempted)) {
-            return failTransfer(courier, player, attempted, dropLocation,
-                    InfernalMobThiefResultEvent.FailureReason.RESISTANT_ITEM);
-        }
-
-        InfernalMobThiefHitEvent hitEvent = null;
-        if (trigger != null) {
-            ReturnTarget defaultReturn = resolveReturnTarget(courier);
-            hitEvent = new InfernalMobThiefHitEvent(
-                    trigger.releasedMob(), trigger.handle(), trigger.level(), player,
-                    courier.allay, attempted.clone(), defaultReturn.dropLocation().clone(), trigger.cooldownTicks());
-            plugin.getServer().getPluginManager().callEvent(hitEvent);
-
-            // 发射时已预占默认冷却；事件可以在命中时覆写最终冷却，0 表示立即解除。
-            trigger.state().setCooldown("thief", trigger.releasedTick() + hitEvent.getCooldownTicks());
-            dropLocation = hitEvent.getDropLocation();
-            if (!sameLocation(dropLocation, defaultReturn.dropLocation())) {
-                courier.overrideDropLocation = dropLocation.clone();
-            }
-        }
-
-        if (hitEvent != null && hitEvent.isCancelled()) {
-            publishResult(courier, player, attempted, ItemStack.empty(), dropLocation,
-                    InfernalMobThiefResultEvent.Result.FAILED,
-                    InfernalMobThiefResultEvent.FailureReason.CANCELLED);
-            return false;
-        }
         if (player.getGameMode() == GameMode.CREATIVE) {
             return failTransfer(courier, player, attempted, dropLocation,
                     InfernalMobThiefResultEvent.FailureReason.CREATIVE);
@@ -427,15 +400,42 @@ public final class ThiefCourierService {
             return failTransfer(courier, player, attempted, dropLocation,
                     InfernalMobThiefResultEvent.FailureReason.EMPTY_HAND);
         }
+        if (isThiefResistant(attempted)) {
+            return failTransfer(courier, player, attempted, dropLocation,
+                    InfernalMobThiefResultEvent.FailureReason.RESISTANT_ITEM);
+        }
+
+        InfernalMobThiefStealAttemptEvent attemptEvent = null;
+        if (trigger != null) {
+            ReturnTarget defaultReturn = resolveReturnTarget(courier);
+            attemptEvent = new InfernalMobThiefStealAttemptEvent(
+                    trigger.releasedMob(), trigger.handle(), trigger.level(), player,
+                    courier.allay, attempted.clone(), defaultReturn.dropLocation().clone(), trigger.cooldownTicks());
+            plugin.getServer().getPluginManager().callEvent(attemptEvent);
+
+            // 发射时已预占默认冷却；事件可以在命中时覆写最终冷却，0 表示立即解除。
+            trigger.state().setCooldown("thief", trigger.releasedTick() + attemptEvent.getCooldownTicks());
+            dropLocation = attemptEvent.getDropLocation();
+            if (!sameLocation(dropLocation, defaultReturn.dropLocation())) {
+                courier.overrideDropLocation = dropLocation.clone();
+            }
+        }
+
+        if (attemptEvent != null && attemptEvent.isCancelled()) {
+            publishResult(courier, player, attempted, ItemStack.empty(), dropLocation,
+                    InfernalMobThiefResultEvent.Result.FAILED,
+                    InfernalMobThiefResultEvent.FailureReason.CANCELLED);
+            return false;
+        }
         ItemStack captured = attempted.clone();
         ItemStack carried = captured;
-        if (hitEvent != null) {
+        if (attemptEvent != null) {
             ItemStack stillHeld = player.getInventory().getItemInMainHand();
             if (!stillHeld.equals(captured)) {
                 return failTransfer(courier, player, attempted, dropLocation,
                         InfernalMobThiefResultEvent.FailureReason.ITEM_CHANGED);
             }
-            carried = hitEvent.getItemStack();
+            carried = attemptEvent.getItemStack();
             if (carried.getType().isAir() || carried.getAmount() <= 0) {
                 return failTransfer(courier, player, attempted, dropLocation,
                         InfernalMobThiefResultEvent.FailureReason.INVALID_ITEM);
