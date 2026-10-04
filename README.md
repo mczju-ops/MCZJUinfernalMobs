@@ -227,7 +227,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 
 ## 配置文件说明
 
-核心配置已经拆为四个文件。旧版配置不会被兼容读取或自动迁移，具体映射见 [配置迁移指南](docs/配置迁移指南.md)。
+核心配置包括以下这些文件。
 
 ### config.yml
 
