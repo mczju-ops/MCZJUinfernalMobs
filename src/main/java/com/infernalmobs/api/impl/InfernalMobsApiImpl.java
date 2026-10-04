@@ -15,10 +15,12 @@ import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.SkillService;
+import com.infernalmobs.util.Keys;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -61,6 +63,12 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
     public boolean isInfernal(LivingEntity entity) {
         if (entity == null) return false;
         return combatService.getMobState(entity.getUniqueId()) != null;
+    }
+
+    @Override
+    public boolean isThiefCourier(LivingEntity entity) {
+        if (entity == null) return false;
+        return entity.getPersistentDataContainer().getOrDefault(Keys.THIEF_COURIER, PersistentDataType.BOOLEAN, false);
     }
 
     @Override

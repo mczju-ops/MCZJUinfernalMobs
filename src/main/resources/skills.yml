@@ -246,13 +246,40 @@ skills:
     display: "<#c9a227>缴械</#c9a227>"
     cooldown-ticks: 80
     chance: 0.33
-    steal-chance: 0.33
-    infernal-steal-chance: 0.33
     sound:
       id: "entity.wind_charge.throw"
       volume: 0.8
       pitch: 0.6
     line-particle: SMALL_GUST
+    courier:
+      name: "<#c9a227>缴械信使</#c9a227>"
+      max-health: 6.0
+      spawn-delay-ticks: 10
+      despawn-delay-ticks: 10
+      outbound-speed: 0.45
+      return-speed: 0.55
+      arc-height: 1.2
+      max-lifetime-ticks: 200
+      steal-sound:
+        id: "entity.allay.item_taken"
+        volume: 1.0
+        pitch: 1.0
+      steal-failed-sound:
+        id: "entity.illusioner.hurt"
+        volume: 1.0
+        pitch: 1.2
+      drop-sound:
+        id: "entity.allay.item_thrown"
+        volume: 1.0
+        pitch: 1.0
+      death-sound:
+        id: "entity.allay.death"
+        volume: 1.0
+        pitch: 1.0
+      despawn-sound:
+        id: "entity.allay.item_taken"
+        volume: 1.0
+        pitch: 1.4
 
   tosser:
     display: "<#00bcd4>牵引</#00bcd4>"

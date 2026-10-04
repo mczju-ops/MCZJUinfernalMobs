@@ -49,7 +49,8 @@ public class InfernalMobCommand implements CommandExecutor, TabCompleter {
     private final CombatService combatService;
     private final KillStatsService killStatsService;
 
-    public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory, CombatService combatService, KillStatsService killStatsService) {
+    public InfernalMobCommand(InfernalMobsPlugin plugin, ConfigLoader configLoader, MobFactory mobFactory,
+                              CombatService combatService, KillStatsService killStatsService) {
         this.plugin = plugin;
         this.configLoader = configLoader;
         this.mobFactory = mobFactory;
