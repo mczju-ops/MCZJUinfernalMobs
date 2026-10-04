@@ -1,7 +1,8 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefHitEvent;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefResultEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.controller.listener.ThiefResistanceListener;
@@ -384,34 +385,59 @@ public final class ThiefCourierService {
         allay.getEquipment().setItemInMainHandDropChance(0.0f);
     }
 
-    /** 命中时才读取主手；正式触发会先广播缴械事件，再原子校验并转移物品。 */
+    /** 命中时广播夺取前事件，完成原子校验后再广播结果事件。 */
     private boolean transferMainHand(Player player, Courier courier) {
-        if (player.getGameMode() == GameMode.CREATIVE) return false;
         ItemStack current = player.getInventory().getItemInMainHand();
-        if (current.getType().isAir() || ThiefResistanceListener.isResistant(current)) return false;
-
-        ItemStack captured = current.clone();
-        ItemStack carried = captured;
+        ItemStack attempted = current.clone();
         TriggerData trigger = courier.triggerData;
+        Location dropLocation = resolveReturnTarget(courier).dropLocation();
+        InfernalMobThiefHitEvent hitEvent = null;
         if (trigger != null) {
             ReturnTarget defaultReturn = resolveReturnTarget(courier);
-            InfernalMobThiefEvent event = new InfernalMobThiefEvent(
+            hitEvent = new InfernalMobThiefHitEvent(
                     trigger.releasedMob(), trigger.handle(), trigger.level(), player,
-                    captured.clone(), defaultReturn.dropLocation().clone(), trigger.cooldownTicks());
-            plugin.getServer().getPluginManager().callEvent(event);
+                    courier.allay, attempted.clone(), defaultReturn.dropLocation().clone(), trigger.cooldownTicks());
+            plugin.getServer().getPluginManager().callEvent(hitEvent);
 
             // 发射时已预占默认冷却；事件可以在命中时覆写最终冷却，0 表示立即解除。
-            trigger.state().setCooldown("thief", trigger.releasedTick() + event.getCooldownTicks());
-            if (event.isCancelled()) return false;
+            trigger.state().setCooldown("thief", trigger.releasedTick() + hitEvent.getCooldownTicks());
+            dropLocation = hitEvent.getDropLocation();
+            if (!sameLocation(dropLocation, defaultReturn.dropLocation())) {
+                courier.overrideDropLocation = dropLocation.clone();
+            }
+        }
 
+        if (hitEvent != null && hitEvent.isCancelled()) {
+            publishResult(courier, player, attempted, ItemStack.empty(), dropLocation,
+                    InfernalMobThiefResultEvent.Result.FAILED,
+                    InfernalMobThiefResultEvent.FailureReason.CANCELLED);
+            return false;
+        }
+        if (player.getGameMode() == GameMode.CREATIVE) {
+            return failTransfer(courier, player, attempted, dropLocation,
+                    InfernalMobThiefResultEvent.FailureReason.CREATIVE);
+        }
+        if (attempted.getType().isAir()) {
+            return failTransfer(courier, player, attempted, dropLocation,
+                    InfernalMobThiefResultEvent.FailureReason.EMPTY_HAND);
+        }
+        if (ThiefResistanceListener.isResistant(attempted)) {
+            return failTransfer(courier, player, attempted, dropLocation,
+                    InfernalMobThiefResultEvent.FailureReason.RESISTANT_ITEM);
+        }
+
+        ItemStack captured = attempted.clone();
+        ItemStack carried = captured;
+        if (hitEvent != null) {
             ItemStack stillHeld = player.getInventory().getItemInMainHand();
-            if (!stillHeld.equals(captured)) return false;
-            carried = event.getItemStack().clone();
-            if (carried.getType().isAir() || carried.getAmount() <= 0) return false;
-
-            Location eventDrop = event.getDropLocation();
-            if (!sameLocation(eventDrop, defaultReturn.dropLocation())) {
-                courier.overrideDropLocation = eventDrop.clone();
+            if (!stillHeld.equals(captured)) {
+                return failTransfer(courier, player, attempted, dropLocation,
+                        InfernalMobThiefResultEvent.FailureReason.ITEM_CHANGED);
+            }
+            carried = hitEvent.getItemStack();
+            if (carried.getType().isAir() || carried.getAmount() <= 0) {
+                return failTransfer(courier, player, attempted, dropLocation,
+                        InfernalMobThiefResultEvent.FailureReason.INVALID_ITEM);
             }
         }
 
@@ -422,7 +448,30 @@ public final class ThiefCourierService {
         courier.carriedItem = carried;
         courier.allay.getEquipment().setItemInMainHand(carried.clone());
         courier.allay.getEquipment().setItemInMainHandDropChance(0.0f);
+        publishResult(courier, player, attempted, carried, dropLocation,
+                InfernalMobThiefResultEvent.Result.STOLEN,
+                InfernalMobThiefResultEvent.FailureReason.NONE);
         return true;
+    }
+
+    private boolean failTransfer(Courier courier, Player player, ItemStack attempted,
+                                 Location dropLocation,
+                                 InfernalMobThiefResultEvent.FailureReason reason) {
+        publishResult(courier, player, attempted, ItemStack.empty(), dropLocation,
+                InfernalMobThiefResultEvent.Result.FAILED, reason);
+        return false;
+    }
+
+    private void publishResult(Courier courier, Player player, ItemStack attempted,
+                               ItemStack stolen, Location dropLocation,
+                               InfernalMobThiefResultEvent.Result result,
+                               InfernalMobThiefResultEvent.FailureReason reason) {
+        TriggerData trigger = courier.triggerData;
+        if (trigger == null) return;
+        InfernalMobThiefResultEvent event = new InfernalMobThiefResultEvent(
+                trigger.releasedMob(), trigger.handle(), trigger.level(), player, courier.allay,
+                attempted, stolen, dropLocation, result, reason);
+        plugin.getServer().getPluginManager().callEvent(event);
     }
 
     private void playSound(Player player, String path) {

@@ -306,7 +306,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | storm | `InfernalMobStormEvent` | DUAL | `getStrikeLocation/setStrikeLocation`、`getDamage/setDamage`、`isEffectOnly/setEffectOnly` |
 | sulfur | `InfernalMobSulfurEvent` | PASSIVE | `getCenter/setCenter`、`getWarnTicks/setWarnTicks`、`getRadius/setRadius`、`getUpward/setUpward`、`getColumnHeight/setColumnHeight` |
 | swap | `InfernalMobSwapEvent` | PASSIVE | `getMobDestination/setMobDestination`、`getPlayerDestination/setPlayerDestination` |
-| thief | `InfernalMobThiefEvent` | DUAL | `getPlayer`、`getItemStack`、`get/setDropLocation`、`get/setCooldownTicks` |
+| thief | `InfernalMobThiefHitEvent`、`InfernalMobThiefResultEvent` | DUAL | 命中事件：`getPlayer`、`getCourier`、`get/setItemStack`、`get/setDropLocation`、`get/setCooldownTicks`；结果事件：`getAttemptedItem`、`getStolenItem`、`getDropLocation`、`getResult`、`getFailureReason` |
 | tosser | `InfernalMobTosserEvent` | RANGE | `get/setForce`、`get/setUpward` |
 | vengeance | `InfernalMobVengeanceEvent` | PASSIVE | `getDamage/setDamage`（使用原生 THORNS 伤害来源） |
 | vexsummoner | `InfernalMobVexSummonerEvent` | PASSIVE | `getSummonCount/setSummonCount`、`getSpawnLocation/setSpawnLocation` |
@@ -360,11 +360,20 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 **示例：thief 缴械——把掉落位置改到玩家脚下、并缩短冷却**
 ```java
 @EventHandler
-public void onThief(InfernalMobThiefEvent e) {
+public void onThief(InfernalMobThiefHitEvent e) {
     e.setDropLocation(e.getPlayer().getLocation());   // 掉到玩家脚下
     e.setCooldownTicks(e.getCooldownTicks() / 2);     // 冷却减半
 }
 ```
+
+`InfernalMobThiefHitEvent` 在悦灵命中玩家、实际检查和转移物品之前广播，继承
+`InfernalAffixTriggeredEvent`，可以取消本次夺取，也可以替换待夺取物品、掉落位置和最终冷却。
+取消或后续检查失败时，悦灵仍会返程，但不会夺走物品。
+
+`InfernalMobThiefResultEvent` 在本次处理完成后广播，只读且不可取消。`getResult()` 为
+`STOLEN` 时表示转移成功；为 `FAILED` 时可通过 `getFailureReason()` 区分
+`CANCELLED`、`EMPTY_HAND`、`CREATIVE`、`RESISTANT_ITEM`、`ITEM_CHANGED` 和
+`INVALID_ITEM`。失败时 `getStolenItem()` 为空物品。
 
 **示例：mama 母体——翻倍产子**
 ```java
