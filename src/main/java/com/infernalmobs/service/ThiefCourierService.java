@@ -5,7 +5,6 @@ import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefHitEvent;
 import com.infernalmobs.api.event.affix.triggered.InfernalMobThiefResultEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
-import com.infernalmobs.controller.listener.ThiefResistanceListener;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.util.Keys;
 import com.infernalmobs.util.MiniMessageHelper;
@@ -391,6 +390,13 @@ public final class ThiefCourierService {
         ItemStack attempted = current.clone();
         TriggerData trigger = courier.triggerData;
         Location dropLocation = resolveReturnTarget(courier).dropLocation();
+
+        // 内置抗性优先于外部命中监听器，避免外部反制道具在本次夺取必然失败时被消费。
+        if (isThiefResistant(attempted)) {
+            return failTransfer(courier, player, attempted, dropLocation,
+                    InfernalMobThiefResultEvent.FailureReason.RESISTANT_ITEM);
+        }
+
         InfernalMobThiefHitEvent hitEvent = null;
         if (trigger != null) {
             ReturnTarget defaultReturn = resolveReturnTarget(courier);
@@ -421,11 +427,6 @@ public final class ThiefCourierService {
             return failTransfer(courier, player, attempted, dropLocation,
                     InfernalMobThiefResultEvent.FailureReason.EMPTY_HAND);
         }
-        if (ThiefResistanceListener.isResistant(attempted)) {
-            return failTransfer(courier, player, attempted, dropLocation,
-                    InfernalMobThiefResultEvent.FailureReason.RESISTANT_ITEM);
-        }
-
         ItemStack captured = attempted.clone();
         ItemStack carried = captured;
         if (hitEvent != null) {
@@ -460,6 +461,11 @@ public final class ThiefCourierService {
         publishResult(courier, player, attempted, ItemStack.empty(), dropLocation,
                 InfernalMobThiefResultEvent.Result.FAILED, reason);
         return false;
+    }
+
+    /** 只在悦灵实际命中玩家后检查物品抗缴械标记，不再阻止 thief 词条触发。 */
+    private static boolean isThiefResistant(ItemStack stack) {
+        return stack.getPersistentDataContainer().getOrDefault(Keys.IM_THIEF_RESISTANCE, PersistentDataType.BOOLEAN, false);
     }
 
     private void publishResult(Courier courier, Player player, ItemStack attempted,

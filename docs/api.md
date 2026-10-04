@@ -366,9 +366,10 @@ public void onThief(InfernalMobThiefHitEvent e) {
 }
 ```
 
-`InfernalMobThiefHitEvent` 在悦灵命中玩家、实际检查和转移物品之前广播，继承
+`InfernalMobThiefHitEvent` 在悦灵命中玩家、通过内置抗性检查后、实际转移物品之前广播，继承
 `InfernalAffixTriggeredEvent`，可以取消本次夺取，也可以替换待夺取物品、掉落位置和最终冷却。
-取消或后续检查失败时，悦灵仍会返程，但不会夺走物品。
+带有 `im_thief_resistance` PDC 的主手物品会在此事件之前直接判定失败，因此不会触发外部命中监听器；
+取消或其他后续检查失败时，悦灵仍会返程，但不会夺走物品。
 
 `InfernalMobThiefResultEvent` 在本次处理完成后广播，只读且不可取消。`getResult()` 为
 `STOLEN` 时表示转移成功；为 `FAILED` 时可通过 `getFailureReason()` 区分

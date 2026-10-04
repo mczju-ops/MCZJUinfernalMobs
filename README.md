@@ -204,7 +204,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 - 大幅延长触发怪的 `thief` 技能冷却
 - 播放反制粒子与音效
 
-> 主手物品若带有 `im_thief_resistance` PDC 标记，可完全免疫缴械。
+> 主手物品若带有 `im_thief_resistance` PDC 标记，悦灵命中后会放弃夺取该物品；该标记不会阻止 `thief` 词条触发或悦灵生成。
 
 ---
 
