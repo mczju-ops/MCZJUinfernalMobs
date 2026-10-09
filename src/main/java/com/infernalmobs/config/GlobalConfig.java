@@ -13,11 +13,13 @@ public record GlobalConfig(
         double expMultiplier,
         List<String> enabledWorlds,
         Set<CreatureSpawnEvent.SpawnReason> spawnReasons,
-        Set<EntityType> infernalAllowTypes
+        Set<EntityType> infernalAllowTypes,
+        AnimalCleanupConfig animalCleanup
 ) {
     public GlobalConfig {
         enabledWorlds = List.copyOf(enabledWorlds);
         spawnReasons = Set.copyOf(spawnReasons);
         infernalAllowTypes = Set.copyOf(infernalAllowTypes);
+        animalCleanup = animalCleanup != null ? animalCleanup : AnimalCleanupConfig.disabled();
     }
 }

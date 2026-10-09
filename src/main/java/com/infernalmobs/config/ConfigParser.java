@@ -29,7 +29,9 @@ final class ConfigParser {
     static final int CONFIG_VERSION = 1;
     private static final Set<String> CONFIG_ROOT_KEYS = Set.of(
             "config-version", "debug", "exp-multiplier", "enabled-worlds",
-            "infernal-spawn-reasons", "allow-types");
+            "infernal-spawn-reasons", "allow-types", "animal-cleanup");
+    private static final Set<String> ANIMAL_CLEANUP_KEYS = Set.of(
+            "enabled", "interval-ticks", "max-distance");
     private static final Set<String> SKILLS_ROOT_KEYS = Set.of("pools", "skills");
     private static final Set<String> REGIONS_ROOT_KEYS = Set.of("base-rules", "regions");
     private static final Set<String> MESSAGES_ROOT_KEYS = Set.of("death-messages", "protected-animals");
@@ -115,7 +117,33 @@ final class ConfigParser {
         Set<EntityType> allowTypes = parseEntityTypeSet(
                 yaml.getStringList("allow-types"), "config.yml:allow-types", false);
         return new GlobalConfig(version, yaml.getBoolean("debug", false), expMultiplier,
-                worlds, reasons, allowTypes);
+                worlds, reasons, allowTypes, parseAnimalCleanup(yaml));
+    }
+
+    private AnimalCleanupConfig parseAnimalCleanup(YamlConfiguration yaml) {
+        ConfigurationSection section = yaml.getConfigurationSection("animal-cleanup");
+        if (section == null) {
+            warn("config.yml:animal-cleanup", "缺少清理配置段，已使用默认值");
+            return AnimalCleanupConfig.defaults();
+        }
+        warnUnknownKeys("config.yml:animal-cleanup", section, ANIMAL_CLEANUP_KEYS);
+        boolean enabled = section.getBoolean("enabled", true);
+        int intervalTicks = section.getInt("interval-ticks", 100);
+        if (intervalTicks < 1) {
+            warn("config.yml:animal-cleanup.interval-ticks", "必须大于 0，已使用 100");
+            intervalTicks = 100;
+        } else if (intervalTicks % 5 != 0) {
+            int adjusted = ((intervalTicks + 4) / 5) * 5;
+            warn("config.yml:animal-cleanup.interval-ticks",
+                    "必须是 5 的倍数，已向上调整为 " + adjusted);
+            intervalTicks = adjusted;
+        }
+        double maxDistance = section.getDouble("max-distance", 128.0);
+        if (!Double.isFinite(maxDistance) || maxDistance <= 0) {
+            warn("config.yml:animal-cleanup.max-distance", "必须是大于 0 的有限数值，已使用 128.0");
+            maxDistance = 128.0;
+        }
+        return new AnimalCleanupConfig(enabled, intervalTicks, maxDistance);
     }
 
     private SkillsResult parseSkills(YamlConfiguration yaml, YamlConfiguration schemaYaml) {

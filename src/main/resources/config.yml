@@ -36,3 +36,10 @@ allow-types:
   - DROWNED
   - SPIDER
   - PARCHED
+
+# 定期移除远离所有玩家的炒鸡动物，动物类型由 Bukkit API 的 Animals 接口判定。
+# 此功能不读取 messages.yml 中 protected-animals.types；两者用途独立。
+animal-cleanup:
+  enabled: true
+  interval-ticks: 100 # 检查间隔（必须是 5 的倍数）；20 tick = 1 秒，100 tick 约 5 秒
+  max-distance: 128.0 # 与最近玩家的最大距离（方块）

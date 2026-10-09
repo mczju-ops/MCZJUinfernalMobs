@@ -132,6 +132,10 @@ public final class ConfigLoader {
         return currentSnapshot.global().expMultiplier();
     }
 
+    public AnimalCleanupConfig getAnimalCleanupConfig() {
+        return currentSnapshot.global().animalCleanup();
+    }
+
     public Set<CreatureSpawnEvent.SpawnReason> getInfernalSpawnReasons() {
         return currentSnapshot.global().spawnReasons();
     }
@@ -169,7 +173,7 @@ public final class ConfigLoader {
                 ConfigParser.CONFIG_VERSION, false, 0, List.of(),
                 Set.of(CreatureSpawnEvent.SpawnReason.NATURAL,
                         CreatureSpawnEvent.SpawnReason.SPAWNER),
-                Set.of());
+                Set.of(), AnimalCleanupConfig.disabled());
         return new ConfigSnapshot(global, skills, Map.of("default", Map.of()),
                 ConfigParser.safeSpawnRules(), List.of(), ConfigParser.safeDeathMessages(),
                 ProtectedAnimalsConfig.disabled(), true,

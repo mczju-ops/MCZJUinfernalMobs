@@ -1,12 +1,15 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.config.ConfigLoader;
+import com.infernalmobs.config.AnimalCleanupConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Animals;
 import org.bukkit.entity.Player;
+import org.bukkit.World;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -31,6 +34,7 @@ public class CombatService {
     private static final long RANGE_CHECK_INTERVAL = 20L;
 
     private final JavaPlugin plugin;
+    private final ConfigLoader config;
     private final MobRuntimeRegistry mobRegistry = new MobRuntimeRegistry();
     private final SkillSessionManager skillSessionManager;
     private final MobStatService mobStatService = new MobStatService();
@@ -46,6 +50,7 @@ public class CombatService {
 
     public CombatService(JavaPlugin plugin, ConfigLoader config) {
         this.plugin = plugin;
+        this.config = config;
         this.skillSessionManager = new SkillSessionManager(plugin);
         this.specialDamageService = new SpecialDamageService(plugin);
         this.skillAttemptService = new SkillAttemptService(plugin, config);
@@ -174,8 +179,45 @@ public class CombatService {
                         rangeSkillService.tick(entity, e.getValue(), currentTick, mobFactory);
                     }
                 }
+                AnimalCleanupConfig cleanup = config.getAnimalCleanupConfig();
+                if (cleanup.enabled() && currentTick % cleanup.intervalTicks() == 0) {
+                    cleanupDistantAnimals(cleanup.maxDistance());
+                }
             }
         }.runTaskTimer(plugin, TICK_INTERVAL, TICK_INTERVAL);
+    }
+
+    /** 清理远离所有玩家的已加载炒鸡动物；动物类型由 Bukkit Animals API 判定。 */
+    private void cleanupDistantAnimals(double maxDistance) {
+        double maxDistanceSquared = maxDistance * maxDistance;
+        Map<World, List<Player>> playersByWorld = new HashMap<>();
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            playersByWorld.computeIfAbsent(player.getWorld(), ignored -> new ArrayList<>()).add(player);
+        }
+
+        for (Map.Entry<UUID, MobState> entry : mobRegistry.snapshot().entrySet()) {
+            LivingEntity entity = findEntity(entry.getKey());
+            MobState state = entry.getValue();
+            if (entity == null || !entity.isValid() || state == null) {
+                unregisterMob(entry.getKey());
+                continue;
+            }
+            if (!(entity instanceof Animals)) continue;
+            // 不拆除驭兽形成的实体关系；没有关系的炒鸡动物才会被自动清理。
+            if (!entity.getPassengers().isEmpty() || entity.getVehicle() != null) continue;
+
+            boolean nearby = false;
+            for (Player player : playersByWorld.getOrDefault(entity.getWorld(), List.of())) {
+                if (player.getLocation().distanceSquared(entity.getLocation()) <= maxDistanceSquared) {
+                    nearby = true;
+                    break;
+                }
+            }
+            if (nearby) continue;
+
+            unequipAndUnregister(entity, state, SkillService.UnequipReason.EXTERNAL_REMOVE);
+            entity.remove();
+        }
     }
 
     /** 关服时只释放内存引用；实体状态已在每次变化时同步到 PDC。 */

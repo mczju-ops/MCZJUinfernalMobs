@@ -235,6 +235,8 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 
 只保存全局行为：配置版本、调试开关、经验倍率、启用世界、生成原因和自动生成实体白名单。只有世界和生成原因均符合时，`allow-types` 才参与普通自动炒鸡化判断；变形目标和坐骑类型使用各自的独立白名单。
 
+`config.yml` 还包含 `animal-cleanup`：定期移除远离所有玩家的已加载炒鸡动物。动物类型直接按 Bukkit API 的 `Animals` 接口判断，不读取 `messages.yml` 的 `protected-animals.types`。默认每 100 tick（约 5 秒）检查一次，距离阈值为 128 格；`interval-ticks` 必须是 5 的倍数。
+
 ```yaml
 config-version: 1
 debug: false
