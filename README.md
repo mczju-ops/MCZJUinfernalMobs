@@ -167,7 +167,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 | `1up` | 血量首次降至阈值时一次性回满（变身后不重置） |
 | `cloaked` | 隐身（可带头盔遮蔽皮肤） |
 | `sprint` | 附近有玩家时持续加速 |
-| `mounted` | 骑乘白名单内的坐骑，坐骑同步被炒鸡化 |
+| `mounted` | 骑乘白名单内的坐骑，坐骑同步被炒鸡化；鸡作为乘客成功挂载后会标记为鸡骑士 |
 
 ---
 

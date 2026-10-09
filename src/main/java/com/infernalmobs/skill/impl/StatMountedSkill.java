@@ -11,6 +11,7 @@ import com.infernalmobs.skill.SkillType;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Chicken;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -138,6 +139,10 @@ public class StatMountedSkill implements Skill {
                     debugLog(ctx, "尝试坐骑 type=" + type + " infernal=" + candidate.infernal()
                             + " addPassenger=" + mounted);
                     if (mounted) {
+                        if (rider instanceof Chicken chicken) {
+                            // Chicken 的乘客状态需要显式标记，否则服务端可能不会按鸡骑士处理。
+                            chicken.setIsChickenJockey(true);
+                        }
                         if (candidate.infernal()) {
                             maybeMechanizeMount(ctx, mount, spawnLocation);
                         }
