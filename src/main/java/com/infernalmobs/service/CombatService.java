@@ -203,8 +203,6 @@ public class CombatService {
                 continue;
             }
             if (!(entity instanceof Animals)) continue;
-            // 不拆除驭兽形成的实体关系；没有关系的炒鸡动物才会被自动清理。
-            if (!entity.getPassengers().isEmpty() || entity.getVehicle() != null) continue;
 
             boolean nearby = false;
             for (Player player : playersByWorld.getOrDefault(entity.getWorld(), List.of())) {
