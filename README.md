@@ -147,6 +147,8 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 | `weakness` | 对玩家附加虚弱效果 |
 | `refrigerate` | 冰冻玩家（减速 + 粒子） |
 
+幻形成功后沿用所有词条的冷却截止时间，不因替换实体清空或重新计时。`skills.yml` 中 `skills.morph.cooldown-ticks: 120` 表示从本次触发起冷却 120 tick（20 TPS 时约 6 秒）；冷却不跨服务器重启保存。
+
 ### RANGE — 范围感知类（玩家进入范围时持续触发）
 
 | 词条 ID | 效果 |

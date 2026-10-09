@@ -17,7 +17,7 @@
         <itemcreator.groupId>com.github.tozero0</itemcreator.groupId>
         <itemcreator.artifactId>itemcreator-api</itemcreator.artifactId>
         <itemcreator.version>1.0.0</itemcreator.version>
-        <infernalapi.version>1.5.0</infernalapi.version>
+        <infernalapi.version>1.5.2</infernalapi.version>
     </properties>
 
     <repositories>
@@ -35,7 +35,7 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>[26.2.build,)</version>
+            <version>26.2.build.132-stable</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

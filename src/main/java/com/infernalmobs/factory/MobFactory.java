@@ -285,6 +285,8 @@ public class MobFactory {
         MobState newState = new MobState(newEntity.getUniqueId(), oldState.getProfile(), oldState.getMorphTargetTypes());
         // 继承跨形态持久化状态：1up 使用记录、morph_controller 禁用状态等
         newState.inheritPersistentState(oldState);
+        // 幻形任务在下一 tick 执行，此时攻击入口已将本次 morph 冷却写入旧状态。
+        newState.inheritCooldowns(oldState);
 
         skillService.equip(newEntity, newState, affixes, this);
         combatService.applyStats(newEntity, newState);

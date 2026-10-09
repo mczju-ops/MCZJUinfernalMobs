@@ -59,6 +59,16 @@ public class MobState {
         skillCooldowns.put(skillId, untilTick);
     }
 
+    /**
+     * 变形后沿用所有词条的冷却截止 tick，避免替换实体刷新技能冷却。
+     * 同一 CombatService 中的新旧形态共用时钟，直接复制截止值即可，不重新计时。
+     * 冷却仅跨形态保留，不写入 PDC。
+     */
+    public void inheritCooldowns(MobState old) {
+        if (old == null) return;
+        this.skillCooldowns.putAll(old.skillCooldowns);
+    }
+
     public boolean useOneTimeIfNotUsed(String key) {
         if (key == null) return false;
         boolean added = usedOneTime.add(key.toLowerCase(java.util.Locale.ROOT));
