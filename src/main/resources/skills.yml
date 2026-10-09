@@ -363,17 +363,14 @@ skills:
       - VINDICATOR
       - SKELETON
       - ZOMBIE
-      - ENDERMAN
       - WITCH
       - SNOW_GOLEM
-      - VILLAGER
       - ILLUSIONER
       - DROWNED
       - ZOMBIFIED_PIGLIN
       - PIGLIN
       - BLAZE
       - BOGGED
-      - STRIDER
       - PARCHED
     enabled-passengers:
       - WITHER_SKELETON
