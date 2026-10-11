@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.5.0</version>
+        <version>1.5.3</version>
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -234,7 +234,7 @@ for (InfernalGuaranteedLootStatus status
 - 装配型 `STAT` 词条不经过 Attempt/Triggered 链路；`1up` 虽为 `STAT`，但在血量跨过阈值时运行期发动，因此属于 Triggered。
 - 每个词条仍有专属事件类：运行期发动事件位于 `event.affix.triggered`，装配生效事件位于 `event.affix.equipped`。
 - Attempt、Triggered 与 Equipped 事件都继承公共抽象基类 `InfernalAffixEvent`。
-- 另有 3 个与词条触发无关的生命周期事件：`InfernalMobSpawnEvent`（生成）、`InfernalMobDropEvent`（掉落）、`InfernalMobKillEvent`（击杀）。
+- 另有 4 个与词条触发无关的生命周期事件：`InfernalMobSpawnEvent`（生成）、`InfernalMobDropEvent`（掉落）、`InfernalMobKillEvent`（击杀）、`InfernalMobLootRollEvent`（调整死亡等级池抽取次数，API 1.5.3 新增）。
 
 ### 3.2 InfernalAffixAttemptEvent —— 尝试触发（可取消）
 
@@ -435,7 +435,7 @@ public void onSpawn(InfernalMobSpawnEvent e) {
 
 ### 3.6 InfernalMobDropEvent —— 掉落（可取消）
 
-**时机**：插件产出掉落（等级池加权 + special + 保底）聚合后、落世界前。**不包含原版掉落。**
+**时机**：插件产出掉落（等级池加权 + special + 保底）聚合后、落世界前。**不包含原版掉落。** 此时保底进度已经累计、奖励广播已发送且命令已安排执行；取消仅阻止物品落地，不回滚上述副作用。聚合列表为空时不触发。调整抽取次数请使用 `InfernalMobLootRollEvent`。
 
 | 字段 | 说明 |
 | --- | --- |
@@ -477,6 +477,34 @@ public void onKill(InfernalMobKillEvent e) {
     }
 }
 ```
+
+---
+
+### 3.8 InfernalMobLootRollEvent —— 调整等级池抽取次数（API 1.5.3）
+
+**时机**：确认玩家击杀、排除保护动物并触发 `InfernalMobKillEvent` 后，根据 `drop-times` 随机确定基础次数，然后同步触发本事件；事件返回后才累计保底进度并抽取等级池。仅等级池功能可用（包括物品插件可用）、当前轮换存在有效奖励时触发。
+
+| 字段 | 说明 |
+| --- | --- |
+| `getEntity()` / `getHandle()` | 死亡实体与只读等级、词条快照 |
+| `getKiller()` / `getLevel()` | 非 null 的击杀玩家与怪物等级 |
+| `getOriginalRollCount()` | `drop-times` 的原始随机结果，只读 |
+| `getRollCount()` / `setRollCount(int)` | 最终次数，设置时自动截断至 `0～100` |
+
+事件不可取消，设为 0 跳过本次等级池抽取和对应保底累计；特殊实体、词条、原版奖励与经验、击杀统计不受影响。额外抽取也会执行奖励条目的命令与广播，并计入保底。每次抽取独立、允许重复；次数为尝试数，物品创建失败不会补抽，仍计入保底。保底沿用每次击杀每条规则最多发一次、触发后按规则重置的行为，不保留超出阈值部分。
+
+```java
+@EventHandler
+public void onLootRoll(InfernalMobLootRollEvent event) {
+    if (shouldGrantExtraRoll(event.getKiller())) {
+        event.setRollCount(event.getRollCount() + 1);
+    }
+}
+```
+
+多个监听器应基于当前 `getRollCount()` 修改，以支持加成叠加；`MONITOR` 只观察最终值。已有基础配置超过 100 次时，本次死亡实际次数也截断为 100。直接调用 `rollLevelLootItems/Rewards` 不触发本事件，其原有抽取行为不变。
+
+编译期需使用 API 1.5.3，运行时需使用包含此事件的新炒鸡插件。旧版 `apiVersion() = 2` 不变（服务接口未修改），不能只用该版本号判断事件是否存在；可选前置插件应继续隔离事件监听器的类加载。API 尚未发布到 JitPack 时，先在 API 项目执行 `mvn install` 安装 1.5.3 到本地仓库，再构建炒鸡插件。
 
 ---
 

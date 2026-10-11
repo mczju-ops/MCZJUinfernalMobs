@@ -320,6 +320,8 @@ special:
 
 ---
 
+死亡等级池的 `drop-times` 结果可通过 `InfernalMobLootRollEvent` 在抽取前调整，最终次数限制为 0～100，并同时用于保底累计。设为 0 不影响特殊实体奖励、词条奖励和原版掉落。详见 `docs/api.md` 的 3.8 节。
+
 ### loot/levels/&lt;N&gt;.yml
 
 等级 `N`（1–15）对应的奖励池，文件名即等级编号。

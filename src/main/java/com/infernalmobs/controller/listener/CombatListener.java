@@ -3,6 +3,7 @@ package com.infernalmobs.controller.listener;
 import com.infernalmobs.InfernalMobsPlugin;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.event.mob.InfernalMobKillEvent;
+import com.infernalmobs.api.event.mob.InfernalMobLootRollEvent;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.ProtectedAnimalsConfig;
 import com.infernalmobs.model.MobState;
@@ -159,6 +160,13 @@ public class CombatListener implements Listener {
                             : null;
                     int mobLevel = state.getProfile().getLevel();
                     int deathLootRolls = loot != null ? loot.rollDeathLootTimes(mobLevel) : 0;
+                    if (deathLootRolls > 0) {
+                        // 在任何保底副作用之前调整次数，等级池与保底共用同一个最终结果。
+                        InfernalMobLootRollEvent rollEvent = new InfernalMobLootRollEvent(
+                                entity, killHandle, killer, mobLevel, deathLootRolls);
+                        plugin.getServer().getPluginManager().callEvent(rollEvent);
+                        deathLootRolls = rollEvent.getRollCount();
+                    }
                     if (guaranteedLootService != null && loot != null) {
                         for (com.infernalmobs.config.GuaranteedLootConfig.ActiveRule activeRule
                                 : guaranteedLootService.collectTriggered(uuid, pname, mobLevel, deathLootRolls)) {
