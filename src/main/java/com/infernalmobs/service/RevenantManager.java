@@ -14,7 +14,9 @@ import org.bukkit.Color;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Vex;
+import org.bukkit.GameMode;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -118,6 +120,7 @@ public final class RevenantManager {
 
         int summonCount = Math.max(1, Math.min(64, cfg.getInt("summon-count", 1)));
         Team team = getRevenantTeam();
+        Player nearestPlayer = findNearestPlayer(location, 64.0);
         for (int i = 0; i < summonCount; i++) {
             Vex vex = (Vex) world.spawnEntity(location, EntityType.VEX);
             vex.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING,
@@ -125,8 +128,26 @@ public final class RevenantManager {
             team.addEntity(vex);
             addFollowRange(vex);
             mobFactory.mechanizeWithAffixes(vex, location, effectiveAffixCount, affixes);
+            if (nearestPlayer != null) vex.setTarget(nearestPlayer);
         }
         broadcastSummonSound(location, cfg.getDouble("merge-radius", 8.0));
+    }
+
+    private static Player findNearestPlayer(Location location, double radius) {
+        World world = location.getWorld();
+        if (world == null) return null;
+        double radiusSquared = radius * radius;
+        Player nearest = null;
+        double nearestDistanceSquared = radiusSquared;
+        for (Player player : world.getPlayers()) {
+            if (!player.isValid() || player.isDead() || player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) continue;
+            double distanceSquared = player.getLocation().distanceSquared(location);
+            if (distanceSquared <= nearestDistanceSquared) {
+                nearest = player;
+                nearestDistanceSquared = distanceSquared;
+            }
+        }
+        return nearest;
     }
 
     /** 播放旧怨念向新位置汇聚的粒子流，并在终点播放尖啸。 */
