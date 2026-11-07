@@ -239,13 +239,15 @@ skills:
     float-speed: 0.3
 
   revenant:
-    display: "<#7b4bb3>怨灵</#7b4bb3>"
-    merge-radius: 8.0
-    duration-ticks: 600
-    summon-threshold: 20
-    summon-count: 1
+    display: "<#4C7F99>怨灵</#4C7F99>"
+    merge-radius: 32.0
+    duration-ticks: 3600 # 3 分钟
+    summon-threshold: 40 # 共 40 级时召唤
+    summon-count: 4
     summon-affixes:
-      - ender
+      - bullwark
+      - cloaked
+      - berserk
       - withering
 
   confusing:
