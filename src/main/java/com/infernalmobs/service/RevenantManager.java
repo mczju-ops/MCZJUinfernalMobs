@@ -2,6 +2,8 @@ package com.infernalmobs.service;
 
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
+import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.api.event.affix.triggered.InfernalMobRevenantEvent;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.registry.SkillRegistry;
 import org.bukkit.Location;
@@ -15,6 +17,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Vex;
 import org.bukkit.GameMode;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -49,7 +52,8 @@ public final class RevenantManager {
     }
 
     /** 在死亡位置加入怨念，并吸收融合半径内的全部旧怨念。 */
-    public void add(Location location, int level, long currentTick) {
+    public void add(Location location, int level, long currentTick,
+                    LivingEntity mob, Player target, InfernalMobHandle handle) {
         if (location == null || location.getWorld() == null || level <= 0) return;
         SkillConfig cfg = config.getSkillConfig("revenant");
         if (cfg == null) return;
@@ -57,18 +61,30 @@ public final class RevenantManager {
         double radius = Math.max(0.0, cfg.getDouble("merge-radius", 8.0));
         int total = level;
         List<Location> absorbedLocations = new ArrayList<>();
+        List<RevenantNode> absorbedNodes = new ArrayList<>();
         for (Iterator<RevenantNode> it = nodes.iterator(); it.hasNext();) {
             RevenantNode node = it.next();
             if (sameWorld(location, node.location())
                     && location.distanceSquared(node.location()) <= radius * radius) {
                 total += node.level();
                 absorbedLocations.add(node.location().clone());
+                absorbedNodes.add(node);
                 it.remove();
             }
         }
 
         int threshold = Math.max(1, cfg.getInt("summon-threshold", 20));
         Location newLocation = findGroundLocation(location);
+        int absorbedLevel = total - level;
+        InfernalMobRevenantEvent event = new InfernalMobRevenantEvent(
+                mob, target, handle, level, newLocation, level, absorbedLevel,
+                absorbedLocations.size(), total, threshold);
+        plugin.getServer().getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            nodes.addAll(absorbedNodes);
+            return;
+        }
+        newLocation = event.getRevenantLocation();
         if (total >= threshold) {
             Runnable summon = () -> summon(newLocation, cfg);
             if (absorbedLocations.isEmpty()) {

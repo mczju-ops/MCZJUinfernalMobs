@@ -18,7 +18,8 @@ public final class RevenantSkill implements Skill {
         RevenantManager manager = ctx.getRevenantManager();
         if (manager != null) {
             manager.add(ctx.getEntity().getLocation(),
-                    ctx.getMobState().getProfile().getLevel(), ctx.getCurrentTick());
+                    ctx.getMobState().getProfile().getLevel(), ctx.getCurrentTick(),
+                    ctx.getEntity(), ctx.getTargetPlayer(), ctx.getHandle());
         }
     }
 }
