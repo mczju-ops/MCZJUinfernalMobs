@@ -243,7 +243,6 @@ skills:
     merge-radius: 8.0
     duration-ticks: 600
     summon-threshold: 20
-    particle-count: 4
     summon-count: 1
     summon-affixes:
       - ender
