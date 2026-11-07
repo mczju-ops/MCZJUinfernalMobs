@@ -21,12 +21,14 @@ public final class DeathSkillService {
     private final JavaPlugin plugin;
     private final ConfigLoader config;
     private final SkillAttemptService skillAttemptService;
+    private final RevenantManager revenantManager;
 
     public DeathSkillService(JavaPlugin plugin, ConfigLoader config,
-                             SkillAttemptService skillAttemptService) {
+                             SkillAttemptService skillAttemptService, RevenantManager revenantManager) {
         this.plugin = plugin;
         this.config = config;
         this.skillAttemptService = skillAttemptService;
+        this.revenantManager = revenantManager;
     }
 
     /**
@@ -46,6 +48,7 @@ public final class DeathSkillService {
             context.setTargetPlayer(killer);
             context.setTriggerEvent(event);
             context.setCurrentTick(currentTick);
+            context.setRevenantManager(revenantManager);
             if (mobFactory != null) context.setMobFactory(mobFactory);
             context.setCollectTo(collectTo);
             if (!skillAttemptService.fire(affix, context, entity, killer, state)) continue;

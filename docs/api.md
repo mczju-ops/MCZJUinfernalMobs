@@ -161,7 +161,7 @@ public enum InfernalAffix {
     QUICKSAND("quicksand"), BULLWARK("bullwark"), CLOAKED("cloaked"), ENDER("ender"),
     GHASTLY("ghastly"), LIFESTEAL("lifesteal"), SPRINT("sprint"), SAPPER("sapper"),
     WEBBER("webber"), MOLTEN("molten"), ARCHER("archer"), NECROMANCER("necromancer"),
-    FIREWORK("firework"), GHOST("ghost"), CONFUSING("confusing"),
+    FIREWORK("firework"), GHOST("ghost"), REVENANT("revenant"), CONFUSING("confusing"),
     THIEF("thief"), TOSSER("tosser"), STORM("storm"), VENGEANCE("vengeance"),
     WEAKNESS("weakness"), BERSERK("berserk"), MAMA("mama"), GRAVITY("gravity"),
     MOUNTED("mounted"), SPEAR("spear"), SULFUR("sulfur"), MORPH("morph"),

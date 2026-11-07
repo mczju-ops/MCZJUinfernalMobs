@@ -158,6 +158,13 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 | `tosser` | 将玩家拉向怪物 |
 | `gravity` | 对玩家施加漂浮效果 |
 
+### DEATH — 亡语类（怪物死亡时触发）
+
+| 词条 ID | 效果 |
+|---------|------|
+| `ghost` | 死亡时召唤一只隐身幽灵僵尸 |
+| `revenant` | 死亡时留下带等级的怨念；附近怨念会融合，累计达到阈值后生成炒鸡恼鬼 |
+
 ### STAT — 生成时属性类（生成时一次性生效）
 
 | 词条 ID | 效果 |

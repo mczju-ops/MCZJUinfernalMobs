@@ -20,6 +20,7 @@ pools:
     necromancer: 10
     firework: 10
     ghost: 10
+    revenant: 10
     confusing: 10
     thief: 10
     tosser: 10
@@ -57,6 +58,7 @@ pools:
     necromancer: 10
     firework: 10
     ghost: 10
+    revenant: 10
     confusing: 10
     thief: 1
     tosser: 1
@@ -90,6 +92,7 @@ pools:
     necromancer: 10
     firework: 10
     ghost: 10
+    revenant: 10
     confusing: 10
     thief: 10
     tosser: 10
@@ -234,6 +237,17 @@ skills:
     summon-level: 4
     health: 40
     float-speed: 0.3
+
+  revenant:
+    display: "<#7b4bb3>怨灵</#7b4bb3>"
+    merge-radius: 8.0
+    duration-ticks: 600
+    summon-threshold: 20
+    particle-count: 4
+    summon-count: 1
+    summon-affixes:
+      - ender
+      - withering
 
   confusing:
     display: "<#cc66ff>致幻</#cc66ff>"

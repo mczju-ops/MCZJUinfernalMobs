@@ -45,6 +45,7 @@ public class CombatService {
     private final DamageReactionSkillService damageReactionSkillService;
     private final SpecialDamageService specialDamageService;
     private final SkillAttemptService skillAttemptService;
+    private final RevenantManager revenantManager;
     private MobFactory mobFactory;
     private SkillService skillService;
 
@@ -54,10 +55,11 @@ public class CombatService {
         this.skillSessionManager = new SkillSessionManager(plugin);
         this.specialDamageService = new SpecialDamageService(plugin);
         this.skillAttemptService = new SkillAttemptService(plugin, config);
+        this.revenantManager = new RevenantManager(config);
         this.rangeSkillService = new RangeSkillService(plugin, config, skillAttemptService);
         this.attackSkillService = new AttackSkillService(plugin, config, skillAttemptService);
         this.attackDamageService = new AttackDamageService();
-        this.deathSkillService = new DeathSkillService(plugin, config, skillAttemptService);
+        this.deathSkillService = new DeathSkillService(plugin, config, skillAttemptService, revenantManager);
         this.damageReactionSkillService = new DamageReactionSkillService(plugin, config);
     }
 
@@ -109,6 +111,11 @@ public class CombatService {
 
     public void setMobFactory(MobFactory factory) {
         this.mobFactory = factory;
+        this.revenantManager.setMobFactory(factory);
+    }
+
+    public RevenantManager getRevenantManager() {
+        return revenantManager;
     }
 
     /** 忽略原版领头僵尸额外生命后的恢复上限。 */
@@ -169,6 +176,7 @@ public class CombatService {
             @Override
             public void run() {
                 currentTick += TICK_INTERVAL;
+                revenantManager.tick(currentTick);
                 for (Map.Entry<UUID, MobState> e : mobRegistry.snapshot().entrySet()) {
                     LivingEntity entity = findEntity(e.getKey());
                     if (entity == null || !entity.isValid()) {
@@ -225,6 +233,7 @@ public class CombatService {
             tickTask = null;
         }
         skillSessionManager.cancelAll();
+        revenantManager.shutdown();
         mobRegistry.clear();
     }
 

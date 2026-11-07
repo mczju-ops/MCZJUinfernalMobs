@@ -62,6 +62,7 @@ public class SkillContext {
     }
 
     private Object mobFactory;
+    private Object revenantManager;
 
     public void setMobFactory(Object mobFactory) {
         this.mobFactory = mobFactory;
@@ -70,6 +71,15 @@ public class SkillContext {
     @SuppressWarnings("unchecked")
     public <T> T getMobFactory() {
         return (T) mobFactory;
+    }
+
+    public void setRevenantManager(Object revenantManager) {
+        this.revenantManager = revenantManager;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T getRevenantManager() {
+        return (T) revenantManager;
     }
 
     public boolean isWeakened() {
