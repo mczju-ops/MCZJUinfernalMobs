@@ -14,6 +14,7 @@ import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.GuaranteedLootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
+import com.infernalmobs.service.MobKillStatsService;
 import com.infernalmobs.service.SkillService;
 import com.infernalmobs.util.Keys;
 import org.bukkit.Location;
@@ -41,6 +42,7 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
     private final ConfigLoader configLoader;
     private final Supplier<LootService> lootServiceSupplier;
     private final KillStatsService killStatsService;
+    private final MobKillStatsService mobKillStatsService;
     private final Supplier<GuaranteedLootService> guaranteedLootServiceSupplier;
 
     public InfernalMobsApiImpl(
@@ -49,6 +51,7 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
             ConfigLoader configLoader,
             Supplier<LootService> lootServiceSupplier,
             KillStatsService killStatsService,
+            MobKillStatsService mobKillStatsService,
             Supplier<GuaranteedLootService> guaranteedLootServiceSupplier
     ) {
         this.combatService = combatService;
@@ -56,6 +59,7 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         this.configLoader = configLoader;
         this.lootServiceSupplier = lootServiceSupplier;
         this.killStatsService = killStatsService;
+        this.mobKillStatsService = mobKillStatsService;
         this.guaranteedLootServiceSupplier = guaranteedLootServiceSupplier;
     }
 
@@ -178,6 +182,16 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         }
         result.sort(Comparator.comparing(InfernalPlayerKillStats::playerId));
         return List.copyOf(result);
+    }
+
+    @Override
+    public Map<String, Long> getMobKillStats() {
+        return mobKillStatsService.getAllLevels();
+    }
+
+    @Override
+    public Map<String, Long> getMobKillStats(int mobLevel) {
+        return mobLevel < 1 ? Map.of() : mobKillStatsService.getKillsByLevel(mobLevel);
     }
 
     @Override

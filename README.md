@@ -65,7 +65,7 @@
 <dependency>
     <groupId>com.github.mczju-ops</groupId>
     <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.5.0</version>
+        <version>1.5.5</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -417,6 +417,7 @@ rules:
 - `/im stats <玩家>` 显示该玩家对各等级炒鸡怪的击杀次数与总计。
 - 玩家统计存储于 `data/kill_stats.yml`。
 - 全服按等级、实体类型统计由玩家击杀的炒鸡怪数量，存储于 `data/mob_kill_stats.yml`；受保护小动物也计入该全服统计。
+- 外部插件可通过 API `getMobKillStats()` 查询所有等级合计，或通过 `getMobKillStats(int)` 查询指定等级；均返回不可变内存快照，支持异步查询。
 - 运行期间查询和更新只访问内存；运行数据每分钟异步保存一次，插件关闭时执行最终保存，失败会在下个周期重试。
 
 全服统计使用完整实体类型 ID，`levels` 保存按等级明细，`all-levels` 保存所有等级合计：

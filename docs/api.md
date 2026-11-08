@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.5.3</version>
+        <version>1.5.5</version>
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -93,12 +93,26 @@ public final class MyPlugin extends JavaPlugin {
 | `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为                               |
 | `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照                                            |
 | `List<InfernalPlayerKillStats> getAllPlayerKillStats()` | 获取所有已有记录玩家的 UUID、最近名称与击杀统计快照                                   |
+| `Map<String, Long> getMobKillStats()` | 获取全服所有等级合计的实体类型击杀数只读快照（API 1.5.5 新增） |
+| `Map<String, Long> getMobKillStats(int mobLevel)` | 获取全服指定等级的实体类型击杀数只读快照（API 1.5.5 新增） |
 | `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息                                          |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`）                            |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射）                                             |
 | `int apiVersion()` | API 版本（当前 2）                                                   |
 
 `spawnInfernalMob` 返回 `null` 表示生成失败（类型/位置无效、词条全无效、或生成事件被取消）。
+
+全服击杀查询的键为完整实体类型 ID（如 `minecraft:zombie`），值为 `long` 累计数量。
+只统计 Bukkit 判定由玩家击杀的炒鸡怪，包含受保护小动物；不保留玩家维度。
+两个方法均只复制内存数据，支持异步调用；返回的 Map 不可修改，且不会随之后的击杀更新。
+没有记录的实体类型不出现在 Map 中；指定等级小于 1 或无记录时返回空 Map。
+这两种查询分别获取各自调用时刻的快照。新增方法需要 API 1.5.5 及包含对应实现的新版本体，`apiVersion()` 仍为 2。
+
+```java
+Map<String, Long> allTypes = api.getMobKillStats();
+long zombieKills = allTypes.getOrDefault("minecraft:zombie", 0L);
+Map<String, Long> level5Types = api.getMobKillStats(5);
+```
 
 `removeEntity` 必须在服务端主线程调用。它不会触发 `EntityDeathEvent`，因此不会产生亡语、原版死亡掉落、炒鸡掉落、击杀统计或击杀播报。
 当目标是炒鸡怪时，插件会先执行完整的技能卸载，再调用 Bukkit 的实体移除操作；目标不是炒鸡怪时则直接调用实体移除。

@@ -110,6 +110,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
                 configLoader,
                 this::getLootService,
                 killStatsService,
+                mobKillStatsService,
                 this::getGuaranteedLootService
         );
         getServer().getServicesManager().register(InfernalMobsApi.class, infernalMobsApi, this, ServicePriority.Normal);
