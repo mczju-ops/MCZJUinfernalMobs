@@ -24,6 +24,15 @@ public final class DamageReactionSkillService {
 
     /** 检查并处理 1up；找不到符合条件的词条时保持原伤害。 */
     public void handle(EntityDamageEvent event, LivingEntity victim, MobState state) {
+        // 任意伤害均可触发次数盾；玩家来源仅用于向攻击者播放音效。
+        org.bukkit.entity.Player attacker = null;
+        if (event instanceof EntityDamageByEntityEvent byEntity) {
+            if (byEntity.getDamager() instanceof org.bukkit.entity.Player player) attacker = player;
+            else if (byEntity.getDamager() instanceof org.bukkit.entity.Projectile projectile
+                    && projectile.getShooter() instanceof org.bukkit.entity.Player player) attacker = player;
+        }
+        com.infernalmobs.skill.impl.StatHardenedSkill.absorb(event, victim, attacker, state,
+                config.getSkillConfig("hardened"));
         for (var affix : state.getProfile().getAffixes()) {
             if (!"1up".equals(affix.getSkillId())) continue;
             if (state.hasUsedOneTime("1up")) continue;

@@ -24,6 +24,7 @@ public class SkillRegistry {
      *          2. 在此调用 register(...)
      */
     private static void registerAll() {
+        register(new com.infernalmobs.skill.impl.StatHardenedSkill());
         register(new com.infernalmobs.skill.impl.PassivePoisonousSkill());
         register(new com.infernalmobs.skill.impl.PassiveBlindingSkill());
         register(new com.infernalmobs.skill.impl.PassiveWitheringSkill());

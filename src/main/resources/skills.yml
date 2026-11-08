@@ -1,6 +1,7 @@
 # 命名词条池。区域通过名称引用，字段出现时整体替换基础池。
 pools:
   default:
+    hardened: 10
     poisonous: 10
     armoured: 10
     blinding: 10
@@ -39,6 +40,7 @@ pools:
     swap: 1
 
   spawn: # 新手区
+    hardened: 10
     poisonous: 10
     armoured: 10
     blinding: 10
@@ -73,6 +75,7 @@ pools:
     refrigerate: 1
 
   abyssal: # 困难区
+    hardened: 10
     poisonous: 10
     armoured: 10
     blinding: 10
@@ -112,6 +115,15 @@ pools:
 
 # 技能类型由源码定义，此处不再接受 type 字段。
 skills:
+  hardened:
+    display: "<#d0d0d0>硬化</#d0d0d0>"
+    health-cost-ratio: 0.5 # 扣除当前生命值的比例，不改变最大生命值
+    health-per-charge: 10.0 # 每次盾需要的生命值，次数向上取整
+    damage-threshold: 1.0 # 最终伤害严格超过此值时才消耗次数盾
+    sound:
+      id: "minecraft:entity.zombie.attack_iron_door"
+      pitch: 1.0
+
   poisonous:
     display: "<#3cff4e>剧毒</#3cff4e>"
     duration-ticks: 160

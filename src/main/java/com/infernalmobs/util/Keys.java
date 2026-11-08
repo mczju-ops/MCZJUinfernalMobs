@@ -26,6 +26,7 @@ public final class Keys {
     public static final NamespacedKey INFERNAL_SUPPRESSED_AFFIXES = key("suppressed-affixes");
     public static final NamespacedKey INFERNAL_USED_ONE_TIME = key("used-one-time");
     public static final NamespacedKey INFERNAL_MORPH_TARGETS = key("morph-targets");
+    public static final NamespacedKey INFERNAL_HARDENED_CHARGES = key("hardened-charges");
 
     /** 炒鸡物品稀有度，String，拥有该 PDC 时视为炒鸡物品（影响缴械效果） */
     public static final NamespacedKey IM_RARITY = key("im_rarity");

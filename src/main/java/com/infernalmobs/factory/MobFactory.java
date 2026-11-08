@@ -258,6 +258,8 @@ public class MobFactory {
 
         skillService.equip(entity, mobState, profile.getAffixes(), this);
         combatService.applyStats(entity, mobState);
+        com.infernalmobs.skill.impl.StatHardenedSkill.initialize(entity, mobState,
+                configLoader.getSkillConfig("hardened"));
         if (handle.getDisplayName() != null) {
             entity.customName(MiniMessageHelper.deserialize(handle.getDisplayName()));
             entity.setCustomNameVisible(true);
@@ -311,6 +313,7 @@ public class MobFactory {
         MobProfile profile = new MobProfile(stored.level(), affixes);
         MobState state = new MobState(entity.getUniqueId(), profile, stored.morphTargets());
         state.restorePersistentState(stored.suppressedAffixes(), stored.usedOneTime());
+        state.setHardenedCharges(stored.hardenedCharges());
         attachState(entity, state, false);
         return true;
     }

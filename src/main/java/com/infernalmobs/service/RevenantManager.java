@@ -74,17 +74,17 @@ public final class RevenantManager {
         }
 
         int threshold = Math.max(1, cfg.getInt("summon-threshold", 20));
-        Location newLocation = findGroundLocation(location);
+        Location initialLocation = findGroundLocation(location);
         int absorbedLevel = total - level;
         InfernalMobRevenantEvent event = new InfernalMobRevenantEvent(
-                mob, target, handle, level, newLocation, level, absorbedLevel,
+                mob, target, handle, level, initialLocation, level, absorbedLevel,
                 absorbedLocations.size(), total, threshold);
         plugin.getServer().getPluginManager().callEvent(event);
         if (event.isCancelled()) {
             nodes.addAll(absorbedNodes);
             return;
         }
-        newLocation = event.getRevenantLocation();
+        final Location newLocation = event.getRevenantLocation();
         if (total >= threshold) {
             Runnable summon = () -> summon(newLocation, cfg);
             if (absorbedLocations.isEmpty()) {

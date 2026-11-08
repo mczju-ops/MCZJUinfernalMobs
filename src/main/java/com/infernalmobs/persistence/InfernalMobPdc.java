@@ -36,6 +36,7 @@ public final class InfernalMobPdc {
         PersistentDataContainer data = root.getAdapterContext().newPersistentDataContainer();
         data.set(Keys.INFERNAL_DATA_VERSION, PersistentDataType.INTEGER, DATA_VERSION);
         data.set(Keys.INFERNAL_LEVEL, PersistentDataType.INTEGER, state.getProfile().getLevel());
+        data.set(Keys.INFERNAL_HARDENED_CHARGES, PersistentDataType.INTEGER, state.getHardenedCharges());
         data.set(Keys.INFERNAL_AFFIXES, PersistentDataType.STRING,
                 joinIds(state.getProfile().getAffixIds()));
         data.set(Keys.INFERNAL_SUPPRESSED_AFFIXES, PersistentDataType.STRING,
@@ -92,7 +93,10 @@ public final class InfernalMobPdc {
                 || morphTargets.size() != splitIds(morphRaw).size()) {
             warnOnce(entity, "状态中包含无法识别或重复的 ID，已忽略无效项");
         }
-        return ReadResult.valid(new StoredState(level, affixes, suppressed, usedOneTime, morphTargets));
+        int hardenedCharges = data.getOrDefault(Keys.INFERNAL_HARDENED_CHARGES,
+                PersistentDataType.INTEGER, -1);
+        return ReadResult.valid(new StoredState(level, affixes, suppressed, usedOneTime, morphTargets,
+                Math.max(-1, hardenedCharges)));
     }
 
     private ReadResult invalid(LivingEntity entity, String reason) {
@@ -154,7 +158,7 @@ public final class InfernalMobPdc {
     }
 
     public record StoredState(int level, List<String> affixes, Set<String> suppressedAffixes,
-                              Set<String> usedOneTime, List<EntityType> morphTargets) {
+                              Set<String> usedOneTime, List<EntityType> morphTargets, int hardenedCharges) {
         public StoredState {
             affixes = List.copyOf(affixes);
             suppressedAffixes = Set.copyOf(suppressedAffixes);

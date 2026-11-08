@@ -170,6 +170,7 @@ String witheringName = api.getAffixDisplayName(InfernalAffix.WITHERING.id());
 | 词条 ID | 效果 |
 |---------|------|
 | `armoured` | 穿戴盔甲；高等级可升级为钻石/合金套 |
+| `hardened` | 首次炒鸡化后将当前生命的一部分转换为次数盾；任意来源的最终伤害超过 `damage-threshold`（默认 1）时消耗一次，将基础伤害限制到 1，变形和重新加载继承剩余次数 |
 | `bullwark` | 抗性 III |
 | `1up` | 血量首次降至阈值时一次性回满（变身后不重置） |
 | `cloaked` | 隐身（可带头盔遮蔽皮肤） |

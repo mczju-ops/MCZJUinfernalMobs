@@ -26,6 +26,17 @@ public class MobState {
     private final Set<String> suppressedAffixes =
             java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
     private volatile Runnable persistentStateListener = () -> {};
+    /** -1 表示从未转换；0 表示已转换且次数已用完。 */
+    private int hardenedCharges = -1;
+
+    public int getHardenedCharges() {
+        return hardenedCharges;
+    }
+
+    public void setHardenedCharges(int charges) {
+        hardenedCharges = Math.max(-1, charges);
+        persistentStateListener.run();
+    }
 
     public MobState(UUID entityUuid, MobProfile profile) {
         this(entityUuid, profile, List.of());
@@ -145,5 +156,6 @@ public class MobState {
         if (old == null) return;
         this.usedOneTime.addAll(old.usedOneTime);
         this.suppressedAffixes.addAll(old.suppressedAffixes);
+        this.hardenedCharges = old.hardenedCharges;
     }
 }
