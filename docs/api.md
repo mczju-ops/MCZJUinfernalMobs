@@ -284,6 +284,7 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | 词条 | 事件类 | 类型 | 额外字段 |
 | --- | --- | --- | --- |
 | 1up | `InfernalMob1upEvent` | STAT | `getRecoveryAmount/setRecoveryAmount`（免除伤害后额外回复的生命值；target=攻击者，可能 null） |
+| hardened | `InfernalMobHardenedEvent` | STAT | `getDamageEvent`、`getOriginalFinalDamage`、`getRemainingCharges`、`getDamageLimit/setDamageLimit`（基础伤害上限，默认 1；target=活体攻击者或投射物射手，可能 null） |
 | archer | `InfernalMobArcherEvent` | DUAL | `getArrowCount/setArrowCount`、`getSpeed/setSpeed`、`getDirectionSpread/setDirectionSpread`、`getProjectileSpread/setProjectileSpread` |
 | berserk | `InfernalMobBerserkEvent` | ACTIVE | `getSelfDamage/setSelfDamage`、`getBonusDamage/setBonusDamage` |
 | blinding | `InfernalMobBlindingEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
@@ -316,6 +317,8 @@ public void onAffixAttempt(InfernalAffixAttemptEvent e) {
 | weakness | `InfernalMobWeaknessEvent` | DUAL | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
 | webber | `InfernalMobWebberEvent` | DUAL | `isGiantSphere`、`getCenter/setCenter`、`getLifetimeTicks/setLifetimeTicks`、`getRadius/setRadius`、`getThickness/setThickness` |
 | withering | `InfernalMobWitheringEvent` | PASSIVE | `getDurationTicks/setDurationTicks`、`getAmplifier/setAmplifier` |
+
+**hardened 的次数盾事件**：`InfernalMobHardenedEvent` 在剩余次数大于 0、词条未禁用且最终伤害严格超过配置阈值时广播，发生在消耗次数和修改伤害之前，不经过通用 Attempt 事件。`getRemainingCharges()` 为消耗前的次数快照，`getOriginalFinalDamage()` 为广播前的最终伤害快照；`getDamageEvent()` 返回原伤害事件。`setDamageLimit()` 设置本次基础伤害上限（默认 1），护甲等后续减免仍然生效，且不会提高原基础伤害。取消硬化事件仍消耗一次盾，但不执行硬化减伤、粒子和音效，也不会取消原伤害。硬化处理在 `1up` 检查之前进行。使用此事件需要包含该类的新版 API 和插件本体；`apiVersion()` 保持 2，不能据此判断该事件是否可用。
 
 **spear 的单次命中事件**：`InfernalMobSpearHitEvent` 不继承 `InfernalAffixTriggeredEvent`。
 它只在怪物进入冲锋阶段后，以临时长矛对本轮锁定玩家造成真实近战攻击时广播；距离接近本身不会触发。
