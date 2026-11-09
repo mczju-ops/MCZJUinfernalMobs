@@ -136,7 +136,7 @@ public final class RevenantManager {
 
         int summonCount = Math.max(1, Math.min(64, cfg.getInt("summon-count", 1)));
         Team team = getRevenantTeam();
-        Player nearestPlayer = findNearestPlayer(location, 64.0);
+        Player nearestPlayer = findNearestPlayer(location, 128.0);
         for (int i = 0; i < summonCount; i++) {
             Vex vex = (Vex) world.spawnEntity(location, EntityType.VEX);
             vex.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING,
