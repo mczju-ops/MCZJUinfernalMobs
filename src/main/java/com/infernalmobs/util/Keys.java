@@ -27,6 +27,8 @@ public final class Keys {
     public static final NamespacedKey INFERNAL_USED_ONE_TIME = key("used-one-time");
     public static final NamespacedKey INFERNAL_MORPH_TARGETS = key("morph-targets");
     public static final NamespacedKey INFERNAL_HARDENED_CHARGES = key("hardened-charges");
+    /** mama 词条生成的子怪标记，Boolean。此类子怪不触发特殊实体额外掉落。 */
+    public static final NamespacedKey INFERNAL_MAMA_CHILD = key("mama-child");
 
     /** 炒鸡物品稀有度，String，拥有该 PDC 时视为炒鸡物品（影响缴械效果） */
     public static final NamespacedKey IM_RARITY = key("im_rarity");

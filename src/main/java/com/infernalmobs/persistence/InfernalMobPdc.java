@@ -37,6 +37,8 @@ public final class InfernalMobPdc {
         data.set(Keys.INFERNAL_DATA_VERSION, PersistentDataType.INTEGER, DATA_VERSION);
         data.set(Keys.INFERNAL_LEVEL, PersistentDataType.INTEGER, state.getProfile().getLevel());
         data.set(Keys.INFERNAL_HARDENED_CHARGES, PersistentDataType.INTEGER, state.getHardenedCharges());
+        data.set(Keys.INFERNAL_MAMA_CHILD, PersistentDataType.BYTE,
+                (byte) (state.isMamaChild() ? 1 : 0));
         data.set(Keys.INFERNAL_AFFIXES, PersistentDataType.STRING,
                 joinIds(state.getProfile().getAffixIds()));
         data.set(Keys.INFERNAL_SUPPRESSED_AFFIXES, PersistentDataType.STRING,
@@ -95,8 +97,10 @@ public final class InfernalMobPdc {
         }
         int hardenedCharges = data.getOrDefault(Keys.INFERNAL_HARDENED_CHARGES,
                 PersistentDataType.INTEGER, -1);
+        boolean mamaChild = data.getOrDefault(Keys.INFERNAL_MAMA_CHILD,
+                PersistentDataType.BYTE, (byte) 0) != 0;
         return ReadResult.valid(new StoredState(level, affixes, suppressed, usedOneTime, morphTargets,
-                Math.max(-1, hardenedCharges)));
+                Math.max(-1, hardenedCharges), mamaChild));
     }
 
     private ReadResult invalid(LivingEntity entity, String reason) {
@@ -158,7 +162,8 @@ public final class InfernalMobPdc {
     }
 
     public record StoredState(int level, List<String> affixes, Set<String> suppressedAffixes,
-                              Set<String> usedOneTime, List<EntityType> morphTargets, int hardenedCharges) {
+                              Set<String> usedOneTime, List<EntityType> morphTargets,
+                              int hardenedCharges, boolean mamaChild) {
         public StoredState {
             affixes = List.copyOf(affixes);
             suppressedAffixes = Set.copyOf(suppressedAffixes);

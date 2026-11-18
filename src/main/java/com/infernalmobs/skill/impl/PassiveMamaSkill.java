@@ -181,7 +181,7 @@ public class PassiveMamaSkill implements Skill {
                         }
                     }
                     int childLevel = (int) ThreadLocalRandom.current().nextLong(effMin, (long) effMax + 1L);
-                    factory.mechanizeWithExcludedAffixes(child, loc, childLevel, List.of("mama"));
+                    factory.mechanizeMamaChild(child, loc, childLevel);
                     if (useScale) applyScale(plugin, child, effNoBabyScale);
                 }
                 SoundPlayback.broadcast(loc, config.getSound("sound"));

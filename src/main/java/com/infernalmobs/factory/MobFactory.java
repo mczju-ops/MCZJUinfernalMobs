@@ -180,6 +180,16 @@ public class MobFactory {
      * @param excludedSkillIds 必须排除的技能 ID
      */
     public void mechanizeWithExcludedAffixes(LivingEntity entity, Location spawnLocation, int level, List<String> excludedSkillIds) {
+        mechanizeWithExcludedAffixes(entity, spawnLocation, level, excludedSkillIds, false);
+    }
+
+    /** 使用固定等级改造并标记为 mama 生成的子怪。 */
+    public void mechanizeMamaChild(LivingEntity entity, Location spawnLocation, int level) {
+        mechanizeWithExcludedAffixes(entity, spawnLocation, level, List.of("mama"), true);
+    }
+
+    private void mechanizeWithExcludedAffixes(LivingEntity entity, Location spawnLocation, int level,
+                                              List<String> excludedSkillIds, boolean mamaChild) {
         RegionConfig region = regionService.getRegionAt(spawnLocation);
         List<EntityType> morphTargets = getMorphTargets(region);
         int affixCount = affixRollService.computeAffixCount(level, region);
@@ -189,7 +199,7 @@ public class MobFactory {
 
         logMechanizeDebug("excluded-affixes", entity, spawnLocation, region, level, affixes);
 
-        completeMechanize(entity, spawnLocation, level, affixes, morphTargets);
+        completeMechanize(entity, spawnLocation, level, affixes, morphTargets, mamaChild);
     }
 
     private List<String> getSkillExclusionsFor(EntityType type) {
@@ -242,8 +252,14 @@ public class MobFactory {
      */
     private void completeMechanize(LivingEntity entity, Location loc, int level, List<Affix> affixes,
                                    List<EntityType> morphTargets) {
+        completeMechanize(entity, loc, level, affixes, morphTargets, false);
+    }
+
+    private void completeMechanize(LivingEntity entity, Location loc, int level, List<Affix> affixes,
+                                   List<EntityType> morphTargets, boolean mamaChild) {
         MobProfile profile = new MobProfile(level, affixes);
         MobState mobState = new MobState(entity.getUniqueId(), profile, morphTargets);
+        mobState.setMamaChild(mamaChild);
 
         InfernalMobHandle handle = new InfernalMobHandle(entity,
                 mobState.getProfile().getLevel(), mobState.getProfile().getAffixIds());
@@ -314,6 +330,7 @@ public class MobFactory {
         MobState state = new MobState(entity.getUniqueId(), profile, stored.morphTargets());
         state.restorePersistentState(stored.suppressedAffixes(), stored.usedOneTime());
         state.setHardenedCharges(stored.hardenedCharges());
+        state.setMamaChild(stored.mamaChild());
         attachState(entity, state, false);
         return true;
     }

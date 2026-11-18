@@ -144,6 +144,8 @@ public class LootService {
     /** 难打怪物额外特殊战利品：概率 = rate × 等级，可 >1 表示保底+小数概率额外。 */
     private void dropSpecialLootIfApplicable(LivingEntity entity, MobState mobState,
                                              List<ItemStack> collect) {
+        // mama 生成的子怪仍参与等级池抽取，但跳过特殊实体额外掉落，避免通过增殖刷取特殊奖励。
+        if (mobState.isMamaChild()) return;
         SpecialLootConfig slc = config.getSpecialLootConfig();
         if (!slc.enable() || slc.rates().isEmpty()) return;
         double rate = slc.getRate(entity.getType().name());

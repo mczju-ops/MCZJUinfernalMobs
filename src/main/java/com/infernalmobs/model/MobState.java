@@ -28,9 +28,21 @@ public class MobState {
     private volatile Runnable persistentStateListener = () -> {};
     /** -1 表示从未转换；0 表示已转换且次数已用完。 */
     private int hardenedCharges = -1;
+    /** 是否由 mama 词条生成；该标记会随实体 PDC 持久化。 */
+    private boolean mamaChild;
 
     public int getHardenedCharges() {
         return hardenedCharges;
+    }
+
+    public boolean isMamaChild() {
+        return mamaChild;
+    }
+
+    public void setMamaChild(boolean mamaChild) {
+        if (this.mamaChild == mamaChild) return;
+        this.mamaChild = mamaChild;
+        persistentStateListener.run();
     }
 
     public void setHardenedCharges(int charges) {
@@ -157,5 +169,6 @@ public class MobState {
         this.usedOneTime.addAll(old.usedOneTime);
         this.suppressedAffixes.addAll(old.suppressedAffixes);
         this.hardenedCharges = old.hardenedCharges;
+        this.mamaChild = old.mamaChild;
     }
 }
