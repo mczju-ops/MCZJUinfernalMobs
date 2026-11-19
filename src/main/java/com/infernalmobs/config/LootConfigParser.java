@@ -7,9 +7,9 @@ import org.bukkit.entity.EntityType;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,10 +26,12 @@ public final class LootConfigParser {
     private static final Set<String> SPECIAL_KEYS = Set.of("enabled", "item-id", "rates");
     private static final Set<String> REWARD_KEYS = Set.of(
             "id", "amount", "weight", "commands", "broadcast", "broadcast-message", "rotation-set");
-    private static final Set<String> GUARANTEED_ROOT_KEYS = Set.of("enabled", "rotation", "rules");
-    private static final Set<String> GUARANTEED_RULE_KEYS = Set.of(
-            "level-min", "level-max", "required-rolls", "reset-after-reward", "rewards");
-    private static final Set<String> GUARANTEED_REWARD_KEYS = Set.of("item-id", "amount", "rotation-set");
+    private static final Set<String> ULTIMATE_LOOT_ROOT_KEYS = Set.of("enabled", "pity", "loot");
+    private static final Set<String> PITY_KEYS = Set.of("point-threshold");
+    private static final Set<String> LOOT_RULE_KEYS = Set.of(
+            "entity-types", "exclude-mama-children", "level-min", "level-max", "levels", "reward");
+    private static final Set<String> LOOT_REWARD_KEYS = Set.of(
+            "item-id", "amount", "commands", "broadcast", "broadcast-message");
 
     private final File lootFolder;
     private final List<ConfigDiagnostic> diagnostics = new ArrayList<>();
@@ -41,7 +43,7 @@ public final class LootConfigParser {
 
     public ParseResult parse() {
         YamlConfiguration settings = loadRequired(new File(lootFolder, "settings.yml"), "loot/settings.yml");
-        YamlConfiguration guaranteed = loadRequired(new File(lootFolder, "guaranteed.yml"), "loot/guaranteed.yml");
+        YamlConfiguration ultimateLoot = loadRequired(new File(lootFolder, "ultimate-loot.yml"), "loot/ultimate-loot.yml");
         File levelsFolder = new File(lootFolder, "levels");
         if (!levelsFolder.isDirectory()) {
             error("loot/levels", "缺少等级奖励目录");
@@ -56,8 +58,8 @@ public final class LootConfigParser {
                 parsedSettings.rotationEnabled(), parsedSettings.rotationSets(),
                 parsedSettings.dropTimes(), parsedSettings.fallbackDropTimes(),
                 levelRewards, parsedSettings.specialLoot());
-        GuaranteedLootConfig guaranteedConfig = parseGuaranteed(guaranteed);
-        return new ParseResult(lootConfig, guaranteedConfig, diagnostics);
+        UltimateLootConfig ultimateLootConfig = parseUltimateLoot(ultimateLoot);
+        return new ParseResult(lootConfig, ultimateLootConfig, diagnostics);
     }
 
     private LootSettings parseSettings(YamlConfiguration yaml) {
@@ -209,113 +211,98 @@ public final class LootConfigParser {
         return new LootConfig.RewardEntry(id, amount, weight, commands, broadcast, message, rotations);
     }
 
-    private GuaranteedLootConfig parseGuaranteed(YamlConfiguration yaml) {
-        warnUnknown(yaml, GUARANTEED_ROOT_KEYS, "loot/guaranteed.yml");
-        boolean enabled = bool(yaml, "enabled", false, "loot/guaranteed.yml:enabled");
-        ConfigurationSection rotation = yaml.getConfigurationSection("rotation");
-        boolean rotationEnabled = false;
-        int rotationSets = 1;
-        if (rotation != null) {
-            warnUnknown(rotation, ROTATION_KEYS, "loot/guaranteed.yml:rotation");
-            rotationEnabled = bool(rotation, "enabled", false, "loot/guaranteed.yml:rotation.enabled");
-            rotationSets = positiveInt(rotation, "sets", 1, "loot/guaranteed.yml:rotation.sets");
-        } else if (yaml.contains("rotation")) {
-            warning("loot/guaranteed.yml:rotation", "必须是配置段，已关闭保底奖励轮换");
+    private UltimateLootConfig parseUltimateLoot(YamlConfiguration yaml) {
+        warnUnknown(yaml, ULTIMATE_LOOT_ROOT_KEYS, "loot/ultimate-loot.yml");
+        boolean enabled = bool(yaml, "enabled", false, "loot/ultimate-loot.yml:enabled");
+        ConfigurationSection pity = yaml.getConfigurationSection("pity");
+        if (pity != null) warnUnknown(pity, PITY_KEYS, "loot/ultimate-loot.yml:pity");
+        BigDecimal threshold = parseDecimal(yaml.getConfigurationSection("pity"), "point-threshold",
+                BigDecimal.valueOf(1000), "loot/ultimate-loot.yml:pity.point-threshold");
+        if (threshold.signum() <= 0) threshold = BigDecimal.valueOf(1000);
+        LinkedHashMap<String, UltimateLootConfig.LootRule> rules = new LinkedHashMap<>();
+        ConfigurationSection sections = yaml.getConfigurationSection("loot");
+        if (sections == null) {
+            warning("loot/ultimate-loot.yml:loot", "缺失或不是配置段，终极战利品规则为空");
+            return new UltimateLootConfig(enabled, threshold, rules);
         }
-
-        LinkedHashMap<String, GuaranteedLootConfig.GuaranteedRule> rules = new LinkedHashMap<>();
-        ConfigurationSection rulesSection = yaml.getConfigurationSection("rules");
-        if (rulesSection == null) {
-            warning("loot/guaranteed.yml:rules", "缺失或不是配置段，保底规则为空");
-            return new GuaranteedLootConfig(enabled, rotationEnabled, rotationSets, rules);
-        }
-        for (String id : rulesSection.getKeys(false)) {
-            ConfigurationSection section = rulesSection.getConfigurationSection(id);
-            String path = "loot/guaranteed.yml:rules." + id;
-            if (section == null) {
-                warning(path, "必须是配置段，已跳过规则");
-                continue;
+        Map<EntityType, String> owners = new LinkedHashMap<>();
+        for (String id : sections.getKeys(false)) {
+            ConfigurationSection section = sections.getConfigurationSection(id);
+            String path = "loot/ultimate-loot.yml:loot." + id;
+            if (section == null) { warning(path, "必须是配置段，已跳过规则"); continue; }
+            warnUnknown(section, LOOT_RULE_KEYS, path);
+            Set<EntityType> types = parseLootEntityTypes(section.getList("entity-types"), path + ".entity-types");
+            if (types.isEmpty()) { warning(path + ".entity-types", "必须配置至少一个有效实体类型，已跳过规则"); continue; }
+            boolean duplicate = false;
+            for (EntityType type : types) {
+                if (owners.containsKey(type)) { warning(path + ".entity-types", "实体类型 " + type + " 已属于规则 " + owners.get(type)); duplicate = true; }
             }
-            warnUnknown(section, GUARANTEED_RULE_KEYS, path);
+            if (duplicate) continue;
             int levelMin = positiveInt(section, "level-min", 1, path + ".level-min");
-            int levelMax = section.contains("level-max")
-                    ? positiveInt(section, "level-max", levelMin, path + ".level-max") : -1;
-            if (levelMax >= 0 && levelMax < levelMin) {
-                warning(path + ".level-max", "不能小于 level-min，已跳过规则");
-                continue;
-            }
-            int requiredRolls = positiveInt(section, "required-rolls", -1, path + ".required-rolls");
-            if (requiredRolls < 1) {
-                warning(path + ".required-rolls", "必须是正整数，已跳过规则");
-                continue;
-            }
-            boolean reset = bool(section, "reset-after-reward", true,
-                    path + ".reset-after-reward");
-            List<?> rawRewards = section.getList("rewards");
-            if (rawRewards == null || rawRewards.isEmpty()) {
-                warning(path + ".rewards", "必须是非空列表，已跳过规则");
-                continue;
-            }
-            List<GuaranteedLootConfig.GuaranteedReward> rewards = new ArrayList<>();
-            for (int index = 0; index < rawRewards.size(); index++) {
-                GuaranteedLootConfig.GuaranteedReward reward = parseGuaranteedReward(
-                        rawRewards.get(index), path + ".rewards[" + index + "]",
-                        rotationEnabled, rotationSets);
-                if (reward != null) rewards.add(reward);
-            }
-            if (rewards.isEmpty() || !validateRewardSelection(rewards, rotationEnabled, path)) continue;
-            rules.put(id, new GuaranteedLootConfig.GuaranteedRule(
-                    id, levelMin, levelMax, requiredRolls, reset, rewards));
-        }
-        return new GuaranteedLootConfig(enabled, rotationEnabled, rotationSets, rules);
-    }
-
-    private GuaranteedLootConfig.GuaranteedReward parseGuaranteedReward(
-            Object raw, String path, boolean rotationEnabled, int rotationSets) {
-        if (!(raw instanceof Map<?, ?> map)) {
-            warning(path, "必须是配置对象，已跳过奖励");
-            return null;
-        }
-        warnUnknown(map, GUARANTEED_REWARD_KEYS, path);
-        String itemId = mapString(map, "item-id", "");
-        if (itemId.isBlank()) {
-            warning(path + ".item-id", "不能为空，已跳过奖励");
-            return null;
-        }
-        int amount = mapPositiveInt(map, "amount", 1, path + ".amount");
-        Object rawRotations = map.get("rotation-set");
-        Set<Integer> rotations = parseRotationSets(rawRotations, rotationEnabled, rotationSets,
-                path + ".rotation-set");
-        if (rawRotations != null && rotations == null) {
-            warning(path + ".rotation-set", "没有有效套号，已跳过奖励");
-            return null;
-        }
-        return new GuaranteedLootConfig.GuaranteedReward(itemId, amount, rotations);
-    }
-
-    private boolean validateRewardSelection(List<GuaranteedLootConfig.GuaranteedReward> rewards,
-                                            boolean rotationEnabled, String path) {
-        if (rewards.size() <= 1) return true;
-        if (!rotationEnabled) {
-            warning(path + ".rewards", "轮换关闭时只能配置一个奖励，已跳过规则");
-            return false;
-        }
-        Set<Integer> occupied = new HashSet<>();
-        for (GuaranteedLootConfig.GuaranteedReward reward : rewards) {
-            if (reward.rotationSets == null) {
-                warning(path + ".rewards", "多个奖励时每项都必须配置 rotation-set，已跳过规则");
-                return false;
-            }
-            for (int set : reward.rotationSets) {
-                if (!occupied.add(set)) {
-                    warning(path + ".rewards", "轮换套 " + set + " 对应多个奖励，已跳过规则");
-                    return false;
+            int levelMax = section.contains("level-max") ? positiveInt(section, "level-max", levelMin, path + ".level-max") : -1;
+            if (levelMax >= 0 && levelMax < levelMin) { warning(path + ".level-max", "不能小于 level-min，已跳过规则"); continue; }
+            ConfigurationSection levels = section.getConfigurationSection("levels");
+            if (levels == null || levels.getKeys(false).isEmpty()) { warning(path + ".levels", "必须配置至少一个等级自然掉率，已跳过规则"); continue; }
+            Map<Integer, BigDecimal> chances = new LinkedHashMap<>();
+            for (String rawLevel : levels.getKeys(false)) {
+                Integer level = parsePositiveInteger(rawLevel);
+                if (level == null) { warning(path + ".levels." + rawLevel, "等级必须是正整数，已忽略"); continue; }
+                BigDecimal chance = parseDecimal(levels, rawLevel, BigDecimal.valueOf(-1), path + ".levels." + rawLevel);
+                if (chance.compareTo(BigDecimal.ZERO) < 0 || chance.compareTo(BigDecimal.ONE) > 0) {
+                    warning(path + ".levels." + rawLevel, "自然掉率必须在 0..1，已忽略"); continue;
                 }
+                chances.put(level, chance);
             }
+            if (chances.isEmpty()) { warning(path + ".levels", "没有有效自然掉率，已跳过规则"); continue; }
+            ConfigurationSection rewardSection = section.getConfigurationSection("reward");
+            if (rewardSection == null) { warning(path + ".reward", "必须是配置段，已跳过规则"); continue; }
+            UltimateLootConfig.LootReward reward = parseLootReward(rewardSection, path + ".reward");
+            if (reward == null) continue;
+            rules.put(id, new UltimateLootConfig.LootRule(id, types,
+                    bool(section, "exclude-mama-children", true, path + ".exclude-mama-children"),
+                    chances, levelMin, levelMax, reward));
+            types.forEach(type -> owners.put(type, id));
         }
-        return true;
+        return new UltimateLootConfig(enabled, threshold, rules);
     }
 
+    private UltimateLootConfig.LootReward parseLootReward(ConfigurationSection section, String path) {
+        warnUnknown(section, LOOT_REWARD_KEYS, path);
+        String itemId = string(section, "item-id", "", path + ".item-id");
+        if (itemId.isBlank()) { warning(path + ".item-id", "不能为空，已跳过奖励"); return null; }
+        int amount = positiveInt(section, "amount", 1, path + ".amount");
+        List<String> commands = stringList(section.getList("commands"), path + ".commands");
+        boolean broadcast = bool(section, "broadcast", false, path + ".broadcast");
+        String message = string(section, "broadcast-message", "", path + ".broadcast-message");
+        return new UltimateLootConfig.LootReward(itemId, amount, commands, broadcast, message);
+    }
+
+    private BigDecimal parseDecimal(ConfigurationSection section, String key, BigDecimal fallback, String path) {
+        if (section == null || !section.contains(key)) return fallback;
+        Object raw = section.get(key);
+        try {
+            BigDecimal value = new BigDecimal(String.valueOf(raw));
+            if (value.scale() > 12) value = value.setScale(12, java.math.RoundingMode.HALF_UP);
+            return value;
+        } catch (NumberFormatException ex) {
+            warning(path, "必须是有限数字，已使用默认值");
+            return fallback;
+        }
+    }
+
+    private Set<EntityType> parseLootEntityTypes(List<?> raw, String path) {
+        LinkedHashSet<EntityType> types = new LinkedHashSet<>();
+        if (raw == null) return types;
+        for (Object value : raw) {
+            if (!(value instanceof String text)) { warning(path, "包含非字符串实体类型，已忽略"); continue; }
+            try {
+                EntityType type = EntityType.valueOf(text.trim().toUpperCase(Locale.ROOT));
+                if (type.isSpawnable() && type.getEntityClass() != null) types.add(type);
+                else warning(path, "实体类型 " + text + " 不可生成，已忽略");
+            } catch (IllegalArgumentException ex) { warning(path, "未知实体类型 " + text + "，已忽略"); }
+        }
+        return Set.copyOf(types);
+    }
     private YamlConfiguration loadRequired(File file, String path) {
         if (!file.isFile()) {
             error(path, "缺少必需配置文件");
@@ -491,14 +478,14 @@ public final class LootConfigParser {
                                 LootConfig.DropTimes fallbackDropTimes,
                                 SpecialLootConfig specialLoot) {}
 
-    public record ParseResult(LootConfig lootConfig, GuaranteedLootConfig guaranteedConfig,
+    public record ParseResult(LootConfig lootConfig, UltimateLootConfig ultimateLootConfig,
                               List<ConfigDiagnostic> diagnostics) {
         public ParseResult {
             diagnostics = List.copyOf(diagnostics);
         }
 
         public boolean successful() {
-            return lootConfig != null && guaranteedConfig != null;
+            return lootConfig != null && ultimateLootConfig != null;
         }
     }
 }

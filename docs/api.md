@@ -2,7 +2,7 @@
 
 本文档介绍如何让其他插件（如 MagicItems、异色炒鸡、炒鸡渔夫等）对接炒鸡怪插件的公开 API。
 
-- 版本：稳定 API（`apiVersion() = 2`）
+- 版本：稳定 API（`apiVersion() = 3`）
 - 依赖方式：软依赖 + `ServicesManager`（无需硬依赖，炒鸡缺失时正常降级）
 - 环境：Paper API `26.2.build` 或更高版本、JDK 25
 
@@ -26,7 +26,7 @@
     <dependency>
         <groupId>com.github.mczju-ops</groupId>
         <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.5.5</version>
+        <version>1.5.6</version>
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -93,12 +93,12 @@ public final class MyPlugin extends JavaPlugin {
 | `List<InfernalLootReward> rollLevelLootRewards(int mobLevel)` | 执行一次独立抽取，返回物品及命令、广播配置，但不执行这些附加行为                               |
 | `InfernalKillStats getKillStats(UUID playerId)` | 获取玩家各等级炒鸡怪击杀统计的只读快照                                            |
 | `List<InfernalPlayerKillStats> getAllPlayerKillStats()` | 获取所有已有记录玩家的 UUID、最近名称与击杀统计快照                                   |
-| `Map<String, Long> getMobKillStats()` | 获取全服所有等级合计的实体类型击杀数只读快照（API 1.5.5 新增） |
-| `Map<String, Long> getMobKillStats(int mobLevel)` | 获取全服指定等级的实体类型击杀数只读快照（API 1.5.5 新增） |
-| `List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息                                          |
+| `Map<String, Long> getMobKillStats()` | 获取全服所有等级合计的实体类型击杀数只读快照（API 1.5.6 新增） |
+| `Map<String, Long> getMobKillStats(int mobLevel)` | 获取全服指定等级的实体类型击杀数只读快照（API 1.5.6 新增） |
+| `List<InfernalUltimateLootStatus> getUltimateLootStatuses(UUID playerId)` | 获取玩家当前有效的保底规则、进度与奖励信息                                          |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds)` | 主动生成炒鸡怪（触发 `InfernalMobSpawnEvent`）                            |
 | `LivingEntity spawnInfernalMob(EntityType type, Location loc, int level, List<String> affixSkillIds, Vector velocity)` | 同上，并施加初始速度（如钓海怪弹射）                                             |
-| `int apiVersion()` | API 版本（当前 2）                                                   |
+| `int apiVersion()` | API 版本（当前 3）                                                   |
 
 `spawnInfernalMob` 返回 `null` 表示生成失败（类型/位置无效、词条全无效、或生成事件被取消）。
 
@@ -106,7 +106,7 @@ public final class MyPlugin extends JavaPlugin {
 只统计 Bukkit 判定由玩家击杀的炒鸡怪，包含受保护小动物；不保留玩家维度。
 两个方法均只复制内存数据，支持异步调用；返回的 Map 不可修改，且不会随之后的击杀更新。
 没有记录的实体类型不出现在 Map 中；指定等级小于 1 或无记录时返回空 Map。
-这两种查询分别获取各自调用时刻的快照。新增方法需要 API 1.5.5 及包含对应实现的新版本体，`apiVersion()` 仍为 2。
+这两种查询分别获取各自调用时刻的快照。新增方法需要 API 1.5.6 及包含对应实现的新版本体，`apiVersion()` 当前为 3。
 
 ```java
 Map<String, Long> allTypes = api.getMobKillStats();
@@ -193,9 +193,7 @@ public enum InfernalAffix {
 `drop-times`。它们不包含原版掉落、特殊实体掉落、保底掉落或词条掉落，也不会触发掉落事件。
 完整奖励中的命令和广播只作为数据返回，由调用方决定是否及如何执行。
 
-`getGuaranteedLootStatuses` 只返回保底全局启用且当前轮换生效的规则。尚未开始累计的规则也会返回，
-此时 `currentProgress()` 为 0。进度单位是等级掉落池抽取次数，不一定等同于击杀数；
-`maximumMobLevel()` 为 `null` 表示没有等级上限。新版中 `progressId()` 与 `ruleId()` 相同，奖励字段表示当前轮换套实际生效的奖励。
+`getUltimateLootStatuses` 返回每条终极战利品规则的保底积分快照，包括阈值、累计积分、理论保障数量、累计获得数量和当前待补发数量。
 
 ```java
 InfernalKillStats stats = api.getKillStats(player.getUniqueId());
@@ -207,11 +205,13 @@ for (InfernalPlayerKillStats playerStats : api.getAllPlayerKillStats()) {
     int playerTotalKills = playerStats.stats().totalKills();
 }
 
-for (InfernalGuaranteedLootStatus status
-        : api.getGuaranteedLootStatuses(player.getUniqueId())) {
-    int current = status.currentProgress();
-    int required = status.requiredProgress();
-    int remaining = status.remainingProgress();
+for (InfernalUltimateLootStatus status
+        : api.getUltimateLootStatuses(player.getUniqueId())) {
+    BigDecimal points = status.totalPityPoints();
+    BigDecimal threshold = status.guaranteeThreshold();
+    int guaranteed = status.guaranteedCount();
+    int obtained = status.totalObtained();
+    int compensation = status.compensationCount();
     String rewardName = status.rewardDisplayName();
 }
 ```
@@ -500,7 +500,7 @@ public void onKill(InfernalMobKillEvent e) {
 
 ### 3.8 InfernalMobLootRollEvent —— 调整等级池抽取次数（API 1.5.3）
 
-**时机**：确认玩家击杀、排除保护动物并触发 `InfernalMobKillEvent` 后，根据 `drop-times` 随机确定基础次数，然后同步触发本事件；事件返回后才累计保底进度并抽取等级池。仅等级池功能可用（包括物品插件可用）、当前轮换存在有效奖励时触发。
+**时机**：确认玩家击杀、排除保护动物并触发 `InfernalMobKillEvent` 后，根据 `drop-times` 随机确定普通等级池的基础次数，然后同步触发本事件。该事件只调整普通等级战利品，不参与终极战利品的自然掉落或保底积分。
 
 | 字段 | 说明 |
 | --- | --- |
@@ -509,7 +509,7 @@ public void onKill(InfernalMobKillEvent e) {
 | `getOriginalRollCount()` | `drop-times` 的原始随机结果，只读 |
 | `getRollCount()` / `setRollCount(int)` | 最终次数，设置时自动截断至 `0～100` |
 
-事件不可取消，设为 0 跳过本次等级池抽取和对应保底累计；特殊实体、词条、原版奖励与经验、击杀统计不受影响。额外抽取也会执行奖励条目的命令与广播，并计入保底。每次抽取独立、允许重复；次数为尝试数，物品创建失败不会补抽，仍计入保底。保底沿用每次击杀每条规则最多发一次、触发后按规则重置的行为，不保留超出阈值部分。
+事件不可取消，设为 0 跳过本次普通等级池抽取；特殊实体、终极战利品、词条、原版奖励与经验、击杀统计不受影响。每次普通抽取独立、允许重复；次数为尝试数，物品创建失败不会补抽。
 
 ```java
 @EventHandler
@@ -522,7 +522,7 @@ public void onLootRoll(InfernalMobLootRollEvent event) {
 
 多个监听器应基于当前 `getRollCount()` 修改，以支持加成叠加；`MONITOR` 只观察最终值。已有基础配置超过 100 次时，本次死亡实际次数也截断为 100。直接调用 `rollLevelLootItems/Rewards` 不触发本事件，其原有抽取行为不变。
 
-编译期需使用 API 1.5.3，运行时需使用包含此事件的新炒鸡插件。旧版 `apiVersion() = 2` 不变（服务接口未修改），不能只用该版本号判断事件是否存在；可选前置插件应继续隔离事件监听器的类加载。API 尚未发布到 JitPack 时，先在 API 项目执行 `mvn install` 安装 1.5.3 到本地仓库，再构建炒鸡插件。
+编译期需使用 API 1.5.6，运行时需使用包含此事件的新炒鸡插件。`apiVersion() = 3` 表示当前证章查询字段契约；事件类是否存在仍应通过可选前置插件和类加载隔离处理。API 尚未发布到 JitPack 时，先在 API 项目执行 `mvn install` 安装 1.5.6 到本地仓库，再构建炒鸡插件。
 
 ---
 

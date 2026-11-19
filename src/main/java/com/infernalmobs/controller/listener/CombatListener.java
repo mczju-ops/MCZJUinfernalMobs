@@ -9,7 +9,7 @@ import com.infernalmobs.config.ProtectedAnimalsConfig;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.DeathMessageService;
-import com.infernalmobs.service.GuaranteedLootService;
+import com.infernalmobs.service.UltimateLootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.MobKillStatsService;
@@ -105,7 +105,7 @@ public class CombatListener implements Listener {
         LivingEntity entity = event.getEntity();
         MobState state = combatService.getMobState(entity.getUniqueId());
         if (state != null) {
-            // 玩家击杀时才聚合死亡掉落（染料/等级池/special/保底）到一张表，统一触发 InfernalMobDropEvent 后落世界
+            // 玩家击杀时才聚合死亡掉落（等级池/special/证章）到一张表，统一触发 InfernalMobDropEvent 后落世界
             Player killer = entity.getKiller();
             List<ItemStack> pluginDrops = new ArrayList<>();
             combatService.onMobDeath(event, entity, state, killer != null ? pluginDrops : null);
@@ -154,9 +154,9 @@ public class CombatListener implements Listener {
                             entity, killHandle, killer, state.getProfile().getLevel(), entity.getLocation());
                     plugin.getServer().getPluginManager().callEvent(killEvent);
                     LootService loot = plugin instanceof InfernalMobsPlugin im ? im.getLootService() : null;
-                    // 保底掉落：先于常规抽取，以 dropItemNaturally 掉落在地并触发命令/广播
-                    GuaranteedLootService guaranteedLootService = plugin instanceof InfernalMobsPlugin im
-                            ? im.getGuaranteedLootService()
+                    // 证章结算：独立于普通等级池，只进行一次自然判定并按共享积分规则补发
+                    UltimateLootService ultimateLootService = plugin instanceof InfernalMobsPlugin im
+                            ? im.getUltimateLootService()
                             : null;
                     int mobLevel = state.getProfile().getLevel();
                     int deathLootRolls = loot != null ? loot.rollDeathLootTimes(mobLevel) : 0;
@@ -167,10 +167,11 @@ public class CombatListener implements Listener {
                         plugin.getServer().getPluginManager().callEvent(rollEvent);
                         deathLootRolls = rollEvent.getRollCount();
                     }
-                    if (guaranteedLootService != null && loot != null) {
-                        for (com.infernalmobs.config.GuaranteedLootConfig.ActiveRule activeRule
-                                : guaranteedLootService.collectTriggered(uuid, pname, mobLevel, deathLootRolls)) {
-                            loot.processGuaranteedDrop(activeRule, entity, killer, mobLevel, pluginDrops);
+                    if (ultimateLootService != null && loot != null && loot.isItemCreatorAvailable()) {
+                        for (UltimateLootService.LootAward award : ultimateLootService.settle(
+                                uuid, pname, entity.getType(), mobLevel, state.isMamaChild())) {
+                            loot.processUltimateLootDrop(award, uuid, entity, killer, mobLevel,
+                                    ultimateLootService, pluginDrops);
                         }
                     }
                     // 常规等级池抽取（与保底共用同一次 drop-times roll）

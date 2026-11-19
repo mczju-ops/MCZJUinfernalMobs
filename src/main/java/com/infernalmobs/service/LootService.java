@@ -3,8 +3,7 @@ package com.infernalmobs.service;
 import com.infernalmobs.api.InfernalMobHandle;
 import com.infernalmobs.api.InfernalLootReward;
 import com.infernalmobs.api.event.mob.InfernalMobDropEvent;
-import com.infernalmobs.config.GuaranteedLootConfig;
-import com.infernalmobs.config.GuaranteedLootConfig.ActiveRule;
+import com.infernalmobs.config.UltimateLootConfig.LootReward;
 import com.infernalmobs.config.LootConfig;
 import com.infernalmobs.config.LootConfig.RewardEntry;
 import com.infernalmobs.config.SpecialLootConfig;
@@ -49,6 +48,11 @@ public class LootService {
         return config != null && config.isEnable() && itemCreatorAvailable;
     }
 
+    /** 证章模块只要求物品插件可用，不依赖普通等级池总开关。 */
+    public boolean isItemCreatorAvailable() {
+        return itemCreatorAvailable;
+    }
+
     public boolean isReplaceVanillaDrops() {
         return config != null && config.isReplaceVanillaDrops();
     }
@@ -62,7 +66,7 @@ public class LootService {
 
     /**
      * 仅在会执行等级池加权抽取时
-     * 调用 {@link LootConfig#rollDropTimes(int)}，否则返回 0。供保底进度与死亡掉落共用同一次 roll。
+     * 调用 {@link LootConfig#rollDropTimes(int)}，否则返回 0。供证章进度与死亡掉落共用同一次 roll。
      */
     public int rollDeathLootTimes(int level) {
         if (!isEnabled()) return 0;
@@ -107,7 +111,7 @@ public class LootService {
     /**
      * 炒鸡怪死亡时：按等级表权重抽一条掉落；难打怪（ravager/warden 等）再额外掉落 special_loot。
      *
-     * @param preRolledDropTimes 已由 {@link #rollDeathLootTimes(int)} 与保底共用的一次结果；传入 -1 则在内部单独 roll（不推荐）
+     * @param preRolledDropTimes 已由 {@link #rollDeathLootTimes(int)} 与证章进度共用的一次结果；传入 -1 则在内部单独 roll（不推荐）
      * @param collect            非 null 时改为收集到该列表（聚合掉落事件），否则直接掉落
      */
     public void onInfernalMobDeath(LivingEntity entity, MobState mobState,
@@ -255,43 +259,42 @@ public class LootService {
 
     private record RolledReward(RewardEntry entry, ItemStack itemStack) {}
 
-    /**
-     * 处理保底掉落：在怪物死亡位置掉落物品（无敌实体），并触发 loot config 中对应条目的命令和广播。
-     * 保底掉落不受 replace-vanilla-drops 影响（始终以 dropItemNaturally 掉落在地）。
-     * 若 loot config 中不存在匹配的 RewardEntry，仍然掉落物品，但不触发命令和广播。
-     *
-     * @param activeRule 本次触发的保底规则及已经固定的轮换奖励
-     * @param entity   死亡的炒鸡怪
-     * @param killer   击杀玩家（用于命令中的 {player} 占位）
-     * @param level    怪物等级（用于广播模板）
-     */
-    public void processGuaranteedDrop(ActiveRule activeRule,
-                                      LivingEntity entity, Player killer, int level,
-                                      List<ItemStack> collect) {
-        GuaranteedLootConfig.GuaranteedReward reward = activeRule.reward();
-        Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, reward.itemId, reward.amount);
+    /** 在怪物死亡位置执行证章抽取，证章掉落不受 replace-vanilla-drops 影响。 */
+    public void processUltimateLootDrop(UltimateLootService.LootAward award,
+                                 String playerId, LivingEntity entity, Player killer, int level,
+                                 UltimateLootService lootService, List<ItemStack> collect) {
+        LootReward reward = award.rule().reward;
+        Optional<ItemStack> opt = ItemCreatorBridge.createItem(plugin, reward.itemId, award.amount());
         if (opt.isEmpty() || opt.get().getType().isAir()) return;
 
         ItemStack toDrop = opt.get().clone();
         collectDrop(collect, entity, toDrop);
-
-        // 在当前怪等级的 loot 池里查找同名条目，获取命令和广播配置
-        if (config != null) {
-            RewardEntry entry = config.getRewardsForLevel(level).stream()
-                    .filter(e -> reward.itemId.equals(e.id))
-                    .findFirst().orElse(null);
-            if (entry != null) {
-                String playerName = killer != null ? killer.getName() : "";
-                for (String cmd : entry.commands) {
-                    if (cmd == null || cmd.isEmpty()) continue;
-                    String run = cmd.replace("{player}", playerName);
-                    Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
-                }
-                if (entry.broadcast) {
-                    broadcastLootDrop(entry, toDrop, playerName, level);
-                }
-            }
+        if (lootService != null && playerId != null) {
+            lootService.recordObtained(playerId, award.rule().id, award.amount());
         }
+
+        String playerName = killer != null ? killer.getName() : "";
+        for (String cmd : reward.commands) {
+            if (cmd == null || cmd.isEmpty()) continue;
+            String run = cmd.replace("{player}", playerName);
+            Bukkit.getScheduler().runTask(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), run));
+        }
+        if (reward.broadcast) {
+            broadcastUltimateLootDrop(reward, toDrop, playerName, level);
+        }
+    }
+
+    private void broadcastUltimateLootDrop(LootReward reward, ItemStack stack, String playerName, int level) {
+        String template = reward.broadcastMessage == null || reward.broadcastMessage.isBlank()
+                ? DEFAULT_BROADCAST_MESSAGE : reward.broadcastMessage;
+        template = template.replace("{player}", "<player>").replace("{item}", "<item>")
+                .replace("{amount}", "<amount>").replace("{level}", "<level>");
+        Component msg = MiniMessageHelper.deserialize(template,
+                Placeholder.unparsed("player", playerName == null ? "未知玩家" : playerName),
+                Placeholder.component("item", stack.displayName()),
+                Placeholder.unparsed("amount", String.valueOf(stack.getAmount())),
+                Placeholder.unparsed("level", String.valueOf(level)));
+        for (Player p : Bukkit.getOnlinePlayers()) p.sendMessage(msg);
     }
 
     private static void dropInvulnerable(Item itemEntity) {

@@ -17,7 +17,7 @@
   - [config.yml](#configyml)
   - [loot/settings.yml](#lootsettingsyml)
   - [loot/levels/&lt;N&gt;.yml](#lootlevelsnyml)
-  - [loot/guaranteed.yml](#lootguaranteedyml)
+  - [loot/ultimate-loot.yml](#lootultimate-lootyml)
 - [区域系统](#区域系统)
 - [保底掉落](#保底掉落)
 - [炒鸡小动物保护](#炒鸡小动物保护)
@@ -65,7 +65,7 @@
 <dependency>
     <groupId>com.github.mczju-ops</groupId>
     <artifactId>MCZJUInfernalMobs-API</artifactId>
-        <version>1.5.5</version>
+        <version>1.5.6</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -328,7 +328,7 @@ special:
 
 ---
 
-死亡等级池的 `drop-times` 结果可通过 `InfernalMobLootRollEvent` 在抽取前调整，最终次数限制为 0～100，并同时用于保底累计。设为 0 不影响特殊实体奖励、词条奖励和原版掉落。详见 `docs/api.md` 的 3.8 节。
+死亡等级池的 `drop-times` 结果可通过 `InfernalMobLootRollEvent` 在抽取前调整，最终次数限制为 0～100；该次数只影响普通等级战利品，不再参与证章保底积分。设为 0 不影响特殊实体奖励、证章结算、词条奖励和原版掉落。详见 `docs/api.md` 的 3.8 节。
 
 ### loot/levels/&lt;N&gt;.yml
 
@@ -351,31 +351,33 @@ rewards:
 
 ---
 
-### loot/guaranteed.yml
+### loot/ultimate-loot.yml
+
+终极战利品按生物类型分流，每个证章拥有独立的保底积分和累计获得数量。每次有效击杀只进行一次自然掉落判定；自然掉落不清空积分，达到积分对应的最低保障数量后自动补发缺口。
 
 ```yaml
 enabled: true
 
-rotation:
-  enabled: true
-  sets: 2
+pity:
+  point-threshold: 1000
 
-rules:
-  my_rule:
-    level-min: 10
-    level-max: 99
-    required-rolls: 500          # 累计等级池实际抽取次数
-    reset-after-reward: true
-    rewards:
-      - item-id: reward_a
-        amount: 1
-        rotation-set: 1
-      - item-id: reward_b
-        amount: 1
-        rotation-set: 2
+loot:
+  certificate_a:
+    entity-types: [WARDEN, WITHER]
+    exclude-mama-children: true
+    levels:
+      10: 0.001
+      11: 0.002
+      12: 0.003
+      13: 0.004
+      14: 0.006
+      15: 0.010
+    reward:
+      item-id: infernal_hero_certificate
+      amount: 1
 ```
 
-每条规则只累计一次进度，并按当前轮换套选择一个奖励。达到阈值后，`reset-after-reward: true` 会直接归零；否则标记为永久完成。进度存储在 `data/guaranteed_loot_progress.yml`。
+每次有效击杀增加 `point-threshold × natural-chance` 积分，并按 `natural-chance` 独立判定一次自然掉落。最低保障数量为 `floor(total-pity-points / point-threshold)`；若低于实际累计获得数量，则补发差额。数据存储在 `data/ultimate_loot_stats.yml` 的 `total-pity-points` 和 `total-obtained` 中。
 
 等级奖励池会在启动或 `/im reload` 时完整读入不可变快照，战斗期间不读取 YAML。`loot_name.yml` 已删除，广播名称取实际生成的 `ItemStack` 名称组件。
 
@@ -389,14 +391,9 @@ rules:
 
 ---
 
-## 保底掉落
+## 终极战利品
 
-`GuaranteedLootService` 追踪每位玩家的等级池抽取进度：
-
-1. 击杀一只非保护动物的炒鸡怪，且该等级存在当前可抽取奖励时，按本次 `drop-times` 结果增加规则进度。
-2. 进度达到 `required-rolls` 后，按当前轮换套选择规则内的一个奖励。
-3. 若 `reset-after-reward: true`，发放后直接归零；否则标记为已完成并停止累计。
-4. 特殊实体掉落、保底奖励和 API 主动抽取不会增加进度。
+`UltimateLootService` 按终极战利品规则分别追踪玩家的保底积分和实际累计获得数量。每种生物只能归属于一个证章规则；没有匹配规则、受保护动物、非玩家击杀以及被证章规则排除的 mama 子怪，不计入证章结算。普通等级战利品、特殊实体额外掉落和证章掉落彼此独立。
 
 ---
 

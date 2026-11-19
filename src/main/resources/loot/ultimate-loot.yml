@@ -1,0 +1,32 @@
+# 终极战利品（炒鸡证章）：自然掉落与共享加权累计保底。
+enabled: true
+
+# 积分阈值。所有终极战利品目前使用统一阈值；实际难度由各等级 natural-chance 决定。
+# 阈值仅影响积分尺度（后台数据可读性），不影响实际保底机制
+pity:
+  point-threshold: 1000
+
+loot:
+  infernal_hero_certificate:
+    entity-types: [ZOMBIE]
+    exclude-mama-children: false # 是否排除 mama 生的崽
+    levels:
+      10: 0.0010
+      11: 0.0011
+    reward:
+      item-id: infernal_hero_certificate
+      amount: 1
+      broadcast: true
+      broadcast-message: "<gold>恭喜欧皇{player}获得了{item}！"
+
+  infernal_magic_king_certificate:
+    entity-types: [CREEPER]
+    exclude-mama-children: false
+    levels:
+      10: 0.0010
+      11: 0.0011
+    reward:
+      item-id: infernal_magic_king_certificate
+      amount: 1
+      broadcast: true
+      broadcast-message: "<gold>恭喜欧皇{player}获得了{item}！"

@@ -18,8 +18,8 @@ import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.service.AffixRollService;
 import com.infernalmobs.service.CombatService;
 import com.infernalmobs.service.DeathMessageService;
-import com.infernalmobs.config.GuaranteedLootConfig;
-import com.infernalmobs.service.GuaranteedLootService;
+import com.infernalmobs.config.UltimateLootConfig;
+import com.infernalmobs.service.UltimateLootService;
 import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.MobLevelService;
@@ -47,7 +47,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
     private CombatService combatService;
     private KillStatsService killStatsService;
     private MobKillStatsService mobKillStatsService;
-    private GuaranteedLootService guaranteedLootService;
+    private UltimateLootService ultimateLootService;
     private LootConfig lootConfig;
     private LootService lootService;
     private MobFactory mobFactory;
@@ -64,8 +64,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
         configLoader.load();
 
         if (freshInstall) saveDefaultLootFiles();
-        guaranteedLootService = new GuaranteedLootService(this);
-        guaranteedLootService.load();
+        ultimateLootService = new UltimateLootService(this);
+        ultimateLootService.load();
         loadInitialLootConfig();
 
         MobLevelService levelService = new MobLevelService(configLoader);
@@ -111,7 +111,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
                 this::getLootService,
                 killStatsService,
                 mobKillStatsService,
-                this::getGuaranteedLootService
+                this::getUltimateLootService
         );
         getServer().getServicesManager().register(InfernalMobsApi.class, infernalMobsApi, this, ServicePriority.Normal);
 
@@ -119,7 +119,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
             synchronized (dataSaveLock) {
                 killStatsService.saveIfDirty();
                 mobKillStatsService.saveIfDirty();
-                guaranteedLootService.saveIfDirty();
+                ultimateLootService.saveIfDirty();
             }
         }, 20 * 60, 20 * 60);
 
@@ -128,7 +128,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
     /** 只在整个插件目录首次创建时写出新版掉落配置。 */
     private void saveDefaultLootFiles() {
-        List<String> paths = new ArrayList<>(List.of("loot/settings.yml", "loot/guaranteed.yml"));
+        List<String> paths = new ArrayList<>(List.of("loot/settings.yml", "loot/ultimate-loot.yml"));
         for (int level = 1; level <= 15; level++) paths.add("loot/levels/" + level + ".yml");
         for (String path : paths) {
             File out = new File(getDataFolder(), path);
@@ -165,7 +165,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         if (itemCreatorAvailable) {
             getLogger().info("已挂接 ItemCreator");
         } else if (lootConfig.isEnable() || lootConfig.getSpecialLootConfig().enable()
-                || parsed.guaranteedConfig().isEnable()) {
+                || parsed.ultimateLootConfig().isEnabled()) {
             org.bukkit.plugin.Plugin ic = getServer().getPluginManager().getPlugin("MCZJUItemCreator");
             if (ic != null && ic.isEnabled()) {
                 getLogger().warning("MCZJUItemCreator 已加载但未注册 ItemCreatorApi，loot 特殊掉落不生效。请在该插件的 onEnable 中调用 ServicesManager.register(ItemCreatorApi.class, 你的实现, plugin, ServicePriority.Normal)");
@@ -175,19 +175,19 @@ public class InfernalMobsPlugin extends JavaPlugin {
         }
 
         lootService = new LootService(this, lootConfig, itemCreatorAvailable);
-        guaranteedLootService.setConfig(parsed.guaranteedConfig());
+        ultimateLootService.setConfig(parsed.ultimateLootConfig());
     }
 
     private void commitSafeLootConfig() {
         lootConfig = LootConfig.disabled();
         lootService = new LootService(this, lootConfig, false);
-        guaranteedLootService.setConfig(GuaranteedLootConfig.disabled());
+        ultimateLootService.setConfig(UltimateLootConfig.disabled());
     }
 
     private List<ConfigDiagnostic> validateLootItemIds(LootConfigParser.ParseResult parsed) {
         if (!ItemCreatorBridge.isAvailable(this)) return List.of();
         LinkedHashSet<String> ids = new LinkedHashSet<>(parsed.lootConfig().configuredItemIds());
-        ids.addAll(parsed.guaranteedConfig().configuredItemIds());
+        ids.addAll(parsed.ultimateLootConfig().configuredItemIds());
         List<ConfigDiagnostic> diagnostics = new ArrayList<>();
         ids.stream().sorted(Comparator.naturalOrder()).forEach(id -> {
             if (ItemCreatorBridge.createItem(this, id, 1).isEmpty()) {
@@ -239,7 +239,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
         if (dataSaveTask != null) dataSaveTask.cancel();
         if (thiefCourierService != null) thiefCourierService.shutdown();
         synchronized (dataSaveLock) {
-            if (guaranteedLootService != null) guaranteedLootService.saveIfDirty();
+            if (ultimateLootService != null) ultimateLootService.saveIfDirty();
             if (killStatsService != null) killStatsService.saveIfDirty();
             if (mobKillStatsService != null) mobKillStatsService.saveIfDirty();
         }
@@ -268,8 +268,8 @@ public class InfernalMobsPlugin extends JavaPlugin {
         return mobKillStatsService;
     }
 
-    public GuaranteedLootService getGuaranteedLootService() {
-        return guaranteedLootService;
+    public UltimateLootService getUltimateLootService() {
+        return ultimateLootService;
     }
 
     public MobFactory getMobFactory() {

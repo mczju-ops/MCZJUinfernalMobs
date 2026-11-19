@@ -1,7 +1,7 @@
 package com.infernalmobs.api.impl;
 
 import com.infernalmobs.api.InfernalMobHandle;
-import com.infernalmobs.api.InfernalGuaranteedLootStatus;
+import com.infernalmobs.api.InfernalUltimateLootStatus;
 import com.infernalmobs.api.InfernalKillStats;
 import com.infernalmobs.api.InfernalLootReward;
 import com.infernalmobs.api.InfernalMobsApi;
@@ -11,7 +11,7 @@ import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
 import com.infernalmobs.model.MobState;
 import com.infernalmobs.service.CombatService;
-import com.infernalmobs.service.GuaranteedLootService;
+import com.infernalmobs.service.UltimateLootService;
 import com.infernalmobs.service.KillStatsService;
 import com.infernalmobs.service.LootService;
 import com.infernalmobs.service.MobKillStatsService;
@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 
 /**
  * {@link InfernalMobsApi} 默认实现，由 InfernalMobsPlugin 注册到 ServicesManager。
@@ -43,7 +45,7 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
     private final Supplier<LootService> lootServiceSupplier;
     private final KillStatsService killStatsService;
     private final MobKillStatsService mobKillStatsService;
-    private final Supplier<GuaranteedLootService> guaranteedLootServiceSupplier;
+    private final Supplier<UltimateLootService> ultimateLootServiceSupplier;
 
     public InfernalMobsApiImpl(
             CombatService combatService,
@@ -52,7 +54,7 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
             Supplier<LootService> lootServiceSupplier,
             KillStatsService killStatsService,
             MobKillStatsService mobKillStatsService,
-            Supplier<GuaranteedLootService> guaranteedLootServiceSupplier
+            Supplier<UltimateLootService> ultimateLootServiceSupplier
     ) {
         this.combatService = combatService;
         this.mobFactory = mobFactory;
@@ -60,7 +62,7 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         this.lootServiceSupplier = lootServiceSupplier;
         this.killStatsService = killStatsService;
         this.mobKillStatsService = mobKillStatsService;
-        this.guaranteedLootServiceSupplier = guaranteedLootServiceSupplier;
+        this.ultimateLootServiceSupplier = ultimateLootServiceSupplier;
     }
 
     @Override
@@ -195,30 +197,34 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
     }
 
     @Override
-    public List<InfernalGuaranteedLootStatus> getGuaranteedLootStatuses(UUID playerId) {
-        if (playerId == null || guaranteedLootServiceSupplier == null) return List.of();
-        GuaranteedLootService service = guaranteedLootServiceSupplier.get();
+    public List<InfernalUltimateLootStatus> getUltimateLootStatuses(UUID playerId) {
+        if (playerId == null || ultimateLootServiceSupplier == null) return List.of();
+        UltimateLootService service = ultimateLootServiceSupplier.get();
         if (service == null) return List.of();
 
-        Map<String, Integer> progressById = service.getProgressById(playerId.toString());
+        Map<String, UltimateLootService.LootStats> statsById = service.getStatsById(playerId.toString());
         LootService lootService = lootServiceSupplier != null ? lootServiceSupplier.get() : null;
         return service.getActiveRules().stream()
-                .sorted(Comparator.comparing(active -> active.rule().id))
-                .map(active -> {
-                    var rule = active.rule();
-                    var reward = active.reward();
-                    int storedProgress = progressById.getOrDefault(rule.id, 0);
-                    boolean completed = storedProgress < 0;
+                .sorted(Comparator.comparing(rule -> rule.id))
+                .map(rule -> {
+                    var reward = rule.reward;
+                    var stats = statsById.getOrDefault(rule.id,
+                            new UltimateLootService.LootStats(java.math.BigDecimal.ZERO, 0));
+                    var threshold = service.getPityThreshold();
+                    int guaranteedCount = floorCount(stats.totalPityPoints(), threshold);
+                    int compensation = Math.max(0, guaranteedCount - stats.totalObtained());
                     String rewardDisplayName = lootService != null
                             ? lootService.getLootDisplayName(reward.itemId)
                             : reward.itemId;
-                    return new InfernalGuaranteedLootStatus(
+                    return new InfernalUltimateLootStatus(
                             rule.id,
-                            rule.id,
-                            completed ? rule.requiredRolls : storedProgress,
-                            rule.requiredRolls,
-                            completed,
-                            rule.resetAfterReward,
+                            rule.entityTypes,
+                            rule.naturalChances,
+                            threshold,
+                            stats.totalPityPoints(),
+                            guaranteedCount,
+                            stats.totalObtained(),
+                            compensation,
                             rule.levelMin,
                             rule.levelMax >= 0 ? rule.levelMax : null,
                             reward.itemId,
@@ -227,6 +233,13 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
                     );
                 })
                 .toList();
+    }
+
+    private static int floorCount(java.math.BigDecimal points, java.math.BigDecimal threshold) {
+        if (points == null || threshold == null || threshold.signum() <= 0) return 0;
+        BigInteger value = points.divide(threshold, 0, RoundingMode.FLOOR).toBigInteger();
+        return value.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0
+                ? Integer.MAX_VALUE : value.intValue();
     }
 
     @Override
