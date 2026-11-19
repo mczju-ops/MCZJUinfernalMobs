@@ -11,6 +11,7 @@ import com.infernalmobs.config.LootConfigParser;
 import com.infernalmobs.controller.listener.CombatListener;
 import com.infernalmobs.controller.listener.CreeperExplodeListener;
 import com.infernalmobs.controller.listener.CubeMobSplitListener;
+import com.infernalmobs.controller.listener.InfernalDropProtectionListener;
 import com.infernalmobs.controller.listener.MobSpawnListener;
 import com.infernalmobs.controller.listener.MobPersistenceListener;
 import com.infernalmobs.controller.listener.ThiefCourierListener;
@@ -92,6 +93,7 @@ public class InfernalMobsPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new MobSpawnListener(configLoader, mobFactory, combatService, this), this);
         getServer().getPluginManager().registerEvents(new MobPersistenceListener(mobFactory), this);
+        getServer().getPluginManager().registerEvents(new InfernalDropProtectionListener(combatService), this);
         getServer().getPluginManager().registerEvents(new CombatListener(
                 this, combatService, deathMessageService, killStatsService, mobKillStatsService), this);
         getServer().getPluginManager().registerEvents(new ThiefCourierListener(thiefCourierService), this);
