@@ -189,6 +189,8 @@ public enum InfernalAffix {
 
 ### 2.3 掉落抽取与玩家进度
 
+`getAllPlayerUltimateLootStats()` 批量返回所有玩家的终极战利品累计获得数。每条 `InfernalPlayerUltimateLootStats` 包含 `playerId()`、`playerName()`（缺少名称时为 null）和 `totalObtainedByLootId()`。Map 的键为 `loot/ultimate-loot.yml` 中 `loot` 下的规则 ID，值为实际累计发放件数，包含自然掉落与保底补发；不按背包存量统计，也不受当前规则是否启用影响。查询只复制内存，返回不可变快照，可异步调用，不创建物品。排行榜可按自选规则 ID 列表求和，缺失 ID 按 0 计。
+
 `rollLevelLootItems` 与 `rollLevelLootRewards` 每次调用都会进行一次新的独立随机抽取，应用当前轮换套和
 `drop-times`。它们不包含原版掉落、特殊实体掉落、保底掉落或词条掉落，也不会触发掉落事件。
 完整奖励中的命令和广播只作为数据返回，由调用方决定是否及如何执行。

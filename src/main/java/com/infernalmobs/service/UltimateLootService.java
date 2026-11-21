@@ -1,6 +1,7 @@
 package com.infernalmobs.service;
 
 import com.infernalmobs.config.UltimateLootConfig;
+import com.infernalmobs.api.InfernalPlayerUltimateLootStats;
 import com.infernalmobs.config.UltimateLootConfig.LootRule;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -17,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /** 终极战利品管理：一次自然判定 + 共享加权累计保底。 */
@@ -208,6 +210,18 @@ public final class UltimateLootService {
 
     public List<LootRule> getActiveRules() {
         return config.isEnabled() ? List.copyOf(config.getRules().values()) : List.of();
+    }
+
+    /** 一次复制全部玩家的实际获得记录，避免逐玩家查询或依赖击杀统计枚举玩家。 */
+    public List<InfernalPlayerUltimateLootStats> getAllPlayerStats() {
+        synchronized (dataLock) {
+            return obtained.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(entry -> new InfernalPlayerUltimateLootStats(
+                            UUID.fromString(entry.getKey()), displayNames.get(entry.getKey()),
+                            entry.getValue()))
+                    .toList();
+        }
     }
 
     public void markDirty() { synchronized (dataLock) { changeVersion++; } }

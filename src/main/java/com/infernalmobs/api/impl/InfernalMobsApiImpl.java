@@ -6,6 +6,7 @@ import com.infernalmobs.api.InfernalKillStats;
 import com.infernalmobs.api.InfernalLootReward;
 import com.infernalmobs.api.InfernalMobsApi;
 import com.infernalmobs.api.InfernalPlayerKillStats;
+import com.infernalmobs.api.InfernalPlayerUltimateLootStats;
 import com.infernalmobs.config.ConfigLoader;
 import com.infernalmobs.config.SkillConfig;
 import com.infernalmobs.factory.MobFactory;
@@ -240,6 +241,12 @@ public class InfernalMobsApiImpl implements InfernalMobsApi {
         BigInteger value = points.divide(threshold, 0, RoundingMode.FLOOR).toBigInteger();
         return value.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0
                 ? Integer.MAX_VALUE : value.intValue();
+    }
+
+    @Override
+    public List<InfernalPlayerUltimateLootStats> getAllPlayerUltimateLootStats() {
+        UltimateLootService service = ultimateLootServiceSupplier != null ? ultimateLootServiceSupplier.get() : null;
+        return service != null ? service.getAllPlayerStats() : List.of();
     }
 
     @Override
