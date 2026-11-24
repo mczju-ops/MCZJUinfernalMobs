@@ -33,6 +33,7 @@ final class ConfigParser {
     private static final Set<String> ANIMAL_CLEANUP_KEYS = Set.of(
             "enabled", "interval-ticks", "max-distance");
     private static final Set<String> SKILLS_ROOT_KEYS = Set.of("pools", "skills");
+    private static final Set<String> SOUND_KEYS = Set.of("id", "volume", "pitch");
     private static final Set<String> REGIONS_ROOT_KEYS = Set.of("base-rules", "regions");
     private static final Set<String> MESSAGES_ROOT_KEYS = Set.of("death-messages", "protected-animals");
     private static final Set<String> OVERRIDE_KEYS = Set.of(
@@ -474,8 +475,10 @@ final class ConfigParser {
             }
             if (actualValue instanceof ConfigurationSection actualSection
                     && schemaValue instanceof ConfigurationSection schemaSection) {
-                result.put(key, buildValues(actualSection, schemaSection,
-                        path + "." + key, Set.of()));
+                String nestedPath = path + "." + key;
+                result.put(key, key.endsWith("sound")
+                        ? buildSoundValues(actualSection, schemaSection, nestedPath)
+                        : buildValues(actualSection, schemaSection, nestedPath, Set.of()));
             } else {
                 result.put(key, normalizeYamlValue(actualValue));
             }
@@ -488,6 +491,30 @@ final class ConfigParser {
                 continue;
             }
             result.put(key, normalizeYamlValue(actualValue));
+        }
+        return result;
+    }
+
+    private Map<String, Object> buildSoundValues(ConfigurationSection actual,
+                                                 ConfigurationSection schema,
+                                                 String path) {
+        // 模板提供技能自己的音效默认值，服务器可以只覆盖其中一项。
+        Map<String, Object> result = sectionToMap(schema, Set.of());
+        for (String key : actual.getKeys(false)) {
+            String fieldPath = path + "." + key;
+            if (!SOUND_KEYS.contains(key)) {
+                warn(fieldPath, "未知技能参数");
+                continue;
+            }
+            Object value = actual.get(key);
+            boolean valid = "id".equals(key)
+                    ? SoundConfig.parseKey(value) != null
+                    : SoundConfig.isValidPlaybackNumber(value);
+            if (valid) {
+                result.put(key, value);
+            } else {
+                warn(fieldPath, "音效参数无效，已使用默认值");
+            }
         }
         return result;
     }

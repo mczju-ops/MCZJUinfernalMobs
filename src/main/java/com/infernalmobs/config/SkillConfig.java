@@ -123,24 +123,15 @@ public final class SkillConfig {
     }
 
     private static SoundConfig parseSoundValue(Map<?, ?> map) {
-        Object idValue = map.get("id");
-        if (!(idValue instanceof String id) || id.isBlank()) return null;
-        try {
-            String normalized = id.trim();
-            if (!normalized.contains(":")) normalized = "minecraft:" + normalized;
-            Key soundKey = Key.key(normalized);
-            float volume = numberAsFloat(map.get("volume"), 1.0f);
-            float pitch = numberAsFloat(map.get("pitch"), 1.0f);
-            return new SoundConfig(soundKey, volume, pitch);
-        } catch (IllegalArgumentException ex) {
-            return null;
-        }
+        Key soundKey = SoundConfig.parseKey(map.get("id"));
+        if (soundKey == null) return null;
+        float volume = playbackNumberOrDefault(map.get("volume"));
+        float pitch = playbackNumberOrDefault(map.get("pitch"));
+        return new SoundConfig(soundKey, volume, pitch);
     }
 
-    private static float numberAsFloat(Object value, float fallback) {
-        if (!(value instanceof Number number)) return fallback;
-        float result = number.floatValue();
-        return Float.isFinite(result) && result >= 0.0f ? result : fallback;
+    private static float playbackNumberOrDefault(Object value) {
+        return SoundConfig.isValidPlaybackNumber(value) ? ((Number) value).floatValue() : 1.0f;
     }
 
     private static PreparsedValues parseTypedValues(Map<String, Object> values, String prefix) {
