@@ -126,21 +126,25 @@ skills:
 
   poisonous:
     display: "<#3cff4e>剧毒</#3cff4e>"
+    cooldown-ticks: 240
     duration-ticks: 160
     amplifier: 1
 
   blinding:
     display: "<#1a1a1a>致盲</#1a1a1a>"
+    cooldown-ticks: 160
     duration-ticks: 40
     amplifier: 0
 
   withering:
     display: "<#5a0066>凋零</#5a0066>"
+    cooldown-ticks: 240
     duration-ticks: 160
     amplifier: 1
 
   quicksand:
     display: "<#e6d28f>流沙</#e6d28f>"
+    cooldown-ticks: 240
     duration-ticks: 160
     amplifier: 1
 
@@ -186,6 +190,7 @@ skills:
 
   lifesteal:
     display: "<#ff0033>再生</#ff0033>"
+    cooldown-ticks: 160
     duration-ticks: 80
     heal-per-second: 1
 
@@ -195,6 +200,7 @@ skills:
 
   sapper:
     display: "<#9b7b4f>蚀胃</#9b7b4f>"
+    cooldown-ticks: 320
     duration-ticks: 240
     amplifier: 1
 
@@ -213,6 +219,7 @@ skills:
 
   molten:
     display: "<#ff8c00>熔融</#ff8c00>"
+    cooldown-ticks: 120
     fire-ticks: 60
 
   archer:
@@ -264,6 +271,7 @@ skills:
 
   confusing:
     display: "<#cc66ff>致幻</#cc66ff>"
+    cooldown-ticks: 160
     duration-ticks: 80
     amplifier: 2
 
@@ -321,6 +329,7 @@ skills:
 
   vengeance:
     display: "<#ff1a1a>复仇</#ff1a1a>"
+    cooldown-ticks: 20
     chance: 0.8
     damage: 12
     sound:
@@ -511,6 +520,7 @@ skills:
 
   rust:
     display: "<#b7410e>锈蚀</#b7410e>"
+    cooldown-ticks: 20
     chance: 0.3
     damage-amount: 10
     sound:
