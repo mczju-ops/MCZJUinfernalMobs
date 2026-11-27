@@ -161,7 +161,7 @@ public class CombatListener implements Listener {
                     int mobLevel = state.getProfile().getLevel();
                     int deathLootRolls = loot != null ? loot.rollDeathLootTimes(mobLevel) : 0;
                     if (deathLootRolls > 0) {
-                        // 在任何保底副作用之前调整次数，等级池与保底共用同一个最终结果。
+                        // 普通等级池抽取次数单独调整。
                         InfernalMobLootRollEvent rollEvent = new InfernalMobLootRollEvent(
                                 entity, killHandle, killer, mobLevel, deathLootRolls);
                         plugin.getServer().getPluginManager().callEvent(rollEvent);
@@ -169,12 +169,12 @@ public class CombatListener implements Listener {
                     }
                     if (ultimateLootService != null && loot != null && loot.isItemCreatorAvailable()) {
                         for (UltimateLootService.LootAward award : ultimateLootService.settle(
-                                uuid, pname, entity.getType(), mobLevel, state.isMamaChild())) {
+                                killHandle, killer, state.isMamaChild())) {
                             loot.processUltimateLootDrop(award, uuid, entity, killer, mobLevel,
                                     ultimateLootService, pluginDrops);
                         }
                     }
-                    // 常规等级池抽取（与保底共用同一次 drop-times roll）
+                    // 常规等级池抽取
                         if (loot != null && loot.isEnabled() && loot.isReplaceVanillaDrops()) {
                             List<ItemStack> guaranteedEquipment = GuaranteedEquipmentDrops.collect(entity);
                             event.getDrops().clear();

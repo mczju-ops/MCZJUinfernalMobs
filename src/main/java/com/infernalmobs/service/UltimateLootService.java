@@ -1,11 +1,13 @@
 package com.infernalmobs.service;
 
+import com.infernalmobs.api.InfernalMobHandle;
+import com.infernalmobs.api.event.mob.InfernalMobUltimateLootRollEvent;
 import com.infernalmobs.config.UltimateLootConfig;
 import com.infernalmobs.api.InfernalPlayerUltimateLootStats;
 import com.infernalmobs.config.UltimateLootConfig.LootRule;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -120,28 +122,41 @@ public final class UltimateLootService {
     }
 
     /** 结算一次有效击杀；自然掉落和补发都作为普通掉落返回。 */
-    public List<LootAward> settle(String playerId, String displayName, EntityType type,
-                                   int level, boolean mamaChild) {
-        if (playerId == null || playerId.isBlank()) return List.of();
+    public List<LootAward> settle(InfernalMobHandle handle, Player killer, boolean mamaChild) {
+        String playerId = killer.getUniqueId().toString();
+        String displayName = killer.getName();
+        UltimateLootConfig currentConfig = config;
+        LootRule rule = currentConfig.isEnabled()
+                ? currentConfig.findRule(handle.getEntity().getType(), handle.getLevel(), mamaChild)
+                : null;
+        BigDecimal naturalChance = BigDecimal.ZERO;
+        if (rule != null) {
+            // 在加锁更新积分前调用外部监听器，本次结算始终使用同一份规则快照。
+            var event = new InfernalMobUltimateLootRollEvent(
+                    handle, killer, rule.id, rule.naturalChance(handle.getLevel()));
+            plugin.getServer().getPluginManager().callEvent(event);
+            naturalChance = event.getNaturalChance();
+        }
+
         synchronized (dataLock) {
             if (displayName != null && !displayName.isBlank()) {
                 String normalized = displayName.trim();
                 if (!Objects.equals(displayNames.put(playerId, normalized), normalized)) changeVersion++;
             }
-            if (!config.isEnabled()) return List.of();
-            LootRule rule = config.findRule(type, level, mamaChild);
             if (rule == null) return List.of();
+
+            BigDecimal pityThreshold = currentConfig.pityThreshold();
 
             BigDecimal points = pityPoints.computeIfAbsent(playerId, ignored -> new HashMap<>())
                     .getOrDefault(rule.id, BigDecimal.ZERO);
-            BigDecimal nextPoints = points.add(config.pityThreshold().multiply(rule.naturalChance(level)));
+            BigDecimal nextPoints = points.add(pityThreshold.multiply(naturalChance));
             pityPoints.get(playerId).put(rule.id, nextPoints);
 
-            boolean natural = ThreadLocalRandom.current().nextDouble() < rule.naturalChance(level).doubleValue();
+            boolean natural = ThreadLocalRandom.current().nextDouble() < naturalChance.doubleValue();
             int oldObtained = obtained.computeIfAbsent(playerId, ignored -> new HashMap<>())
                     .getOrDefault(rule.id, 0);
             int naturalAmount = natural ? rule.reward.amount : 0;
-            BigInteger guaranteed = nextPoints.divide(config.pityThreshold(), 0, RoundingMode.FLOOR).toBigInteger();
+            BigInteger guaranteed = nextPoints.divide(pityThreshold, 0, RoundingMode.FLOOR).toBigInteger();
             long missing = guaranteed.subtract(BigInteger.valueOf((long) oldObtained + naturalAmount)).longValue();
             int compensation = (int) Math.max(0, Math.min(Integer.MAX_VALUE, missing));
             changeVersion++;

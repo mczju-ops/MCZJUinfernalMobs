@@ -66,7 +66,7 @@ public class LootService {
 
     /**
      * 仅在会执行等级池加权抽取时
-     * 调用 {@link LootConfig#rollDropTimes(int)}，否则返回 0。供证章进度与死亡掉落共用同一次 roll。
+     * 调用 {@link LootConfig#rollDropTimes(int)}，否则返回 0。供死亡掉落使用。
      */
     public int rollDeathLootTimes(int level) {
         if (!isEnabled()) return 0;
@@ -111,7 +111,7 @@ public class LootService {
     /**
      * 炒鸡怪死亡时：按等级表权重抽一条掉落；难打怪（ravager/warden 等）再额外掉落 special_loot。
      *
-     * @param preRolledDropTimes 已由 {@link #rollDeathLootTimes(int)} 与证章进度共用的一次结果；传入 -1 则在内部单独 roll（不推荐）
+     * @param preRolledDropTimes 由 {@link #rollDeathLootTimes(int)} 得到并经事件调整的次数；传入 -1 则在内部单独 roll（不推荐）
      * @param collect            非 null 时改为收集到该列表（聚合掉落事件），否则直接掉落
      */
     public void onInfernalMobDeath(LivingEntity entity, MobState mobState,
